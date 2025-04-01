@@ -1,2 +1,2 @@
 # NexcorioAlgoPlatform
-Intraday FnO Trading Algo Platform
+Intraday FnO Trading Algo Platform (NSE/BSE)
