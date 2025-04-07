@@ -13,20 +13,25 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 
 import com.neovisionaries.ws.client.WebSocketException;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.util.ApplicationConfig;
+import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.SessionExpiryHook;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
+import com.zerodhatech.models.LTPQuote;
 import com.zerodhatech.models.Tick;
 import com.zerodhatech.models.User;
 import com.zerodhatech.ticker.KiteTicker;
@@ -42,35 +47,41 @@ import com.zerodhatech.ticker.OnTicks;
 public class KiteHelper {
 	
 	private static final Logger log = LogManager.getLogger(KiteHelper.class);
+	
+	KiteConnect kiteConnect = null;
+	
+	public static Map<Long, String> instrumentTokenCache = new HashMap<Long, String>(); 
+	public static Map<String, MainInstruments> tradingSymbolMainInstrument = new HashMap<String, MainInstruments>();
+	
 
 	protected SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	protected SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	public KiteConnect login() {
-		KiteConnect kiteconnect = null;	
+		kiteConnect = null;	
 		try {
 			String USER_ID = ApplicationConfig.getProperty("zerodha.user.id");
 			
 			ZerodhaAccountKeys zerodhaAccountKeys = getZerodhaAccountKeys(USER_ID);
-			kiteconnect = new KiteConnect(zerodhaAccountKeys.getApiKey());				
-            kiteconnect.setUserId(USER_ID);
-            String kiteLoginURL = kiteconnect.getLoginURL();
+			kiteConnect = new KiteConnect(zerodhaAccountKeys.getApiKey());				
+			kiteConnect.setUserId(USER_ID);
+            String kiteLoginURL = kiteConnect.getLoginURL();
             
             String requestToken = getRequestToken(USER_ID, kiteLoginURL);
-            User userModel =  kiteconnect.generateSession(requestToken, zerodhaAccountKeys.getApiSecretKey());
+            User userModel =  kiteConnect.generateSession(requestToken, zerodhaAccountKeys.getApiSecretKey());
 
-            kiteconnect.setAccessToken(userModel.accessToken);
-            kiteconnect.setPublicToken(userModel.publicToken);
+            kiteConnect.setAccessToken(userModel.accessToken);
+            kiteConnect.setPublicToken(userModel.publicToken);
             
             log.info("kiteconnect kiteLoginURL={"+kiteLoginURL+"}");
-            log.info("kiteconnect AccessToken={"+kiteconnect.getAccessToken()+"}");
-            log.info("kiteconnect ApiKey={"+kiteconnect.getApiKey()+"}");
-            log.info("kiteconnect PublicToken={"+kiteconnect.getPublicToken()+"}");
-            log.info("kiteconnect UserId={"+kiteconnect.getUserId()+"}");
+            log.info("kiteconnect AccessToken={"+kiteConnect.getAccessToken()+"}");
+            log.info("kiteconnect ApiKey={"+kiteConnect.getApiKey()+"}");
+            log.info("kiteconnect PublicToken={"+kiteConnect.getPublicToken()+"}");
+            log.info("kiteconnect UserId={"+kiteConnect.getUserId()+"}");
             
-            saveKiteAccessCodes(USER_ID, requestToken, kiteconnect.getAccessToken(), kiteconnect.getPublicToken()); // For future when decide multi user system
+            saveKiteAccessCodes(USER_ID, requestToken, kiteConnect.getAccessToken(), kiteConnect.getPublicToken()); // For future when decide multi user system
             // Set session expiry callback.
-            kiteconnect.setSessionExpiryHook((new SessionExpiryHook() {
+            kiteConnect.setSessionExpiryHook((new SessionExpiryHook() {
 				@Override
 				public void sessionExpired() {}
 			}));
@@ -79,7 +90,7 @@ public class KiteHelper {
 		} catch (KiteException e) {
 			e.printStackTrace();
 		}
-		return kiteconnect;
+		return kiteConnect;
 	}
 	
 	private ZerodhaAccountKeys getZerodhaAccountKeys(String zerodhaUserId) {
@@ -274,20 +285,23 @@ public class KiteHelper {
 			conn = HDataSource.getConnection();
 			stmt = conn.createStatement();
 			
-			ResultSet rs = stmt.executeQuery("SELECT id, short_name, exchange, zerodha_instrument_token, expiry_day,"
+			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
+					+ " zerodha_instrument_token, expiry_day, gap_between_strikes,"
 					+ " no_of_future_expiry_data, no_of_options_expiry_data, no_of_options_strike_points"
 					+ " FROM nexcorio_main_instruments WHERE IS_ACTIVE=TRUE");
 			while(rs.next()) {
 				MainInstruments mainInstrument = new MainInstruments();
 				mainInstrument.setId(rs.getLong("id"));
+				mainInstrument.setName(rs.getString("name"));
 				mainInstrument.setShortName(rs.getString("short_name"));
+				mainInstrument.setInstrumentType(rs.getString("instrument_type"));
 				mainInstrument.setExchange(rs.getString("exchange"));
 				mainInstrument.setZerodhaInstrumentToken(rs.getLong("zerodha_instrument_token"));
 				mainInstrument.setExpiryDay(rs.getInt("expiry_day"));
 				mainInstrument.setNoOfFutureExpiryData(rs.getInt("no_of_future_expiry_data"));
 				mainInstrument.setNoOfOptionsExpiryData(rs.getInt("no_of_options_expiry_data")); 
 				mainInstrument.setNoOfOptionsStrikePoints(rs.getInt("no_of_options_strike_points"));
-				
+				mainInstrument.setGapBetweenStrikes(rs.getInt("gap_between_strikes"));
 				mainInstruments.add(mainInstrument);
 			}
 			rs.close();
@@ -306,7 +320,7 @@ public class KiteHelper {
 	}
 	
 	private void saveExpiryDate(Long mainInstrumentId, String expiry, String segment, String fnoPrefix) {
-		log.info("In saveExpiryDate mainInstrumentId="+mainInstrumentId+ " expiry="+expiry+" segment="+segment+" fnoPrefix="+fnoPrefix);
+		//log.info("In saveExpiryDate mainInstrumentId="+mainInstrumentId+ " expiry="+expiry+" segment="+segment+" fnoPrefix="+fnoPrefix);
 		
 		Connection conn = null;
 		Statement stmt = null;
@@ -327,7 +341,7 @@ public class KiteHelper {
 				stmt.executeUpdate("INSERT INTO nexcorio_fno_expiry_dates (id, f_main_instrument, expiry_date, fno_segment, fno_prefix) "
 						+ "VALUES (nextval('nexcorio_fno_expiry_dates_id_seq'),"+mainInstrumentId+",'"+expiry+"','"+segment+"','"+fnoPrefix+"')");
 			} else {
-				log.info("Record already exist");
+				//log.info("Record already exist");
 			}
 			stmt.close();
 			
@@ -345,7 +359,7 @@ public class KiteHelper {
 	}
 	
 	private void saveFnOInstruments(Long mainInstrumentId, String tradingsymbol, String instrument_token, String exchange) {
-		log.info("In saveFnOInstruments " + mainInstrumentId + "," + tradingsymbol + "," + instrument_token + "," + exchange);
+		//log.info("In saveFnOInstruments " + mainInstrumentId + "," + tradingsymbol + "," + instrument_token + "," + exchange);
 		
 		Connection conn = null;
 		Statement stmt = null;
@@ -366,7 +380,7 @@ public class KiteHelper {
 				stmt.executeUpdate("INSERT INTO nexcorio_fno_instruments (id, f_main_instrument, trading_symbol, zerodha_instrument_token, exchange) "
 						+ "VALUES (nextval('nexcorio_fno_instruments_id_seq'),"+mainInstrumentId+ ",'" + tradingsymbol + "',"+instrument_token+",'"+exchange+"')");
 			} else {
-				log.info("Record already exist");
+				//log.info("Record already exist");
 			}
 			stmt.close();
 			
@@ -387,14 +401,187 @@ public class KiteHelper {
 		
 		for(MainInstruments aMainInstrument : mainInstruments) {
 			retList.add(aMainInstrument.getZerodhaInstrumentToken()); // Add self first, followed by next future and then options
+			instrumentTokenCache.put(aMainInstrument.getZerodhaInstrumentToken(), aMainInstrument.getShortName());
+			tradingSymbolMainInstrument.put(aMainInstrument.getName(), aMainInstrument);
+			tradingSymbolMainInstrument.put(aMainInstrument.getShortName(), aMainInstrument);
 			if (aMainInstrument.getNoOfFutureExpiryData()>0) {
-				List<Long> futureInstrumentTokens = getNextNFUTUREInstrumentTokens(aMainInstrument.getNoOfFutureExpiryData());
-				retList.addAll(futureInstrumentTokens);
+				Map<Long, String> futureExpiryDateMap = getNextNFUTUREExpiryDate(aMainInstrument.getId(), 
+						aMainInstrument.getExchange(), 
+						aMainInstrument.getNoOfFutureExpiryData());
+				Iterator<Long> iter = futureExpiryDateMap.keySet().iterator();
+				while(iter.hasNext()) {
+					Long zerodhaToken = iter.next();
+					String tradingSymbol= futureExpiryDateMap.get(zerodhaToken);
+					log.info("Adding future zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
+					retList.add(zerodhaToken);
+					instrumentTokenCache.put(zerodhaToken, tradingSymbol);
+					tradingSymbolMainInstrument.put(tradingSymbol, aMainInstrument);
+				}
+			}
+			
+			if (aMainInstrument.getNoOfOptionsExpiryData()>0 && aMainInstrument.getNoOfOptionsStrikePoints()>0) { // Options will be added only if expiry and strike points are available
+				Map<Long, String> optionExpiryDateMap = getNextNOptionExpiryDate(aMainInstrument, 
+						aMainInstrument.getExchange(), 
+						aMainInstrument.getNoOfOptionsExpiryData(),
+						aMainInstrument.getNoOfOptionsStrikePoints());
+				
+				Iterator<Long> iter = optionExpiryDateMap.keySet().iterator();
+				while(iter.hasNext()) {
+					Long zerodhaToken = iter.next();
+					String tradingSymbol= optionExpiryDateMap.get(zerodhaToken);
+					log.info("Adding option zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
+					retList.add(zerodhaToken);
+					instrumentTokenCache.put(zerodhaToken, tradingSymbol);
+					tradingSymbolMainInstrument.put(tradingSymbol, aMainInstrument);
+				}
 			}
 			
 		}
 		
 		return retList;
+	}
+	
+	private Map<Long, String> getNextNOptionExpiryDate(MainInstruments mainInstrument, String exchange, int noOfOptionsExpiryData, int noOfOptionsStrikePoints) {
+		Map<Long, String> retMap = new HashMap<Long, String>();
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getConnection();
+			stmt = conn.createStatement();
+			
+			String fnoExchange = "NFO-OPT";
+			if (exchange.equalsIgnoreCase("BSE")) fnoExchange = "BFO-OPT";
+			
+			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrument.getId()+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date >= now() "
+					+ " ORDER BY expiry_date ASC LIMIT "+noOfOptionsExpiryData;
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			List<String> fnoPrefixes = new ArrayList<String>();			
+			while(rs.next()) {
+				fnoPrefixes.add(rs.getString("fno_prefix"));
+			}
+			rs.close();
+			
+			String scripnameForQuote = mainInstrument.getExchange() + ":" + mainInstrument.getShortName();
+			if (mainInstrument.getInstrumentType().equalsIgnoreCase("INDEX")) {
+				scripnameForQuote = mainInstrument.getExchange() + ":" + mainInstrument.getName();
+			}
+			//log.info("scripnameForQuote="+scripnameForQuote);
+			
+			String[] instruments = {scripnameForQuote}; 
+			Map<String, LTPQuote> scripLtp = kiteConnect.getLTP(instruments);
+			
+			int scripSpotPrice  = (int) scripLtp.get(instruments[0]).lastPrice;
+			//log.info("scripSpotPrice="+scripSpotPrice);
+			
+			// make last decimal zero
+			scripSpotPrice = scripSpotPrice - (scripSpotPrice%10);
+			
+			int basePrice = scripSpotPrice;
+			
+			for(int i=0;i<10;i++) {
+				String checkCEUpStr = fnoPrefixes.get(0) + (scripSpotPrice + i*10) + "CE";
+				String checkCEDownStr = fnoPrefixes.get(0) + (scripSpotPrice - i*10) + "CE";
+				
+				fetchSql = "select trading_symbol, zerodha_instrument_token from nexcorio_fno_instruments"
+						+ " where trading_symbol in ('" + checkCEUpStr+ "','"+checkCEDownStr+"')";
+				//log.info("fetchSql="+fetchSql);
+				
+				rs = stmt.executeQuery(fetchSql);
+				String foundInDB = null;
+				while(rs.next()) {
+					foundInDB = rs.getString("trading_symbol");
+					break;
+				}
+				rs.close();
+				if (foundInDB!=null) {
+					if (foundInDB.equals(checkCEUpStr)) basePrice = scripSpotPrice + i*10;
+					else basePrice = scripSpotPrice - i*10;
+					break;
+				}
+			}
+			//log.info("basePrice="+basePrice);
+			
+			for(int spotPointDiff=0;
+					spotPointDiff<noOfOptionsStrikePoints;
+					spotPointDiff=spotPointDiff+mainInstrument.getGapBetweenStrikes()) {
+				//log.info("spotPointDiff="+spotPointDiff);
+				for(int i=0;i<fnoPrefixes.size();i++) {
+					
+					fetchSql = "select trading_symbol, zerodha_instrument_token from nexcorio_fno_instruments"
+							+ " where trading_symbol in ("
+							+ "  '" + fnoPrefixes.get(i) + (basePrice + spotPointDiff) + "CE'"
+							+ ", '" + fnoPrefixes.get(i) + (basePrice + spotPointDiff) + "PE'"
+							+ ", '" + fnoPrefixes.get(i) + (basePrice - spotPointDiff) + "CE'"
+							+ ", '" + fnoPrefixes.get(i) + (basePrice - spotPointDiff) + "PE')";
+					
+					//log.info("fetchSql="+fetchSql);
+					
+					rs = stmt.executeQuery(fetchSql);
+					while(rs.next()) {
+						String tradingSymbol = rs.getString("trading_symbol");
+						retMap.put(rs.getLong("zerodha_instrument_token"), tradingSymbol);
+						//log.info("Added " + tradingSymbol);
+					}
+					rs.close();
+				}
+			}
+			stmt.close();
+		} catch (Exception | KiteException ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	
+	private Map<Long, String> getNextNFUTUREExpiryDate(Long mainInstrumentId, String exchange, int noOfFutureExpiryData) {
+		Map<Long, String> retMap = new HashMap<Long, String>();
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getConnection();
+			stmt = conn.createStatement();
+			
+			String fnoExchange = "NFO-FUT";
+			if (exchange.equalsIgnoreCase("BSE")) fnoExchange = "BFO-FUT";
+			
+			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date >= now() "
+					+ " ORDER BY expiry_date ASC LIMIT "+noOfFutureExpiryData;
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			List<String> fnoPrefixes = new ArrayList<String>();			
+			while(rs.next()) {
+				fnoPrefixes.add(rs.getString("fno_prefix") + "FUT");
+			}
+			rs.close();
+			
+			fetchSql = "select trading_symbol, zerodha_instrument_token from nexcorio_fno_instruments where trading_symbol in (" + getQuotedString(fnoPrefixes) + ")";
+			rs = stmt.executeQuery(fetchSql);
+			while(rs.next()) {
+				retMap.put(rs.getLong("zerodha_instrument_token"), rs.getString("trading_symbol"));
+			}
+			rs.close();
+			
+			stmt.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
 	}
 	
 	public void tickerUsage(KiteConnect kiteConnect, ArrayList<Long> zerodhaTokens) throws IOException, WebSocketException, KiteException {
@@ -424,8 +611,18 @@ public class KiteHelper {
 			@Override
 			public void onTicks(ArrayList<Tick> ticks) {
 				if (ticks.size()>0) {
-            		// Todo: Do something with ticks
+            		log.info("Ticks recieved");
+            		new ZerodhaIntradayStreamingThread(ticks);
             	}
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 1))) {
+					log.info("End of the daym disconnect and logout");
+					try {
+						tickerProvider.disconnect();
+						//kiteConnect.logout();
+					} catch (JSONException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 		});
                 
@@ -454,6 +651,15 @@ public class KiteHelper {
 
         // After using com.rainmatter.ticker, close websocket connection.
         //tickerProvider.disconnect();
+	}
+	
+	public String getQuotedString(List<String> strList) {
+		String retStr = "";
+		for(int i=0;i<strList.size();i++) {
+			if (retStr.length()>0) retStr = retStr + ",";
+			retStr = retStr + "'" + strList.get(i) + "'";
+		}
+		return retStr;
 	}
 	
 	public static void main(String[] args) {

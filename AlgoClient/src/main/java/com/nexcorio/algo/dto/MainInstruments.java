@@ -8,31 +8,33 @@ package com.nexcorio.algo.dto;
 
 public class MainInstruments {
 
-	public Long id;
+	private Long id;
 	
-	public String shortName;
+	private String name;
 	
-	public Long zerodhaInstrumentToken;
+	private String shortName;
 	
-	public String exchange;
+	private Long zerodhaInstrumentToken;
 	
-	public String instrumentType;
+	private String exchange;
 	
-	public Integer lotSize;
+	private String instrumentType;
 	
-	public Integer orderFreezingQuantity;
+	private Integer lotSize;
 	
-	public Integer expiryDay;
+	private Integer orderFreezingQuantity;
 	
-	public Integer gapBetweenStrikes;
+	private Integer expiryDay;
 	
-	public Float straddleMargin;
+	private Integer gapBetweenStrikes;
 	
-	public int noOfFutureExpiryData;
+	private Float straddleMargin;
 	
-	public int noOfOptionsExpiryData;
+	private int noOfFutureExpiryData;
 	
-	public int noOfOptionsStrikePoints;
+	private int noOfOptionsExpiryData;
+	
+	private int noOfOptionsStrikePoints;
 
 	public Long getId() {
 		return id;
@@ -40,6 +42,14 @@ public class MainInstruments {
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	public String getShortName() {
