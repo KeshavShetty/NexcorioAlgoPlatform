@@ -25,31 +25,32 @@ public class Main {
 	
 	public static void main(String[] args) {
 		
-		log.info("Fun Begins");
+		log.info("Time starts now");
 		
 		KiteHelper kiteHelper = new KiteHelper();
-		KiteConnect kiteConnect = kiteHelper.login();
+		kiteHelper.login(); // First login to Kite 
+		log.info("Login done");
 		
 		kiteHelper.populateInstruments();
-		
-		List<Long> zerodhaTokensToSubscribe = kiteHelper.getZerodhaTokensToSubscribe();
-		log.info("zerodhaTokensToSubscribe {}", zerodhaTokensToSubscribe);
 		
 		// Wait till 9:10:05
 		try {
 			while  ( (new Date()).before(KiteUtil.getDailyCustomTime(9, 10, 5)) )  {
-				log.info("Too early going to sleep sleeping");
+				log.info("Too early going to sleep for 30 seconds");
 				Thread.sleep(30*1000);
 			}
 			log.info("Ready to fire");
-			kiteHelper.tickerUsage(kiteConnect, (ArrayList<Long>) zerodhaTokensToSubscribe);
+			
+			List<Long> zerodhaTokensToSubscribe = kiteHelper.getZerodhaTokensToSubscribe();
+			log.info("zerodhaToken size To Subscribe {}", zerodhaTokensToSubscribe.size());
+			
+			kiteHelper.tickerUsage((ArrayList<Long>) zerodhaTokensToSubscribe);
+			
 		} catch (InterruptedException | IOException | WebSocketException | KiteException e) {
 			e.printStackTrace();
 		}
 		
-		
-		
-		log.info("Fun Ends");
+		log.info("I am done, let the childern take care of themselves");
 				
 	}
 
