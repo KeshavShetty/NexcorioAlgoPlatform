@@ -2,8 +2,8 @@ CREATE TABLE nexcorio_option_greeks
 (
   id bigint NOT NULL,
   trading_symbol character varying(25),
-  quote_time timestamp(3) with time zone,
-  record_time timestamp(3) with time zone DEFAULT now(),  
+  quote_time timestamp(3) without time zone,
+  record_time timestamp(3) without time zone DEFAULT now(),  
   ltp real,
   oi real,
   underlying_value real,
@@ -23,7 +23,10 @@ ON nexcorio_option_greeks
 USING btree
 (trading_symbol, quote_time);
 
-
+CREATE INDEX nexcorio_option_greeks_idx2
+ON nexcorio_option_greeks
+USING btree
+(quote_time);
 
 CREATE SEQUENCE nexcorio_option_snapshot_id_seq INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1;
 

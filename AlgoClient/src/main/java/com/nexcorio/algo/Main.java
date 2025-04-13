@@ -1,6 +1,5 @@
 package com.nexcorio.algo;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -8,10 +7,12 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.neovisionaries.ws.client.WebSocketException;
+import com.nexcorio.algo.analytics.ATMMovementAnalyzerThreadAlgoThread;
+import com.nexcorio.algo.core.G3NapAlgoTriggerThread;
+import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.kite.KiteHelper;
+import com.nexcorio.algo.oms.OrderExecutionThreadAlgoThread;
 import com.nexcorio.algo.util.KiteUtil;
-import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
 
 /**
@@ -32,7 +33,7 @@ public class Main {
 		log.info("Login done");
 		
 		kiteHelper.populateInstruments();
-		
+				
 		// Wait till 9:10:05
 		try {
 			while  ( (new Date()).before(KiteUtil.getDailyCustomTime(9, 10, 5)) )  {
@@ -46,9 +47,22 @@ public class Main {
 			
 			kiteHelper.tickerUsage((ArrayList<Long>) zerodhaTokensToSubscribe);
 			
-		} catch (InterruptedException | IOException | WebSocketException | KiteException e) {
+			List<MainInstruments> mainInstruments = kiteHelper.getMainInstrumentsDto();
+			for(MainInstruments mainInstrument : mainInstruments) {
+				if (!mainInstrument.getShortName().equals("VIX")) { // Exclude VIX (Vix has no options
+					new ATMMovementAnalyzerThreadAlgoThread(mainInstrument.getShortName(), null);
+				}
+			}
+			
+			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
+			new G3NapAlgoTriggerThread();
+			
+		} catch (Exception | KiteException e) {
 			e.printStackTrace();
+			log.error("Exception in main", e);
 		}
+		
+		
 		
 		log.info("I am done, let the childern take care of themselves");
 				

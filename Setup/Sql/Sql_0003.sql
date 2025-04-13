@@ -24,7 +24,7 @@ CREATE TABLE nexcorio_fno_instruments
   zerodha_instrument_token bigint,
   f_main_instrument bigint,
   exchange character varying(10),
-  strike smallint,
+  strike integer,
   expiry_date date,
   CONSTRAINT nexcorio_fno_instruments_id_pkey PRIMARY KEY (id),
   CONSTRAINT fk_nexcorio_fno_instruments_f_main_instrument FOREIGN KEY (f_main_instrument) REFERENCES nexcorio_main_instruments(id) MATCH FULL DEFERRABLE,

@@ -12,6 +12,7 @@ import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.nexcorio.algo.analytics.OptionGreeksExtractorsThread;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.models.Depth;
@@ -54,6 +55,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
             }
 			
 		} catch(Exception ex) {
+			log.error("Error"+ex.getMessage(),ex);
 			ex.printStackTrace(System.out);
 		}
 	}
@@ -74,8 +76,8 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			}
 			rs.close();
 			
-			String tradingSymbol = KiteHelper.instrumentTokenToTradingSymbolCache.get(aTick.getInstrumentToken());
-			MainInstruments mainInstrument = KiteHelper.tradingSymbolMainInstrumentCache.get(tradingSymbol);
+			String tradingSymbol = KiteCache.getInstrumentTokenToTradingSymbolCache(aTick.getInstrumentToken());
+			MainInstruments mainInstrument = KiteCache.getTradingSymbolMainInstrumentCache(tradingSymbol);
 			
 			//log.info(tradingSymbol + " ltp="+aTick.getLastTradedPrice() + " oi="+aTick.getOi() );
 			
@@ -98,7 +100,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			Map<String, ArrayList<Depth>> marketDepth = aTick.getMarketDepth();
 			
 			// Calculate or Extract FNO Analytics
-			String exchange = KiteHelper.tradingSymbolExchangeCache.get(tradingSymbol);
+			String exchange = KiteCache.getTradingSymbolExchangeCache(tradingSymbol);
 			if (exchange!=null) { // Null means main instruent
 				if (exchange.equalsIgnoreCase("NFO") || exchange.equalsIgnoreCase("BFO")) {
 					if (tradingSymbol.endsWith("CE") || tradingSymbol.endsWith("PE")) { // Option Greeks

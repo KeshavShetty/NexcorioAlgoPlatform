@@ -51,12 +51,6 @@ public class KiteHelper {
 	
 	KiteConnect kiteConnect = null;
 	
-	public static Map<Long, String> instrumentTokenToTradingSymbolCache = new HashMap<Long, String>(); 
-	public static Map<String, MainInstruments> tradingSymbolMainInstrumentCache = new HashMap<String, MainInstruments>();
-	public static Map<String, String> tradingSymbolExchangeCache= new HashMap<String, String>();
-	
-	public static Map<String, OptionFnOInstrument> tradingSymbolToOptionInstrument = new HashMap<String, OptionFnOInstrument>();
-
 	protected SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	protected SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
@@ -280,7 +274,7 @@ public class KiteHelper {
 		return mainInstruments;
 	}
 	
-	private List<MainInstruments> getMainInstrumentsDto() {
+	public List<MainInstruments> getMainInstrumentsDto() {
 		List<MainInstruments> mainInstruments = new ArrayList<MainInstruments>();
 		Connection conn = null;
 		Statement stmt = null;
@@ -289,8 +283,8 @@ public class KiteHelper {
 			stmt = conn.createStatement();
 			
 			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
-					+ " zerodha_instrument_token, expiry_day, gap_between_strikes,"
-					+ " no_of_future_expiry_data, no_of_options_expiry_data, no_of_options_strike_points"
+					+ " zerodha_instrument_token, expiry_day, gap_between_strikes, order_freezing_quantity,"
+					+ " no_of_future_expiry_data, no_of_options_expiry_data, no_of_options_strike_points, straddle_margin, half_Straddle_Margin, lot_size"
 					+ " FROM nexcorio_main_instruments WHERE IS_ACTIVE=TRUE");
 			while(rs.next()) {
 				MainInstruments mainInstrument = new MainInstruments();
@@ -305,6 +299,10 @@ public class KiteHelper {
 				mainInstrument.setNoOfOptionsExpiryData(rs.getInt("no_of_options_expiry_data")); 
 				mainInstrument.setNoOfOptionsStrikePoints(rs.getInt("no_of_options_strike_points"));
 				mainInstrument.setGapBetweenStrikes(rs.getInt("gap_between_strikes"));
+				mainInstrument.setOrderFreezingQuantity(rs.getInt("order_freezing_quantity"));
+				mainInstrument.setStraddleMargin(rs.getFloat("straddle_margin"));
+				mainInstrument.setHalfStraddleMargin(rs.getFloat("half_Straddle_Margin"));
+				mainInstrument.setLotSize(rs.getInt("lot_size"));
 				mainInstruments.add(mainInstrument);
 			}
 			rs.close();
@@ -320,6 +318,49 @@ public class KiteHelper {
 			}
 		}
 		return mainInstruments;
+	}
+	
+	public MainInstruments getMainInstrumentDtoById(Long id) {
+		MainInstruments mainInstrument = null;
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getConnection();
+			stmt = conn.createStatement();
+			
+			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
+					+ " zerodha_instrument_token, expiry_day, gap_between_strikes, order_freezing_quantity,"
+					+ " no_of_future_expiry_data, no_of_options_expiry_data, no_of_options_strike_points, straddle_margin"
+					+ " FROM nexcorio_main_instruments WHERE id="+id);
+			while(rs.next()) {
+				mainInstrument = new MainInstruments();
+				mainInstrument.setId(rs.getLong("id"));
+				mainInstrument.setName(rs.getString("name"));
+				mainInstrument.setShortName(rs.getString("short_name"));
+				mainInstrument.setInstrumentType(rs.getString("instrument_type"));
+				mainInstrument.setExchange(rs.getString("exchange"));
+				mainInstrument.setZerodhaInstrumentToken(rs.getLong("zerodha_instrument_token"));
+				mainInstrument.setExpiryDay(rs.getInt("expiry_day"));
+				mainInstrument.setNoOfFutureExpiryData(rs.getInt("no_of_future_expiry_data"));
+				mainInstrument.setNoOfOptionsExpiryData(rs.getInt("no_of_options_expiry_data")); 
+				mainInstrument.setNoOfOptionsStrikePoints(rs.getInt("no_of_options_strike_points"));
+				mainInstrument.setGapBetweenStrikes(rs.getInt("gap_between_strikes"));
+				mainInstrument.setOrderFreezingQuantity(rs.getInt("order_freezing_quantity"));
+				mainInstrument.setStraddleMargin(rs.getFloat("straddle_margin"));
+			}
+			rs.close();
+			
+			stmt.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return mainInstrument;
 	}
 	
 	private void saveExpiryDate(Long mainInstrumentId, String expiry, String segment, String fnoPrefix) {
@@ -404,9 +445,9 @@ public class KiteHelper {
 		
 		for(MainInstruments aMainInstrument : mainInstruments) {
 			retList.add(aMainInstrument.getZerodhaInstrumentToken()); // Add self first, followed by next future and then options
-			instrumentTokenToTradingSymbolCache.put(aMainInstrument.getZerodhaInstrumentToken(), aMainInstrument.getShortName());
-			tradingSymbolMainInstrumentCache.put(aMainInstrument.getName(), aMainInstrument);
-			tradingSymbolMainInstrumentCache.put(aMainInstrument.getShortName(), aMainInstrument);
+			KiteCache.putInstrumentTokenToTradingSymbolCache(aMainInstrument.getZerodhaInstrumentToken(), aMainInstrument.getShortName());
+			KiteCache.putTradingSymbolMainInstrumentCache(aMainInstrument.getName(), aMainInstrument);
+			KiteCache.putTradingSymbolMainInstrumentCache(aMainInstrument.getShortName(), aMainInstrument);
 			if (aMainInstrument.getNoOfFutureExpiryData()>0) {
 				Map<Long, String> futureExpiryDateMap = getNextNFUTUREExpiryDate(aMainInstrument.getId(), 
 						aMainInstrument.getExchange(), 
@@ -417,8 +458,8 @@ public class KiteHelper {
 					String tradingSymbol= futureExpiryDateMap.get(zerodhaToken);
 					log.info("Adding future zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
 					retList.add(zerodhaToken);
-					instrumentTokenToTradingSymbolCache.put(zerodhaToken, tradingSymbol);
-					tradingSymbolMainInstrumentCache.put(tradingSymbol, aMainInstrument);
+					KiteCache.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
+					KiteCache.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
 				}
 			}
 			
@@ -434,8 +475,8 @@ public class KiteHelper {
 					String tradingSymbol= optionExpiryDateMap.get(zerodhaToken);
 					log.info("Adding option zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
 					retList.add(zerodhaToken);
-					instrumentTokenToTradingSymbolCache.put(zerodhaToken, tradingSymbol);
-					tradingSymbolMainInstrumentCache.put(tradingSymbol, aMainInstrument);
+					KiteCache.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
+					KiteCache.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
 				}
 			}
 			
@@ -457,7 +498,7 @@ public class KiteHelper {
 			
 			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrument.getId()+ ""
 					+ " and fno_segment='" + fnoExchange + "' "
-					+ " and expiry_date >= now() "
+					+ " and expiry_date >= (now() - '1 day'::interval) "
 					+ " ORDER BY expiry_date ASC LIMIT "+noOfOptionsExpiryData;
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -526,7 +567,7 @@ public class KiteHelper {
 					while(rs.next()) {
 						String tradingSymbol = rs.getString("trading_symbol");
 						retMap.put(rs.getLong("zerodha_instrument_token"), tradingSymbol);
-						tradingSymbolExchangeCache.put( tradingSymbol, rs.getString("exchange") );
+						KiteCache.putTradingSymbolExchangeCache( tradingSymbol, rs.getString("exchange") );
 					}
 					rs.close();
 				}
@@ -557,7 +598,7 @@ public class KiteHelper {
 			
 			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+ ""
 					+ " and fno_segment='" + fnoExchange + "' "
-					+ " and expiry_date >= now() "
+					+ " and expiry_date >= (now() - '1 day'::interval) "
 					+ " ORDER BY expiry_date ASC LIMIT "+noOfFutureExpiryData;
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -571,7 +612,7 @@ public class KiteHelper {
 			rs = stmt.executeQuery(fetchSql);
 			while(rs.next()) {
 				retMap.put(rs.getLong("zerodha_instrument_token"), rs.getString("trading_symbol"));
-				tradingSymbolExchangeCache.put( rs.getString("trading_symbol"), rs.getString("exchange") );
+				KiteCache.putTradingSymbolExchangeCache( rs.getString("trading_symbol"), rs.getString("exchange") );
 			}
 			rs.close();
 			
@@ -620,7 +661,7 @@ public class KiteHelper {
             		log.info("Ticks recieved");
             		new ZerodhaIntradayStreamingThread(ticks);
             	}
-				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 1))) {
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 29, 45))) {
 					log.info("End of the daym disconnect and logout");
 					try {
 						tickerProvider.disconnect();

@@ -8,7 +8,7 @@ public class OptionGreek {
 
 	private String tradingSymbol;
 	
-	private float impliedVolatility;
+	private float iv;
 	private float delta;
 	private float vega; 
 	private float theta;
@@ -17,20 +17,20 @@ public class OptionGreek {
 	
 	private float underlyingValue;
 	
-	public OptionGreek(String tradingSymbol, float impliedVolatility, float delta, float vega, float theta, float gamma) {
+	public OptionGreek(String tradingSymbol, float iv, float delta, float vega, float theta, float gamma) {
 		super();
 		this.tradingSymbol = tradingSymbol;
-		this.impliedVolatility = impliedVolatility;
+		this.iv = iv;
 		this.delta = delta;
 		this.vega = vega;
 		this.theta = theta;
 		this.gamma = gamma;
 	}
 	
-	public OptionGreek(String tradingSymbol, float impliedVolatility, float delta, float vega, float theta, float gamma, float ltp) {
+	public OptionGreek(String tradingSymbol, float iv, float delta, float vega, float theta, float gamma, float ltp) {
 		super();
 		this.tradingSymbol = tradingSymbol;
-		this.impliedVolatility = impliedVolatility;
+		this.iv = iv;
 		this.delta = delta;
 		this.vega = vega;
 		this.theta = theta;
@@ -39,7 +39,7 @@ public class OptionGreek {
 	}
 	
 	public OptionGreek() {
-		this.impliedVolatility = 0;
+		this.iv = 0;
 		this.delta = 0;
 		this.vega = 0;
 		this.theta = 0;
@@ -54,12 +54,12 @@ public class OptionGreek {
 		this.tradingSymbol = tradingSymbol;
 	}
 	
-	public float getImpliedVolatility() {
-		return impliedVolatility;
+	public float getIv() {
+		return iv;
 	}
 	
-	public void setImpliedVolatility(float impliedVolatility) {
-		this.impliedVolatility = impliedVolatility;
+	public void setIv(float iv) {
+		this.iv= iv;
 	}
 	
 	public float getDelta() {

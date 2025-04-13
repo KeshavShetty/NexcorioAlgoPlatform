@@ -1,4 +1,4 @@
-package com.nexcorio.algo.kite;
+package com.nexcorio.algo.analytics;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -14,6 +14,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionFnOInstrument;
 import com.nexcorio.algo.dto.OptionGreek;
+import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.KiteHelper;
 import com.nexcorio.algo.util.BSOption;
 import com.nexcorio.algo.util.db.HDataSource;
 
@@ -72,7 +74,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	public float guessTheIV(double optionPrice, double underlyingValue, double strikePrice, String optionType, Date expDate) {
 		float retVal = 0f;
 		try {
-			log.info("guessTheIV optionPrice="+optionPrice+" underlyingValue="+underlyingValue+" strikePrice="+strikePrice+" optionType="+optionType+" expDate="+expDate);
+			log.info("fStreamingId="+this.fStreamingId+" for  " + this.tradingSymbol + " guessTheIV optionPrice="+optionPrice+" underlyingValue="+underlyingValue+" strikePrice="+strikePrice+" optionType="+optionType+" expDate="+expDate);
 			
 			Calendar cal = Calendar.getInstance();
 			cal.setTime(expDate);
@@ -160,7 +162,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			
 			String insertSql = "INSERT INTO nexcorio_option_greeks (id, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"
 					+ " VALUES (" + this.fStreamingId + ",'" + this.tradingSymbol+ "','" + postgresLongDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest  +"," + underlyingValue 
-					+"," + impliedVolatility +"," + delta+"," + vega+"," + theta+"," + gamma + ")";
+					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 			log.info(insertSql);
 			stmt.execute(insertSql);
 						
@@ -209,8 +211,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	public OptionFnOInstrument getOptionInstrument(String tradingSymbol) {
 		OptionFnOInstrument optionFnOInstrument= null;
 		
-		if (KiteHelper.tradingSymbolToOptionInstrument.get(tradingSymbol)!=null) {
-			return KiteHelper.tradingSymbolToOptionInstrument.get(tradingSymbol);
+		if (KiteCache.getTradingSymbolToOptionInstrument(tradingSymbol)!=null) {
+			return KiteCache.getTradingSymbolToOptionInstrument(tradingSymbol);
 		} else {
 			
 			Connection conn = null;
@@ -228,10 +230,11 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				stmt.close();
 				
 				if (optionFnOInstrument!=null) {
-					KiteHelper.tradingSymbolToOptionInstrument.put(tradingSymbol, optionFnOInstrument);
+					KiteCache.putTradingSymbolToOptionInstrument(tradingSymbol, optionFnOInstrument);
 				}
 			} catch (Exception ex) {
 				ex.printStackTrace();
+				log.error("Error"+ex.getMessage(),ex);
 			} finally {
 				try {
 					if (conn!=null) conn.close();
@@ -260,6 +263,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			stmt.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			log.error("Error"+ex.getMessage(),ex);
 		} finally {
 			try {
 				if (conn!=null) conn.close();

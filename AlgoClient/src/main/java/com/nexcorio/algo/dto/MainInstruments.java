@@ -29,6 +29,7 @@ public class MainInstruments {
 	private Integer gapBetweenStrikes;
 	
 	private Float straddleMargin;
+	private Float halfStraddleMargin;
 	
 	private int noOfFutureExpiryData;
 	
@@ -122,6 +123,14 @@ public class MainInstruments {
 
 	public void setStraddleMargin(Float straddleMargin) {
 		this.straddleMargin = straddleMargin;
+	}
+
+	public Float getHalfStraddleMargin() {
+		return halfStraddleMargin;
+	}
+
+	public void setHalfStraddleMargin(Float halfStraddleMargin) {
+		this.halfStraddleMargin = halfStraddleMargin;
 	}
 
 	public int getNoOfFutureExpiryData() {

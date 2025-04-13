@@ -16,6 +16,7 @@ CREATE TABLE nexcorio_main_instruments
   no_of_options_expiry_data smallint default 1,
   no_of_options_strike_points smallint default 500,
   straddle_margin real DEFAULT 0,
+  half_straddle_margin real DEFAULT 0,
   IS_ACTIVE BOOLEAN DEFAULT true,
   CONSTRAINT nexcorio_main_instruments_pkey PRIMARY KEY (id)
 )
