@@ -42,7 +42,6 @@ public class G3ATMMomentumDirection1MAlgoThread extends G3BaseClass implements R
 			Date maxProfitReachedAt = getCurrentTime();
 			float maxLowestpointReached = 0f;
 			Date maxLowestpointReachedAt = getCurrentTime();
-			float currentProfitPerLot =0f;
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
@@ -85,26 +84,22 @@ public class G3ATMMomentumDirection1MAlgoThread extends G3BaseClass implements R
 				if (!peStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(peStraddleOptionName, peDbId, runningPePrice);
 				
 				currentProfitPerUnit = getProfitFromDB();
-				currentProfitPerLot = currentProfitPerUnit*lotSize;
-				if (currentProfitPerLot>maxProfitReached) {
-					maxProfitReached=currentProfitPerLot;
+				if (currentProfitPerUnit>maxProfitReached) {
+					maxProfitReached=currentProfitPerUnit;
 					maxProfitReachedAt = getCurrentTime();
 				}
-				if (currentProfitPerLot<maxLowestpointReached) {
-					maxLowestpointReached=currentProfitPerLot;
+				if (currentProfitPerUnit<maxLowestpointReached) {
+					maxLowestpointReached=currentProfitPerUnit;
 					maxLowestpointReachedAt = getCurrentTime();
 				}
-				trailingProfit = (currentProfitPerLot-maxProfitReached)/lotSize;
+				trailingProfit = (currentProfitPerUnit-maxProfitReached);
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
 				fileLogTelegramWriter.write( " IndexLtp=" + this.instrumentLtp +" [[ currentProfit="+currentProfitPerUnit+" ]] maxLowestpointReachedPerUnit="+(maxLowestpointReached/lotSize)+" maxTrailingProfit="+maxTrailingProfit);
 				
 				boolean reAlignmentRequired = checkDeltaGammaEffectForRealignment(ceStraddleOptionName, peStraddleOptionName);
-//				if (currentProfitPerUnit < losssCount*-10f) {
-//					losssCount++;
-//					reAlignmentRequired = true;
-//				}
+
 				if (reAlignmentRequired == true) {
 					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, 500);
 					
@@ -129,7 +124,7 @@ public class G3ATMMomentumDirection1MAlgoThread extends G3BaseClass implements R
 						indexPointsCaptured = indexPointsCaptured + this.instrumentLtp - indexAtSignal;
 					}					
 				}	
-				saveAlgoDailySummary(currentProfitPerLot, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
+				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
 			} while(!exitThread);
 			updateAlgoStatus("Terminated");
 			String logString = "Exiting Strddle ceStraddleOptionName="+ceStraddleOptionName + " peStraddleOptionName="+peStraddleOptionName; 
@@ -137,7 +132,7 @@ public class G3ATMMomentumDirection1MAlgoThread extends G3BaseClass implements R
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) exitStraddle(ceDbId, peDbId);
-			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders +" indexPointsCaptured=" + indexPointsCaptured+ " ROI=" + (currentProfitPerLot*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
+			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders +" indexPointsCaptured=" + indexPointsCaptured+ " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
 		
 			log.info("================= Done. Exiting IndexSpotPriceBasedIntrdayShortStraddleAlgoThread " + this.mainInstrument.getShortName() + this.algoname +" =================");
 			

@@ -39,7 +39,7 @@ public class TriggerAlgo {
 	}
 	
 	public static void main(String[] args) {
-		triggerAlgo(50L, "2025-04-11 09:20:30");
+		triggerAlgo(55L, "2025-04-15 09:20:45");
 	}
 
 

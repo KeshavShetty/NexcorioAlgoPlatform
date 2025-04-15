@@ -533,8 +533,8 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			// Update if exist, else create new
 			String updateSql = " UPDATE nexcorio_option_algo_orders_daily_summary set "
-					+ "exit_profit=" + (profit/this.lotSize) + ", best_profit=" + (maxProfit/this.lotSize) + ", worst_profit=" + (worstProfit/this.lotSize) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
-					+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + (maxTrailingProfit/this.lotSize) + ", noOfOrders=" + this.noOfOrders +","
+					+ "exit_profit=" + (profit) + ", best_profit=" + (maxProfit) + ", worst_profit=" + (worstProfit) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
+					+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
 					+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
 					+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
 					

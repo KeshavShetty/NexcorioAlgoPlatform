@@ -83,7 +83,6 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			Date maxProfitReachedAt = getCurrentTime();
 			float maxLowestpointReached = 0f;
 			Date maxLowestpointReachedAt = getCurrentTime();
-			float currentProfitPerLot =0f;
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
@@ -104,16 +103,15 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 				if (!peStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(peStraddleOptionName, peDbId, runningPePrice);
 								
 				currentProfitPerUnit = getProfitFromDB();
-				currentProfitPerLot = currentProfitPerUnit*lotSize;
-				if (currentProfitPerLot>maxProfitReached) {
-					maxProfitReached=currentProfitPerLot;
+				if (currentProfitPerUnit>maxProfitReached) {
+					maxProfitReached=currentProfitPerUnit;
 					maxProfitReachedAt = getCurrentTime();
 				}
-				if (currentProfitPerLot<maxLowestpointReached) {
-					maxLowestpointReached=currentProfitPerLot;
+				if (currentProfitPerUnit<maxLowestpointReached) {
+					maxLowestpointReached=currentProfitPerUnit;
 					maxLowestpointReachedAt = getCurrentTime();
 				}
-				trailingProfit = (currentProfitPerLot-maxProfitReached)/lotSize;
+				trailingProfit = (currentProfitPerUnit-maxProfitReached);
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
@@ -207,7 +205,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
 					prepareExit( "Nothing much left in premium");
 				}
-				saveAlgoDailySummary(currentProfitPerLot, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
+				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
 			} while(!exitThread);
 			updateAlgoStatus("Terminated");
 			String logString = "Exiting Strddle ceStraddleOptionName="+ceStraddleOptionName + " peStraddleOptionName="+peStraddleOptionName; 
@@ -215,7 +213,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) exitStraddle(ceDbId, peDbId);
-			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerLot*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
+			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
 		} catch (Exception e) {			
 			updateAlgoStatus("Error");
 			log.error("Error"+e.getMessage(), e);

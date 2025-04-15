@@ -66,7 +66,6 @@ public class G3GreekNeutralRollingStraddleAlgoThread extends G3BaseClass impleme
 			Date maxProfitReachedAt = getCurrentTime();
 			float maxLowestpointReached = 0f;
 			Date maxLowestpointReachedAt = getCurrentTime();
-			float currentProfitPerLot =0f;
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
@@ -90,16 +89,15 @@ public class G3GreekNeutralRollingStraddleAlgoThread extends G3BaseClass impleme
 				float peDelta = peOptionGreeks!=null?peOptionGreeks.getDelta():0f;
 				
 				currentProfitPerUnit = getProfitFromDB();
-				currentProfitPerLot = currentProfitPerUnit*lotSize;
-				if (currentProfitPerLot>maxProfitReached) {
-					maxProfitReached=currentProfitPerLot;
+				if (currentProfitPerUnit>maxProfitReached) {
+					maxProfitReached=currentProfitPerUnit;
 					maxProfitReachedAt = getCurrentTime();
 				}
-				if (currentProfitPerLot<maxLowestpointReached) {
-					maxLowestpointReached=currentProfitPerLot;
+				if (currentProfitPerUnit<maxLowestpointReached) {
+					maxLowestpointReached=currentProfitPerUnit;
 					maxLowestpointReachedAt = getCurrentTime();
 				}
-				trailingProfit = (currentProfitPerLot-maxProfitReached)/lotSize;
+				trailingProfit = (currentProfitPerUnit-maxProfitReached);
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
@@ -192,7 +190,7 @@ public class G3GreekNeutralRollingStraddleAlgoThread extends G3BaseClass impleme
 						updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
 					}
 				}
-				saveAlgoDailySummary(currentProfitPerLot, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
+				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
 			} while(!exitThread);
 			updateAlgoStatus("Terminated");
 			logString = "Exiting Strddle ceStraddleOptionName="+ceStraddleOptionName + " peStraddleOptionName="+peStraddleOptionName; 
@@ -200,7 +198,7 @@ public class G3GreekNeutralRollingStraddleAlgoThread extends G3BaseClass impleme
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) exitStraddle(ceDbId, peDbId);
-			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerLot*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
+			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
 			
 		} catch (Exception e) {			
 			updateAlgoStatus("Error");
