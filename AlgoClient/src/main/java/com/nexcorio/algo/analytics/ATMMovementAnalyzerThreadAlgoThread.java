@@ -129,7 +129,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + ceOptionGreek.getLtp() 
 						+ " ," + peOptionGreek.getLtp()
 						+ ")";
-				System.out.println(insertSql);
+				log.info(insertSql);
 				stmt.execute(insertSql);
 			}
 			stmt.close();
