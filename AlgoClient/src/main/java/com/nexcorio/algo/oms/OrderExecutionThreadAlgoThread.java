@@ -38,8 +38,11 @@ class KiteOrderDetails {
 	int quantity;
 	String transactionType;
 	boolean waitforpositionfill;
+	String algoTag;
 	
 	String placedKiteOrderId;
+	
+	
 	
 	public KiteOrderDetails(Long id, Long algoOrderId, String option_name, int quantity, String transactionType,
 			boolean waitforpositionfill) {
@@ -95,6 +98,14 @@ class KiteOrderDetails {
 
 	public void setPlacedKiteOrderId(String placedKiteOrderId) {
 		this.placedKiteOrderId = placedKiteOrderId;
+	}
+
+	public String getAlgoTag() {
+		return algoTag;
+	}
+
+	public void setAlgoTag(String algoTag) {
+		this.algoTag = algoTag;
 	}
 }
 
@@ -162,7 +173,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			Statement stmt = conn.createStatement();
 			String status = "SUCCESS";
 			if (placedKiteOrderId==null)  status = "FAILED";
-			stmt.executeUpdate("UPDATE option_kite_orders set status='" + status +"', executed_time=NOW() WHERE id="+orderId);
+			stmt.executeUpdate("UPDATE nexcorio_real_orders set status='" + status +"', executed_time=NOW() WHERE id="+orderId);
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -184,7 +195,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String opOIFetch = "select id, algo_order_id, option_name, quantity, transaction_type, waitforpositionfill from nexcorio_real_orders where f_user = " + this.userId + " and status='PENDING'";
+			String opOIFetch = "select id, algo_order_id, option_name, quantity, transaction_type, waitforpositionfill, algo_tag from nexcorio_real_orders where f_user = " + this.userId + " and status='PENDING'";
 			//fileLogTelegramWriter.write("opOIFetch="+opOIFetch);
 			
 			ResultSet rs = stmt.executeQuery(opOIFetch);
@@ -195,6 +206,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 						rs.getInt("quantity"), 
 						rs.getString("transaction_type"),
 						rs.getBoolean("waitforpositionfill"));
+				aOrder.setAlgoTag(rs.getString("algo_tag"));
 				retList.add(aOrder);
 			}
 			rs.close();
@@ -213,9 +225,9 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		return retList;
 	}
 	
-	private String placeKiteOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal) {
+	private String placeKiteOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal, String algoTag) {
 		log.info("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
-		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
+		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal+" algoTag="+algoTag);
 		String orderId = null;
 		try {
 			int freezeLimitPerOrder = KiteCache.getTradingSymbolMainInstrumentCache(optionname).getOrderFreezingQuantity();//KiteUtil.getOptionIndexInstrumentMetaData(KiteUtil.getIndexnameFromOptionName(optionname)).getOrderFreezingQuantity(); 
@@ -227,6 +239,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	        orderParameters.validity=Constants.VALIDITY_DAY;
 	        orderParameters.tradingsymbol=optionname;
 			orderParameters.transactionType=transactionType;
+			if (algoTag!=null) orderParameters.tag = algoTag;
 			
 			orderParameters.product= Constants.PRODUCT_MIS;
 	        if (useNormal==true) orderParameters.product= Constants.PRODUCT_NRML;
@@ -401,7 +414,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 				if (optionKiteOrders.size()>0) {
 					if (isUserLevelRealtimeOrderEnabled()) {
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
-							String placedKiteOrderId = placeKiteOrder(aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), KiteUtil.USE_NORMAL_ORDER_FALSE);
+							String placedKiteOrderId = placeKiteOrder(aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag());
 							updateOrderStatus(aOrder.getId(), placedKiteOrderId);
 							aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 						}
@@ -429,7 +442,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 					}
 				}
 				
-				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 0))) {
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 29, 30))) {
 					this.exitThread = true;
 				}
 			} while(!this.exitThread);
@@ -494,7 +507,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();	
-			String updateSql = "UPDATE option_algo_orders set " + (transactionType.equals("BUY")?"buy_price=":"sell_price=") + avgPrice + " WHERE id="+algoOrderId +" and option_name = '" + optionName + "'";
+			String updateSql = "UPDATE nexcorio_option_algo_orders set " + (transactionType.equals("BUY")?"buy_price=":"sell_price=") + avgPrice + " WHERE id="+algoOrderId +" and option_name = '" + optionName + "'";
 			fileLogTelegramWriter.write(updateSql);
 			stmt.executeUpdate(updateSql);
 			stmt.close();

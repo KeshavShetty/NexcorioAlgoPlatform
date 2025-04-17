@@ -171,6 +171,6 @@ public class CloneAlgo {
 	}
 	
 	public static void main(String[] args) {
-		cloneAlgo(3L, false, 3L);
+		cloneAlgo(33L, false, 2L);
 	}
 }

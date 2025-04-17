@@ -62,8 +62,6 @@ public class Main {
 			log.error("Exception in main", e);
 		}
 		
-		
-		
 		log.info("I am done, let the childern take care of themselves");
 				
 	}

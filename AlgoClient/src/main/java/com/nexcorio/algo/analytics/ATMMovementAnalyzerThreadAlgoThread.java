@@ -75,6 +75,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			processAndSaveRawStraddleData(0.6f);
 			
 		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		}
 	}

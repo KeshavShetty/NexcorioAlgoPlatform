@@ -110,7 +110,7 @@ public class BaseClass {
 			rs.close();
 			stmt.close();
 		} catch (Exception e) {
-			log.error(e);
+			log.error("Error"+e.getMessage(),e);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -705,6 +705,7 @@ public class BaseClass {
 			stmt.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			log.error("Error"+ex.getMessage(),ex);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -751,6 +752,7 @@ public class BaseClass {
 			rs.close();
 			stmt.close();
 		} catch (Exception ex) {
+			log.error("Error"+ex.getMessage(),ex);
 			ex.printStackTrace();
 		} finally {
 			try {

@@ -79,6 +79,7 @@ public abstract class G3BaseClass extends BaseClass {
 					
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -164,6 +165,7 @@ public abstract class G3BaseClass extends BaseClass {
 			this.lotSize = this.mainInstrument.getLotSize();  
 			
 		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		} finally {
 			try {
@@ -203,6 +205,8 @@ public abstract class G3BaseClass extends BaseClass {
 	protected float setLotBasedonAvailableMarginHalfStraddle() {
 		this.requiredMargin = this.mainInstrument.getHalfStraddleMargin();
 		float availableMargin = getAvailableMargin(getKiteConnect(this.userId), KiteUtil.SEGMENT_EQUITY);
+		
+		if (availableMargin == 0) availableMargin = maxFundAllocated; // In case zeordha api fails to fetch
 		
 		float maxFundCanUse = this.maxFundAllocated>availableMargin?availableMargin:this.maxFundAllocated;
 		
@@ -427,6 +431,7 @@ public abstract class G3BaseClass extends BaseClass {
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -479,13 +484,14 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String algoTag = "X" + this.napAlgoId;
 			
-			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, algo_order_id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_ag) VALUES "
+			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, algo_order_id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag) VALUES "
 					+ " (nextval('nexcorio_real_orders_id_seq')," +dbOrderId + ", " + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'"+algoTag+"')"; 
 			  log.info(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -506,12 +512,13 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String algoTag = "X" + this.napAlgoId;
 			
-			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, f_user, option_name, quantity, transaction_type, waitforpositionfill) VALUES "
-					+ " (nextval('nexcorio_real_orders_id_seq')," + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill + " )"; 
+			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag) VALUES "
+					+ " (nextval('nexcorio_real_orders_id_seq')," + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'" + algoTag+ "' )"; 
 			  log.info(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
 		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		} finally {
 			try {
@@ -525,37 +532,39 @@ public abstract class G3BaseClass extends BaseClass {
 	
 	protected void saveAlgoDailySummary(float profit, float maxProfit, Date maxProfitReachedAt, float worstProfit, Date maxLowestpointReachedAt, float maxTrailingProfit) {
 		Connection conn = null;
-		try {			
-			conn = HDataSource.getConnection();
-			Statement stmt = conn.createStatement();
-			
-			Date shortDateToUse = getCurrentTime();
-			
-			// Update if exist, else create new
-			String updateSql = " UPDATE nexcorio_option_algo_orders_daily_summary set "
-					+ "exit_profit=" + (profit) + ", best_profit=" + (maxProfit) + ", worst_profit=" + (worstProfit) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
-					+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
-					+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
-					+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
-					
-			int recUpdated = stmt.executeUpdate(updateSql);
-			
-			if (recUpdated==0) {
-				String insertSql = "INSERT INTO nexcorio_option_algo_orders_daily_summary (id, f_strategy, exit_profit, best_profit, worst_profit, max_profit_reached_at, worst_profit_reached_at, maxTrailingProfit, noOfOrders, short_date) "
-						+ " VALUES (nextval('nexcorio_option_algo_orders_daily_summary_id_seq')," + this.napAlgoId + "," + profit + "," + maxProfit + "," + worstProfit + ",'" + postgresLongDateFormat.format(maxProfitReachedAt) + "','" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "'," + maxTrailingProfit + "," + this.noOfOrders + ",'" + postgresShortDateFormat.format(shortDateToUse) + "')";
-				log.info(insertSql);
-				stmt.execute(insertSql);
-			}
-			
-			stmt.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error("Error"+e.getMessage(),e);
-		} finally {
-			try {
-				if (conn!=null) conn.close();
-			} catch (SQLException e) {
-				log.error(e);
+		if (profit != 0 && maxProfit != 0) {
+			try {			
+				conn = HDataSource.getConnection();
+				Statement stmt = conn.createStatement();
+				
+				Date shortDateToUse = getCurrentTime();
+				
+				// Update if exist, else create new
+				String updateSql = " UPDATE nexcorio_option_algo_orders_daily_summary set "
+						+ "exit_profit=" + (profit) + ", best_profit=" + (maxProfit) + ", worst_profit=" + (worstProfit) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
+						+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
+						+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
+						+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
+						
+				int recUpdated = stmt.executeUpdate(updateSql);
+				
+				if (recUpdated==0) {
+					String insertSql = "INSERT INTO nexcorio_option_algo_orders_daily_summary (id, f_strategy, exit_profit, best_profit, worst_profit, max_profit_reached_at, worst_profit_reached_at, maxTrailingProfit, noOfOrders, short_date) "
+							+ " VALUES (nextval('nexcorio_option_algo_orders_daily_summary_id_seq')," + this.napAlgoId + "," + profit + "," + maxProfit + "," + worstProfit + ",'" + postgresLongDateFormat.format(maxProfitReachedAt) + "','" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "'," + maxTrailingProfit + "," + this.noOfOrders + ",'" + postgresShortDateFormat.format(shortDateToUse) + "')";
+					log.info(insertSql);
+					stmt.execute(insertSql);
+				}
+				
+				stmt.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error("Error"+e.getMessage(),e);
+			} finally {
+				try {
+					if (conn!=null) conn.close();
+				} catch (SQLException e) {
+					log.error(e);
+				}
 			}
 		}
 	}

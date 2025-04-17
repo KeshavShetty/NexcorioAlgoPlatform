@@ -43,6 +43,8 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			
 			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
 			
+			printFields(this);
+			
 			long ceDbId = -1;
 			long peDbId = -1;
 			
@@ -344,9 +346,12 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 					}
 				}
 				
-				//fileLogTelegramWriter.write("After sorting" );
+				int tillLoop = this.topOis;
+				if (ois.size() < this.topOis) {
+					tillLoop = ois.size();
+				}
 				
-				for(int i=0;i<this.topOis;i++) {
+				for(int i=0;i<tillLoop;i++) {
 					//fileLogTelegramWriter.write(i + ". " + symbols.get(i) + ", oi=" + ois.get(i) );
 					if (symbols.get(i).endsWith("CE")) {
 						ceOIWorth = ceOIWorth + ois.get(i);
@@ -375,6 +380,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal+" topOptions="+top4Options;
 			fileLogTelegramWriter.write( logString);
 		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		} finally {
 			try {
@@ -433,6 +439,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			}
 			
 		} catch(Exception ex) {
+			log.error("Error"+ex.getMessage(),ex);
 			ex.printStackTrace();
 		}finally {
 			try {

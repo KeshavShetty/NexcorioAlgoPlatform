@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+	<Properties>
+		<Property name="baseDir">D:\\temp\\log\\client_log\\</Property>
+		<Property name="infoFileName">algo-info</Property>
+		<Property name="errorFileName">algo-error</Property>
+	</Properties>
+	
+    <Appenders>
+        <RollingFile name="InfoFile" fileName="${baseDir}${infoFileName}.log" filePattern="${baseDir}${infoFileName}-%d{yyyy-MM-dd}-%i.log">
+			<PatternLayout pattern="%d [%t] %-5p (%25c{1}:%L) - %m%n"/>
+			
+			<Policies>
+				<SizeBasedTriggeringPolicy size="1024MB"/>
+			</Policies>
+			<DefaultRolloverStrategy max="25"/>
+		</RollingFile>
+		
+		
+		<RollingFile name="ErrorFile" fileName="${baseDir}${errorFileName}.log" filePattern="${baseDir}${errorFileName}-%d{yyyy-MM-dd}-%i.log">
+			<PatternLayout pattern="%d [%t] %-5p (%25c{1}:%L) - %m%n"/>
+			
+			<Policies>
+				<SizeBasedTriggeringPolicy size="1024MB"/>
+			</Policies>
+			<DefaultRolloverStrategy max="25"/>
+		</RollingFile>
+                    
+       
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="InfoFile" level="info"/>
+            <AppenderRef ref="ErrorFile" level="error"/>
+        </Root>
+    </Loggers>
+</Configuration>
