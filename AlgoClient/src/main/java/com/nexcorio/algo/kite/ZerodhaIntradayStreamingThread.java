@@ -42,6 +42,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 		processTicks();
 
 		Long endTime = System.currentTimeMillis();
+		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + (endTime-beginTime));
 		log.info("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ (endTime-beginTime));
 	}
 	

@@ -16,7 +16,7 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
+public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass implements Runnable {
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 
@@ -128,6 +128,8 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
+						} else {
+							prepareExit(" Too many positions");
 						}
 					}
 				}

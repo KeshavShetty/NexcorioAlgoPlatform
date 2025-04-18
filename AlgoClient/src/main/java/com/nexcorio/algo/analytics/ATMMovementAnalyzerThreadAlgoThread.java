@@ -5,14 +5,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
 import java.util.Calendar;
-import java.util.Date;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.kite.KiteCache;
-import com.nexcorio.algo.kite.KiteHelper;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.db.HDataSource;
 

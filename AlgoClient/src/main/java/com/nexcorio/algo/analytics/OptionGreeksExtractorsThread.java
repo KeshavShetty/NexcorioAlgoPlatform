@@ -179,7 +179,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			
 			if (snapshotId!=null) { // Already exist
 				String updateSql = "UPDATE nexcorio_option_snapshot set last_updated_time='" + postgresLongDateFormat.format(latestTickQuoteTime) + "', ltp=" + lastPrice + ", oi=" + this.openIterest  
-						+", iv=" + impliedVolatility +", delta=" + delta+ ", vega=" + vega+ ", theta=" + theta+ ", gamma=" + gamma + " where id=" + snapshotId;
+						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + " where id=" + snapshotId;
 				log.info(updateSql);
 				stmt.execute(updateSql);
 				
@@ -187,7 +187,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, strike, last_updated_time, record_date, ltp, oi, iv, delta, vega, theta, gamma)"
 						+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + this.tradingSymbol+ "'," + strikePrice 
 						+ ",'" + postgresLongDateFormat.format(latestTickQuoteTime) + "','" + postgresShortDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest     
-						+"," + impliedVolatility +"," + delta+"," + vega+"," + theta+"," + gamma + ")";
+						+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
 			}
