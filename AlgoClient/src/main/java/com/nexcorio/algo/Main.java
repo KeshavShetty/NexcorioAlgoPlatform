@@ -40,7 +40,7 @@ public class Main {
 				log.info("Too early going to sleep for 30 seconds");
 				Thread.sleep(30*1000);
 			}
-			log.info("Ready to fire");
+			System.out.println("Ready to fire");
 			
 			List<Long> zerodhaTokensToSubscribe = kiteHelper.getZerodhaTokensToSubscribe();
 			log.info("zerodhaToken size To Subscribe {}", zerodhaTokensToSubscribe.size());

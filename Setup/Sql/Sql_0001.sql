@@ -24,4 +24,9 @@ WITH (
   OIDS=FALSE
 );
 
+INSERT INTO nexcorio_users (id, firstname, lastname, email_id, username, password, usertype, zerodha_user_id, zerodha_user_id_pin, zerodha_api_key, zerodha_api_secret_key, 
+zerodha_service_token, zerodha_access_token, zerodha_public_token, enablerealtimeorder) 
+VALUES (nextval('nexcorio_users_id_seq'), 'Admin', 'Admin', 'keshav.shetty@nexcorio.com', 'keshavshetty', '98ef8709c6e2657b12e7069dddd3b672', 'Admin', 'RK7832', '3268', 'check kite dev', 'check kite dev', 'check kite dev', 'check kite dev', 'check kite dev', 'f');
+
+
 INSERT INTO db_versions VALUES('0001', now(), 'Keshav', 'nexcorio_users table','Schema' );

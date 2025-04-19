@@ -15,7 +15,6 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.BSOption;
-import com.nexcorio.algo.util.db.HDataSource;
 
 /**
  * 
@@ -162,7 +161,7 @@ public class JunkThread implements Runnable {
 		try {
 			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			
-			conn = HDataSource.getConnection();
+			conn = MultiDataSource.getTerraceConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select quote_time, last_traded_price from nexcorio_tick_data where trading_symbol = 'NIFTY'"
@@ -278,7 +277,7 @@ public class JunkThread implements Runnable {
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = MultiDataSource.getTerraceConnection();
 			Statement stmt = conn.createStatement();
 			
 			String insertSql = "INSERT INTO nexcorio_option_greeks (id, trading_symbol, quote_time, record_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"

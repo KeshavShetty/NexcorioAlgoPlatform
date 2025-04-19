@@ -260,18 +260,20 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 			
 			avgeAtmPremium = avgeAtmPremium/3f;
 			
-			List<Float> leftSideNumbers = new ArrayList<>();
-			List<Float> rightSideNumbers = new ArrayList<>();
-			
-			for(int i=0;i<allNumbers.size();i++) {
-				if (allNumbers.get(i) > avgeAtmPremium) leftSideNumbers.add(allNumbers.get(i));
-				else rightSideNumbers.add(allNumbers.get(i));
-			}
-			
-			if (leftSideNumbers.size()>1) {
-				avgeAtmPremium = (leftSideNumbers.get(0) + leftSideNumbers.get(1))/2f;
-			} else {
-				avgeAtmPremium = (rightSideNumbers.get(0) + rightSideNumbers.get(1))/2f;
+			if (allNumbers.size()>0) {
+				List<Float> leftSideNumbers = new ArrayList<>();
+				List<Float> rightSideNumbers = new ArrayList<>();
+				
+				for(int i=0;i<allNumbers.size();i++) {
+					if (allNumbers.get(i) > avgeAtmPremium) leftSideNumbers.add(allNumbers.get(i));
+					else rightSideNumbers.add(allNumbers.get(i));
+				}
+				
+				if (leftSideNumbers.size()>1) {
+					avgeAtmPremium = (leftSideNumbers.get(0) + leftSideNumbers.get(1))/2f;
+				} else {
+					avgeAtmPremium = (rightSideNumbers.get(0) + rightSideNumbers.get(1))/2f;
+				}
 			}
 			fileLogTelegramWriter.write("In getATMStraddlePremium returning="+avgeAtmPremium);
 		} catch(Exception ex) {

@@ -97,10 +97,10 @@ public class JunkMain implements Runnable {
 			String sourceSql = " SELECT instrument_token, record_time, last_traded_price, openinterest, trading_symbol from zerodha_intraday_streaming_data"
 					+ " where quote_time >= '" + postgresLongDateFormat.format(datBeginTime) + "' and quote_time <= '" + postgresLongDateFormat.format(datEndTime) + "'"
 					+ " and (trading_symbol like '" + fnoPrefix + "%' or instrument_token = 256265)"
-					+ " order by trading_symbol, quote_time, id ";
+					+ " order by quote_time";
 			
 			int page = 0;
-			int noOfRec = 1000;
+			int noOfRec = 500000;
 			
 			boolean recExist = false;
 			do {
@@ -154,7 +154,20 @@ public class JunkMain implements Runnable {
 
 	public static void main(String[] args) {
 	
-		new JunkMain("2025-02-28", "2025-03-06", "NIFTY25306");
+		//new JunkMain("2025-03-28", "2025-04-03", "NIFTY25403");
+		//new JunkMain("2025-03-31", "2025-04-03", "NIFTY25403");
+		new JunkMain("2025-04-04", "2025-04-09", "NIFTY25409");
+		new JunkMain("2025-04-07", "2025-04-09", "NIFTY25409");
+		new JunkMain("2025-04-08", "2025-04-09", "NIFTY25409");
+		new JunkMain("2025-04-09", "2025-04-09", "NIFTY25409");
+
+
+		new JunkMain("2025-04-11", "2025-04-17", "NIFTY25417");
+		new JunkMain("2025-04-14", "2025-04-17", "NIFTY25417");
+		new JunkMain("2025-04-15", "2025-04-17", "NIFTY25417");
+		new JunkMain("2025-04-16", "2025-04-17", "NIFTY25417");
+		new JunkMain("2025-04-17", "2025-04-17", "NIFTY25417");
+
 		
 	}
 	

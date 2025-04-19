@@ -43,7 +43,7 @@ public class MultiDataSource {
         rtxds = new HikariDataSource( rtxconfig );
         
         
-        terraceconfig.setJdbcUrl( "jdbc:postgresql://localhost:5432/nexcorioAlgo?gssencmode=disable" );
+        terraceconfig.setJdbcUrl( "jdbc:postgresql://localhost:5432/nexcorio_db?gssencmode=disable" );
         terraceconfig.setUsername( "postgres" );
         terraceconfig.setPassword( "jijikos" );
         terraceconfig.addDataSourceProperty( "cachePrepStmts" , "true" );

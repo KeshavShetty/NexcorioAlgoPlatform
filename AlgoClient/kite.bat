@@ -1,1 +1,1 @@
-java -jar D:\Projects\NexcorioAlgoPlatform\AlgoClient\target\release\lib\AlgoClient.jar
+java -jar target\release\lib\AlgoClient.jar
