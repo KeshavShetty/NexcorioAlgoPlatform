@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -16,18 +17,15 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
+public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekParityPremiumSpikeAversionAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3OISupportStrengthSpikeAversionAlgoThread.class);
 		
 	public float baseDelta = 0.5f;
+	public float premiumSpikePercent = 8f;	
+	public int topOIs = 5;
 	
-	
-	public String greekname = "iv";	
-	public float premiumSpikePercent = 8f;
-	public float ivDiffCutoffPercent = 5f;
-	
-	public G3GreekParityPremiumSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3OISupportStrengthSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -104,7 +102,7 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 						
 						fileLogTelegramWriter.write(" Forming condition 1");
 						
-						String currentTrend = getSellerDirectionByATMIVParity( lastKnownTrend); // CE, PE
+						String currentTrend = getSellerDirectionBySupportStrength(); // CE, PE
 						String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
 						
 						if (currentTrend.equals("CE")) {
@@ -177,7 +175,7 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 						lowestATMStraddlePremium  = currentATMStraddlePremium;
 						lastKnownTrend = "Unknown";
 					} else { // Check change in direction
-						String currentTrend = getSellerDirectionByATMIVParity(lastKnownTrend);
+						String currentTrend = getSellerDirectionBySupportStrength();
 						if (!currentTrend.equals(lastKnownTrend)) {
 							fileLogTelegramWriter.write(" Forming condition 3");
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
@@ -292,78 +290,123 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 		}
 	}
 	
-	private String getSellerDirectionByATMIVParity(String lastKnownTrend) {
-		String retVal = lastKnownTrend;
-		
+	private String getSellerDirectionBySupportStrength() {
+		String retVal = "Neutral";
 		Connection conn = null;
+		String top4Options ="";
+		String logString = "";
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
+			boolean filterOptionWorth = true;
 			
-			String fieldname = "ceiv as ceGreek, peiv as peGreek";
-			if (this.greekname.equalsIgnoreCase("ltp")) {
-				fieldname = "celtp as ceGreek, peltp as peGreek";
-			} else if (this.greekname.equalsIgnoreCase("gamma")) {
-				fieldname = "cegamma as ceGreek, pegamma as peGreek";
-			} 
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " order by record_time desc limit 1";
-			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-			ResultSet rs = stmt.executeQuery(fetchSql);
+			String opOIFetch = "select trading_symbol, oi as open_interest, strike, oi*ltp/10000000 as worthInCr from nexcorio_option_snapshot"
+					+ " where trading_symbol like '" + optionnamePrefix + "%' and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) +"' "
+					+ (filterOptionWorth==true?" and oi*ltp/10000000>10":"")  + " order by oi desc limit "+this.topOIs;
 			
+			// Todo:backtest support pending
 			
-			float ceGreek = 0f;
-			float peGreek = 0f;
+			log.info("opOIFetch="+opOIFetch);
+			int ceCount = 0;
+			int peCount = 0;
+			
+			int top5CeCount = 0;
+			int top5PeCount = 0;
+			
+			float totalCeOI = 0;
+			float totalPeOI = 0;
+			
+			float totalCeOIWorth = 0;
+			float totalPeOIWorth = 0;
+			
+			ResultSet rs = stmt.executeQuery(opOIFetch);
+			int recCount = 0;
+			List<Integer> ceStrikes = new ArrayList<Integer>();
+			List<Integer> peStrikes = new ArrayList<Integer>();
 			while (rs.next()) {
-				ceGreek = rs.getFloat("ceGreek");
-				peGreek = rs.getFloat("peGreek");
+				String tradingSymbol = rs.getString("trading_symbol");
+				int strikePrice = (int) rs.getFloat("strike");
+				float openInterest = rs.getFloat("open_interest");
+				float oiWorth = rs.getFloat("worthInCr");
+				top4Options = top4Options + tradingSymbol +" ";
+				if (tradingSymbol.endsWith("CE")) {
+					ceCount++;
+					totalCeOI = totalCeOI + openInterest;
+					totalCeOIWorth =  totalCeOIWorth + oiWorth;
+					if (recCount<5) top5CeCount++;
+					ceStrikes.add(strikePrice);
+				} else {
+					peCount++;
+					totalPeOI = totalPeOI + openInterest;
+					totalPeOIWorth =  totalPeOIWorth + oiWorth;
+					if (recCount<5) top5PeCount++;
+					peStrikes.add(strikePrice);
+				}
+				recCount++;
 			}
 			rs.close();			
 			stmt.close();
 			
-			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
-			if (ceGreek < peGreek)
-				greekDiffPercent = -greekDiffPercent;
+			Collections.sort(ceStrikes);
+			Collections.sort(peStrikes, Collections.reverseOrder());
 			
-			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
+			fileLogTelegramWriter.write(" Printing ordered CE Strikes");
+			//print(ceStrikes);
+			fileLogTelegramWriter.write(" Printing ordered PE Strikes");
+			//print(peStrikes);
 			
-			if (greekDiffPercent >= ivDiffCutoffPercent || greekDiffPercent <= -ivDiffCutoffPercent ) {
-				fileLogTelegramWriter.write("Cutoff breached");
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
+			int ceGap = 0;
+			int peGap = 0;
+			float ceSupprotDistance4mIndex = 0f;
+			float peSupprotDistance4mIndex = 0f;
+			if (ceStrikes.size()>1) {
+				ceGap = ceStrikes.get(1) - ceStrikes.get(0);
+				ceSupprotDistance4mIndex = ceStrikes.get(0) - this.instrumentLtp;
+			} else {
+				ceGap = 2000;
+				ceSupprotDistance4mIndex = 2000f;
 			}
 			
-			if (retVal.equals("Unknown") ) {
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
+			if (peStrikes.size()>1) {
+				peGap = peStrikes.get(0) - peStrikes.get(1);
+				peSupprotDistance4mIndex = this.instrumentLtp - peStrikes.get(0);
+			} else {
+				peGap = 2000;
+				peSupprotDistance4mIndex = 2000f;
 			}
 			
-		} catch(Exception ex) {
-			ex.printStackTrace();
-		}finally {
+			float gapRatio = ceGap>peGap?((float)peGap/(float)ceGap):((float)ceGap/(float)peGap);
+			fileLogTelegramWriter.write(" ceGap="+ceGap+" peGap="+peGap+" gapRatio="+gapRatio+" ceSupprotDistance4mIndex="+ceSupprotDistance4mIndex+" peSupprotDistance4mIndex="+peSupprotDistance4mIndex);
+			
+			if (ceGap>peGap) {
+				retVal = "CE";
+			} else if (ceGap<peGap) {
+				retVal = "PE";
+			} else {
+				if (top5CeCount>top5PeCount) retVal = "CE";
+				else retVal = "PE";
+			}
+			logString = " ceCount="+ceCount+" peCount="+peCount+" top5CeCount="+top5CeCount+" top5PeCount="+top5PeCount 
+					+" totalCeOI="+totalCeOI+" totalPeOI="+totalPeOI+" CPRatio="+(totalCeOI/totalPeOI) + " totalCeOIWorth="+totalCeOIWorth+" totalPeOIWorth="+totalPeOIWorth;
+			fileLogTelegramWriter.write( logString +" topOptions="+top4Options+" retVal="+retVal);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
 			try {
-				if (conn!=null) conn.close();
+				conn.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-			
 		return retVal;
-	}
+	}	
 	
 	
 	public static void main(String[] args) {
 		
-		new G3GreekParityPremiumSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
+		new G3OISupportStrengthSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
 	
 	}
 }

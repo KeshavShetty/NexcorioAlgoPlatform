@@ -9,16 +9,16 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 
-public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass implements Runnable {
+public class G3StrangleToStraddleSpikeAversionAlgoThread extends G3BaseClass implements Runnable {
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 
-	public float startingDelta = 0.5f;
+	public float startingDelta = 0.25f;
 	public float deltaUpgradeStep = 0.05f;
 	
 	public float premiumSpikePercent = 8f;
 	
-	public G3StraddleToStrangleSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3StrangleToStraddleSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -52,7 +52,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 			float lowestATMStraddlePremium = getATMStraddlePremium();
 			float highestATMStraddlePremium = lowestATMStraddlePremium;
 			
-			float currentDelta = startingDelta + deltaUpgradeStep;
+			float currentDelta = startingDelta - deltaUpgradeStep;
 			do {
 				sleep(15); // Quick to react
 				
@@ -100,8 +100,8 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 						ceStraddleOptionName = "";
 						peStraddleOptionName = "";
 						
-						if (currentDelta >= 0.25f ) {
-							currentDelta = currentDelta - deltaUpgradeStep;						
+						if (currentDelta <= 0.5f ) {
+							currentDelta = currentDelta + deltaUpgradeStep;						
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( currentDelta, this.hedgeDistance);
 							
 							ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -130,8 +130,8 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 				if (ceStraddleOptionName.equals("")) { // No open position
 					if (currentATMStraddlePremium < highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) {
 						
-						currentDelta = currentDelta - deltaUpgradeStep;
-						if (currentDelta >= 0.25f ) {
+						currentDelta = currentDelta + deltaUpgradeStep;
+						if (currentDelta <= 0.5f ) {
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( currentDelta, this.hedgeDistance);
 							
 							ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -168,7 +168,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 							highestATMStraddlePremium = currentATMStraddlePremium;
 							lowestATMStraddlePremium  = currentATMStraddlePremium;
 						} else {
-							prepareExit(" Too many positions");
+							prepareExit("Too many positions");
 						}
 					}
 				} else { // Already positions running, check for exit rule

@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
 import java.util.Calendar;
+import java.util.Date;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
+import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
 public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass implements Runnable {
@@ -45,6 +47,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		try {			
 			fileLogTelegramWriter = new FileLogTelegramWriter(this.mainInstrument.getShortName(), this.algoname, this.backtestDate);
 			
+			while  ( getCurrentTime().before(KiteUtil.getDailyCustomTime(backtestDate.getTime(), 9, 15, 5 )) )  {
+				log.info("Too early for ATM data, going to sleep for 30 seconds");
+				System.out.println("Too early for ATM data, going to sleep for 30 seconds");
+				sleep(30);
+			}
+			System.out.println("Time has come to process ATM Data");
 			do {
 				//System.out.println("Going to sleep");
 				sleep(15);				

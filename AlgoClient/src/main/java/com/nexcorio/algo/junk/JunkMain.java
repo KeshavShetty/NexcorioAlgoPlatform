@@ -154,8 +154,10 @@ public class JunkMain implements Runnable {
 
 	public static void main(String[] args) {
 	
-		//new JunkMain("2025-03-28", "2025-04-03", "NIFTY25403");
-		//new JunkMain("2025-03-31", "2025-04-03", "NIFTY25403");
+		new JunkMain("2025-04-01", "2025-04-03", "NIFTY25403");
+		new JunkMain("2025-04-02", "2025-04-03", "NIFTY25403");
+		new JunkMain("2025-04-03", "2025-04-03", "NIFTY25403");
+		
 		new JunkMain("2025-04-04", "2025-04-09", "NIFTY25409");
 		new JunkMain("2025-04-07", "2025-04-09", "NIFTY25409");
 		new JunkMain("2025-04-08", "2025-04-09", "NIFTY25409");
@@ -163,7 +165,6 @@ public class JunkMain implements Runnable {
 
 
 		new JunkMain("2025-04-11", "2025-04-17", "NIFTY25417");
-		new JunkMain("2025-04-14", "2025-04-17", "NIFTY25417");
 		new JunkMain("2025-04-15", "2025-04-17", "NIFTY25417");
 		new JunkMain("2025-04-16", "2025-04-17", "NIFTY25417");
 		new JunkMain("2025-04-17", "2025-04-17", "NIFTY25417");

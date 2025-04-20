@@ -32,5 +32,14 @@ public class KiteUtil {
 		return cal.getTime();
 	}
 	
+	public static Date getDailyCustomTime(Date fromTime, int hour, int minute, int second) {
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(fromTime);
+		cal.set(Calendar.HOUR_OF_DAY, hour);
+		cal.set(Calendar.MINUTE, minute);
+		cal.set(Calendar.SECOND, second);
+		//System.out.println("In getDailyCustomTime "+  cal.getTime());
+		return cal.getTime();
+	}
 	
 }
