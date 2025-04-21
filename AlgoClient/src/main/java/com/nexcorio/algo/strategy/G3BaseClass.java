@@ -24,8 +24,6 @@ public abstract class G3BaseClass extends BaseClass {
 	
 	protected Long napAlgoId = -1L;
 	
-	protected Long userId = -1L;
-	
 	protected int target = -1;
 	protected int stoploss = -1;
 	protected int trailingStoploss = -1;
@@ -36,6 +34,7 @@ public abstract class G3BaseClass extends BaseClass {
 	protected int noOfLots = 0;
 	protected float maxFundAllocated = 0f;
 	protected int hedgeDistance = 0;
+	protected int optimalHedgeDistance = 0;
 	protected int maxAllowedNoOfOrders = 0;
 	protected int lotSize = 0;
 	protected int noOfOrders = 0;
@@ -124,7 +123,10 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 		fileLogTelegramWriter = new FileLogTelegramWriter(this.mainInstrument.getShortName(), this.algoname, this.backtestDate);
 		
-		if (this.placeActualOrder) setLotBasedonAvailableMargin();
+		if (this.placeActualOrder) {
+			setLotBasedonAvailableMargin();
+			this.optimalHedgeDistance = getOptimalHedgeDistance(this.hedgeDistance, 1.5f);
+		}
 		else this.requiredMargin = this.mainInstrument.getStraddleMargin();
 	}
 
@@ -149,6 +151,8 @@ public abstract class G3BaseClass extends BaseClass {
 				this.noOfLots = rs.getInt("no_of_lots");
 				this.maxFundAllocated = rs.getFloat("max_fund_allocated");
 				this.hedgeDistance = rs.getInt("hedge_distance");
+				
+				this.optimalHedgeDistance = this.hedgeDistance;
 				
 				this.target = rs.getInt("target");
 				this.stoploss = rs.getInt("stoploss");

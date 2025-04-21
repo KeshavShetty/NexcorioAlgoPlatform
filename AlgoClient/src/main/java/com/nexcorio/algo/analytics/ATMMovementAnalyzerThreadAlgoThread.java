@@ -47,7 +47,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		try {			
 			fileLogTelegramWriter = new FileLogTelegramWriter(this.mainInstrument.getShortName(), this.algoname, this.backtestDate);
 			
-			while  ( getCurrentTime().before(KiteUtil.getDailyCustomTime(backtestDate.getTime(), 9, 15, 5 )) )  {
+			while  ( getCurrentTime().before(KiteUtil.getDailyCustomTime(getCurrentTime(), 9, 15, 5 )) )  {
 				log.info("Too early for ATM data, going to sleep for 30 seconds");
 				System.out.println("Too early for ATM data, going to sleep for 30 seconds");
 				sleep(30);
@@ -152,7 +152,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("BANKNIFTY", "2025-03-06 09:16:03");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-04-21 09:15:00");		
 	}
 
 }

@@ -1,5 +1,6 @@
 package com.nexcorio.algo.core;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.sql.Connection;
@@ -7,6 +8,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -16,6 +20,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
@@ -23,6 +28,7 @@ import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
+import com.zerodhatech.models.LTPQuote;
 import com.zerodhatech.models.Margin;
 
 /**
@@ -37,6 +43,8 @@ public class BaseClass {
 	protected float instrumentLtp = 0f;
 	
 	protected String algoname = null;
+	
+	protected Long userId = -1L;
 	
 	protected FileLogTelegramWriter fileLogTelegramWriter = null;
 	
@@ -171,6 +179,46 @@ public class BaseClass {
 			cal.add(Calendar.DATE, -1);
 			
 			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrument.getId()+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
+					+ " ORDER BY expiry_date ASC LIMIT 1";
+			fileLogTelegramWriter.write("Fetch sql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				retStr = rs.getString("fno_prefix");
+			}
+			rs.close();
+			stmt.close();
+		} catch(Exception ex) {
+			ex.printStackTrace();
+			log.error("Error"+ex.getMessage(),ex);
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		fileLogTelegramWriter.write("In getCurrentWeekExpiryOptionnamePrefix retStr="+retStr);
+		return retStr;
+	}
+	
+	protected String getCurrentWeekExpiryOptionnamePrefix(Long mainInstrumentId) {
+		String retStr = "";
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fnoExchange = "NFO-OPT";
+			if (mainInstrument.getExchange().equalsIgnoreCase("BSE")) fnoExchange = "BFO-OPT";
+			
+			Calendar cal = Calendar.getInstance();
+			if (backtestDate!=null) cal.setTime(backtestDate.getTime());
+			cal.add(Calendar.DATE, -1);
+			
+			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+ ""
 					+ " and fno_segment='" + fnoExchange + "' "
 					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
 					+ " ORDER BY expiry_date ASC LIMIT 1";
@@ -487,45 +535,44 @@ public class BaseClass {
 			} else {
 				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%CE' "
 						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						+ " order by deltaDiff";
+						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTimeDifferSeconds(-2)) + "'"
+						+ " order by id desc"; // by deltaDiff
 				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 				
 				ResultSet rs = stmt.executeQuery(fetchSql);
 				List<String> tradingSymbols = new ArrayList<String>();
 				List<Float> delta = new ArrayList<Float>();
 				List<Float> deltaDiff = new ArrayList<Float>();
-				List<Date> quote_times = new ArrayList<Date>();
 				while (rs.next()) {
 					tradingSymbols.add(rs.getString("trading_symbol"));
 					delta.add(rs.getFloat("delta"));
 					deltaDiff.add(rs.getFloat("deltaDiff"));
-					quote_times.add(rs.getDate("quote_time"));
 				}
 				rs.close();
-				if (tradingSymbols.size()==1) {
-					ceTradingSymbol = tradingSymbols.get(0);
-					ceDelta = delta.get(0);
-				} else {
-					for(int i=0;i<tradingSymbols.size()-1;i++) {
-						boolean thisIsBest = true;
-						for(int j=1;j<tradingSymbols.size();j++) {
-							if (quote_times.get(i).after(quote_times.get(j))
-									&& tradingSymbols.get(i).equals(tradingSymbols.get(j))) {
-								thisIsBest  = false;
-							}
-						}
-						if (thisIsBest) {
-							ceTradingSymbol = tradingSymbols.get(i);
-							ceDelta = delta.get(i);
+				
+				// Remove the duplicates
+				for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
+					for(int topPt = 0; topPt < bottomPt;topPt++) {
+						if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
+							tradingSymbols.remove(bottomPt);
+							delta.remove(bottomPt);
+							deltaDiff.remove(bottomPt);
 							break;
 						}
 					}
-					if (ceTradingSymbol==null) { // Not found, then use first one
-						ceTradingSymbol = tradingSymbols.get(0);
-						ceDelta = delta.get(0);
+				}				
+				
+				// Find the best row with minimal delta dif
+				float minimalDiff = deltaDiff.get(0);
+				int bestPosition = 0;
+				for(int i=1;i<deltaDiff.size();i++) {
+					if (deltaDiff.get(i) < minimalDiff) {
+						minimalDiff = deltaDiff.get(i);
+						bestPosition = i;
 					}
-				}
+				}				
+				ceTradingSymbol = tradingSymbols.get(bestPosition);
+				ceDelta = delta.get(bestPosition);
 			}
 			
 			String peTradingSymbol = null;
@@ -548,44 +595,43 @@ public class BaseClass {
 				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
 						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
 						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						+ " order by deltaDiff";
+						+ " order by id desc";
 				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 				
 				ResultSet rs = stmt.executeQuery(fetchSql);
 				List<String> tradingSymbols = new ArrayList<String>();
 				List<Float> delta = new ArrayList<Float>();
 				List<Float> deltaDiff = new ArrayList<Float>();
-				List<Date> quote_times = new ArrayList<Date>();
 				while (rs.next()) {
 					tradingSymbols.add(rs.getString("trading_symbol"));
 					delta.add(rs.getFloat("delta"));
 					deltaDiff.add(rs.getFloat("deltaDiff"));
-					quote_times.add(rs.getDate("quote_time"));
 				}
 				rs.close();
-				if (tradingSymbols.size()==1) {
-					peTradingSymbol = tradingSymbols.get(0);
-					peDelta = delta.get(0);
-				} else {
-					for(int i=0;i<tradingSymbols.size()-1;i++) {
-						boolean thisIsBest = true;
-						for(int j=1;j<tradingSymbols.size();j++) {
-							if (quote_times.get(i).after(quote_times.get(j))
-									&& tradingSymbols.get(i).equals(tradingSymbols.get(j))) {
-								thisIsBest  = false;
-							}
-						}
-						if (thisIsBest) {
-							peTradingSymbol = tradingSymbols.get(i);
-							peDelta = delta.get(i);
+				
+				// Remove the duplicates
+				for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
+					for(int topPt = 0; topPt < bottomPt;topPt++) {
+						if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
+							tradingSymbols.remove(bottomPt);
+							delta.remove(bottomPt);
+							deltaDiff.remove(bottomPt);
 							break;
 						}
 					}
-					if (peTradingSymbol==null) { // Not found, then use first one
-						peTradingSymbol = tradingSymbols.get(0);
-						peDelta = delta.get(0);
+				}				
+				
+				// Find the best row with minimal delta dif
+				float minimalDiff = deltaDiff.get(0);
+				int bestPosition = 0;
+				for(int i=1;i<deltaDiff.size();i++) {
+					if (deltaDiff.get(i) < minimalDiff) {
+						minimalDiff = deltaDiff.get(i);
+						bestPosition = i;
 					}
-				}
+				}				
+				peTradingSymbol = tradingSymbols.get(bestPosition);
+				peDelta = delta.get(bestPosition);
 			
 			}
 			
@@ -623,7 +669,7 @@ public class BaseClass {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			int scripSpotPrice  = (int) this.instrumentLtp;
+			int scripSpotPrice  = (int) getPriceFromTicks(this.mainInstrument.getShortName());
 			
 			// make last decimal zero
 			scripSpotPrice = scripSpotPrice - (scripSpotPrice%10);
@@ -725,6 +771,15 @@ public class BaseClass {
 		Calendar cal = Calendar.getInstance();
 		if (backtestDate!=null) cal.setTime(backtestDate.getTime());
 		cal.add(Calendar.MINUTE, minute);
+		
+		return cal.getTime();
+	}
+	
+	protected Date getCurrentTimeDifferSeconds(int seconds) {
+		
+		Calendar cal = Calendar.getInstance();
+		if (backtestDate!=null) cal.setTime(backtestDate.getTime());
+		cal.add(Calendar.SECOND, seconds);
 		
 		return cal.getTime();
 	}
@@ -870,5 +925,93 @@ public class BaseClass {
 		}
 			
 		return avgeAtmPremium;
+	}
+	
+	protected int getOptimalHedgeDistance(int defaultHedgeDistance, float dailyMaxHedgeCostPerLeg) {
+		int returnHedgeDistance = defaultHedgeDistance;
+		
+		try {
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			int centerStrike = getOptionCenterStrike(optionnamePrefix);
+			
+			fileLogTelegramWriter.write("In getOptimalHedgeDistance optionnamePrefix="+optionnamePrefix+" centerStrike="+centerStrike);
+			
+			List<String> OpInstruments = new ArrayList<String>(); 
+			for (int i=0;i<=500;i+=100) {
+				
+				String ceOptionName =  optionnamePrefix + (centerStrike+defaultHedgeDistance + i) + "CE";
+				String peOptionName =  optionnamePrefix + (centerStrike-defaultHedgeDistance - i) + "PE";
+				
+				OpInstruments.add("NFO:"+ ceOptionName);
+				OpInstruments.add("NFO:"+ peOptionName);
+			}
+			
+			Map<String, LTPQuote> optionLtp;
+			
+			String[] OpStrings = OpInstruments.stream().toArray(String[]::new);
+
+			
+			optionLtp = getKiteConnect(this.userId).getLTP(OpStrings);
+			
+			Iterator<String> optionKeys = optionLtp.keySet().iterator();
+	    	while(optionKeys.hasNext()) {
+	    		String aOptionKey = optionKeys.next();
+	    		float currentOptionPrice = (float) (optionLtp.get(aOptionKey).lastPrice);
+	    		log.info("Key="+ aOptionKey+" " + currentOptionPrice);
+	    	}
+	    	
+	    	float hedgeTargetPrice = dailyMaxHedgeCostPerLeg*getWorkingDaysTillNextExpiry(new Date(),  getOptionCurrentWeekExpiryDate());
+	    	fileLogTelegramWriter.write("hedgeTargetPrice="+hedgeTargetPrice);
+	    	
+			for (int i=0;i<=500;i+=100) {
+				
+				String ceOptionName =  optionnamePrefix + (centerStrike+defaultHedgeDistance + i) + "CE";
+				String peOptionName =  optionnamePrefix + (centerStrike-defaultHedgeDistance - i) + "PE";
+				
+				float ceOptionPrice = (float) (optionLtp.get("NFO:"+ceOptionName).lastPrice);
+				float peOptionPrice = (float) (optionLtp.get("NFO:"+peOptionName).lastPrice);
+				log.info("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
+				if ( (ceOptionPrice + peOptionPrice) <= 2f*hedgeTargetPrice ) {
+					returnHedgeDistance = defaultHedgeDistance + i;
+					fileLogTelegramWriter.write("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
+					break;
+				}
+	    	}
+			fileLogTelegramWriter.write("optionnamePrefix="+optionnamePrefix+" hedgeTargetPrice="+hedgeTargetPrice+" defaultHedgeDistance="+defaultHedgeDistance+" returnHedgeDistance="+returnHedgeDistance+" dailyMaxHedgeCostPerLeg="+dailyMaxHedgeCostPerLeg);
+		} catch (JSONException | IOException | KiteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return returnHedgeDistance;
+	}
+	
+	private int getWorkingDaysTillNextExpiry(Date currentDate, Date nextExpiryDate) {
+		int workingDays = 4;
+		
+		try {
+			LocalDate starDate = LocalDate.of(currentDate.getYear()+1900, currentDate.getMonth()+1, currentDate.getDate());
+			LocalDate endDate = LocalDate.of(nextExpiryDate.getYear()+1900, nextExpiryDate.getMonth()+1, nextExpiryDate.getDate());
+			
+			
+			final DayOfWeek startW = starDate.getDayOfWeek();
+		    final DayOfWeek endW = endDate.getDayOfWeek();
+	
+		    final long days = ChronoUnit.DAYS.between(starDate, endDate)+1;
+		    
+		    final long daysWithoutWeekends = days - 2 * ((days + startW.getValue()) / 7);
+		    
+			fileLogTelegramWriter.write("days="+days+"daysWithoutWeekends="+daysWithoutWeekends);
+			
+		    
+		    //adjust for starting and ending on a Sunday:
+		    workingDays =  (int) (daysWithoutWeekends + (startW == DayOfWeek.SUNDAY ? 1 : 0) + (endW == DayOfWeek.SUNDAY ? 1 : 0));
+		    
+		    fileLogTelegramWriter.write("workingDays="+workingDays);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return workingDays;
 	}
 }

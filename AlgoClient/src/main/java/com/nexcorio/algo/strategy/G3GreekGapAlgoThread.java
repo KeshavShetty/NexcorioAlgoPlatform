@@ -44,7 +44,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
+			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			
 			String lastKnownTrend = "Unknown";
 			
@@ -124,7 +124,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				
 				if (!currentTrend.equals(lastKnownTrend)) {
 				
-					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
+					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 					
 					if (currentTrend.equals("CE")) { // Exit PE, Enter CE
 						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional

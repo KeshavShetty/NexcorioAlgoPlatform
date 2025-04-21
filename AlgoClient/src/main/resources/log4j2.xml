@@ -26,12 +26,16 @@
 			<DefaultRolloverStrategy max="25"/>
 		</RollingFile>
                     
-       
+		<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d [%t] %-5p (%25c{1}:%L) - %m%n"/>
+		</Console>
     </Appenders>
+    
     <Loggers>
         <Root level="info">
             <AppenderRef ref="InfoFile" level="info"/>
             <AppenderRef ref="ErrorFile" level="error"/>
+            <AppenderRef ref="Console" level="error"/>
         </Root>
     </Loggers>
 </Configuration>
