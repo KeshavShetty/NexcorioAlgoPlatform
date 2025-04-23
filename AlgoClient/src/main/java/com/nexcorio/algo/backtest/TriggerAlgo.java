@@ -39,18 +39,28 @@ public class TriggerAlgo {
 	}
 	
 	public static void main(String[] args) {
-//		triggerAlgo(23L, "2025-04-01 09:20:00");
-//		triggerAlgo(23L, "2025-04-02 09:20:00");
-//		triggerAlgo(23L, "2025-04-03 09:20:00");
-//		triggerAlgo(23L, "2025-04-04 09:20:00");
-//		triggerAlgo(23L, "2025-04-07 09:20:00");
-//		triggerAlgo(23L, "2025-04-08 09:20:00");
-//		triggerAlgo(23L, "2025-04-09 09:20:00");
+		Long algoId = 48L;
+		triggerAlgo(algoId, "2025-04-17 09:20:00");
+		triggerAlgo(algoId, "2025-04-16 09:20:00");
+		triggerAlgo(algoId, "2025-04-15 09:20:00");
+		
+//		triggerAlgo(algoId, "2025-04-01 09:20:00");
+//		triggerAlgo(algoId, "2025-04-02 09:20:00");
+//		triggerAlgo(algoId, "2025-04-03 09:20:00");
+//		triggerAlgo(algoId, "2025-04-04 09:20:00");
+//		triggerAlgo(algoId, "2025-04-07 09:20:00");
+//		triggerAlgo(algoId, "2025-04-08 09:20:00");
+//		triggerAlgo(algoId, "2025-04-09 09:20:00");
+//		triggerAlgo(algoId, "2025-04-11 09:20:00");
 //		
-//		triggerAlgo(23L, "2025-04-11 09:20:00");
-//		triggerAlgo(23L, "2025-04-15 09:20:00");
-		triggerAlgo(36L, "2025-04-15 09:20:00");
+//		triggerAlgo(algoId, "2025-04-15 09:20:00");
+//		triggerAlgo(algoId, "2025-04-16 09:20:00");
+//		triggerAlgo(algoId, "2025-04-17 09:20:00");
+//		
+//		triggerAlgo(algoId, "2025-04-21 09:20:00");
+//		triggerAlgo(algoId, "2025-04-22 09:20:00");
+//		triggerAlgo(algoId, "2025-04-23 09:20:00");
+		
 	}
-
-
+	
 }

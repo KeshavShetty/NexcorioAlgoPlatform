@@ -609,10 +609,10 @@ public abstract class G3BaseClass extends BaseClass {
 		String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( 0.5f, this.optimalHedgeDistance);
 		
 		float requiredMargin = getMarginRequiredForIronCondorFly(kiteconnect, entryStraddleOptionNames[0], entryStraddleOptionNames[1], entryStraddleOptionNames[2], entryStraddleOptionNames[3], this.lotSize, 60000f);
-		fileLogTelegramWriter.write("In getStraddleMargin fullrequiredMargin" + requiredMargin);
+		fileLogTelegramWriter.write("In getStraddleMargin fullrequiredMargin " + requiredMargin);
 		
-		float halfStraddleRequiredMargin = getMarginRequiredForIronCondorFly(kiteconnect, ceStraddleOptionName, null, ceHedgeOptionName, null, lotSize, 45000f);
-		fileLogTelegramWriter.write("In getStraddleMargin halfStraddleRequiredMargin" + halfStraddleRequiredMargin);
+		float halfStraddleRequiredMargin = getMarginRequiredForIronCondorFly(kiteconnect, entryStraddleOptionNames[0], null, entryStraddleOptionNames[2], null, lotSize, 45000f);
+		fileLogTelegramWriter.write("In getStraddleMargin halfStraddleRequiredMargin " + halfStraddleRequiredMargin);
 		
 		if (isFullStraddle) {
 			retVal = requiredMargin;

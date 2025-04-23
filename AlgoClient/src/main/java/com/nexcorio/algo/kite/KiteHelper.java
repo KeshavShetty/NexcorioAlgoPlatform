@@ -666,7 +666,7 @@ public class KiteHelper {
 					log.info("End of the daym disconnect and logout");
 					try {
 						tickerProvider.disconnect();
-						//kiteConnect.logout();
+						System.out.println("Ended at " + (new Date()));
 					} catch (JSONException e) {
 						e.printStackTrace();
 					}

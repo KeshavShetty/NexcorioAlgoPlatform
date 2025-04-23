@@ -4,9 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -16,18 +14,15 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
+public class G3GreekGapSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekParityPremiumSpikeAversionAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3GreekGapSpikeAversionAlgoThread.class);
 		
 	public float baseDelta = 0.5f;
-	
-	
-	public String greekname = "iv";	
+	public String greekname = "gamma";	
 	public float premiumSpikePercent = 8f;
-	public float ivDiffCutoffPercent = 5f;
 	
-	public G3GreekParityPremiumSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3GreekGapSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -101,54 +96,57 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 				
 				if (lastKnownTrend.equals("Unknown")) { // No open position
 					if (currentATMStraddlePremium < highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) {
-						
-						fileLogTelegramWriter.write(" Forming condition 1");
-						
-						String currentTrend = getSellerDirectionByATMIVParity( lastKnownTrend); // CE, PE
-						String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
-						
-						if (currentTrend.equals("CE")) {
-							ceStraddleOptionName =  entryStraddleOptionNames[0];
+						if (this.noOfOrders < maxAllowedNoOfOrders) {		
+							fileLogTelegramWriter.write(" Forming condition 1");
 							
-							float cePrice = getPriceFromTicks(ceStraddleOptionName);
+							String currentTrend = getSellerDirectionByATMGreekGap( lastKnownTrend); // CE, PE
+							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
 							
-							String logString = "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName; 
-							log.info(logString);
-							fileLogTelegramWriter.write( " "+logString);
-							ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-							
-							if (ceHedgeOptionName.equals("")) {
-								ceHedgeOptionName =  entryStraddleOptionNames[2];
-								if (this.placeActualOrder) {
-									placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);	
+							if (currentTrend.equals("CE")) {
+								ceStraddleOptionName =  entryStraddleOptionNames[0];
+								
+								float cePrice = getPriceFromTicks(ceStraddleOptionName);
+								
+								String logString = "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName; 
+								log.info(logString);
+								fileLogTelegramWriter.write( " "+logString);
+								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+								
+								if (ceHedgeOptionName.equals("")) {
+									ceHedgeOptionName =  entryStraddleOptionNames[2];
+									if (this.placeActualOrder) {
+										placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);	
+									}
+								}							
+								if (this.placeActualOrder) { // Place the order with Kite
+									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
-							}							
-							if (this.placeActualOrder) { // Place the order with Kite
-								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-						} else { // PE
-							peStraddleOptionName =  entryStraddleOptionNames[1];
-														
-							float pePrice = getPriceFromTicks(peStraddleOptionName);
-							String logString = "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName; 
-							log.info(logString);
-							fileLogTelegramWriter.write( " "+logString);
-							peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-							
-							if (peHedgeOptionName.equals("")) {
-								peHedgeOptionName =  entryStraddleOptionNames[3];
-								if (this.placeActualOrder) {
-									placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);	
+							} else { // PE
+								peStraddleOptionName =  entryStraddleOptionNames[1];
+															
+								float pePrice = getPriceFromTicks(peStraddleOptionName);
+								String logString = "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName; 
+								log.info(logString);
+								fileLogTelegramWriter.write( " "+logString);
+								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+								
+								if (peHedgeOptionName.equals("")) {
+									peHedgeOptionName =  entryStraddleOptionNames[3];
+									if (this.placeActualOrder) {
+										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);	
+									}
+								} 
+								if (this.placeActualOrder) { 
+									placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
-							} 
-							if (this.placeActualOrder) { 
-								placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
+							highestATMStraddlePremium = currentATMStraddlePremium;
+							lowestATMStraddlePremium  = currentATMStraddlePremium;
+							
+							lastKnownTrend = currentTrend;
+						} else {
+							prepareExit("Too many orders");
 						}
-						highestATMStraddlePremium = currentATMStraddlePremium;
-						lowestATMStraddlePremium  = currentATMStraddlePremium;
-						
-						lastKnownTrend = currentTrend;
 					} else {
 						fileLogTelegramWriter.write( "Wait to cool down premium spike");
 					}
@@ -177,22 +175,51 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 						lowestATMStraddlePremium  = currentATMStraddlePremium;
 						lastKnownTrend = "Unknown";
 					} else { // Check change in direction
-						String currentTrend = getSellerDirectionByATMIVParity(lastKnownTrend);
+						String currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
 						if (!currentTrend.equals(lastKnownTrend)) {
-							fileLogTelegramWriter.write(" Forming condition 3");
-							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
-							
-							if (currentTrend.equals("CE")) { // Exit PE, Enter CE
-								if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
-									fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-									// Exit PE
-									if (this.placeActualOrder) {
-										placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							if (this.noOfOrders < maxAllowedNoOfOrders) {
+								fileLogTelegramWriter.write(" Forming condition 3");
+								String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
+								
+								if (currentTrend.equals("CE")) { // Exit PE, Enter CE
+									if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
+										fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+										// Exit PE
+										if (this.placeActualOrder) {
+											placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										}
+										peStraddleOptionName = "";
 									}
-									peStraddleOptionName = "";
-								}
-								if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-									if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+									if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
+										if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+											fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+											// Exit CE
+											if (this.placeActualOrder) {
+												placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											}
+											ceStraddleOptionName = "";
+										}
+										if (this.noOfOrders<maxAllowedNoOfOrders) {
+											ceStraddleOptionName =  entryStraddleOptionNames[0];
+											float cePrice = getPriceFromTicks(ceStraddleOptionName);
+											fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
+											// Place order
+											ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+											if (this.placeActualOrder) {
+												if (ceHedgeOptionName.equals("")) {								
+													ceHedgeOptionName =  entryStraddleOptionNames[2];
+													placeRealOrder(this.userId, ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+												}
+												placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											}
+										} else {
+											prepareExit("Too many orders");
+										}
+									} else {
+										fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
+									}
+								} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
+									if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
 										fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 										// Exit CE
 										if (this.placeActualOrder) {
@@ -200,64 +227,39 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 										}
 										ceStraddleOptionName = "";
 									}
-									if (this.noOfOrders<maxAllowedNoOfOrders) {
-										ceStraddleOptionName =  entryStraddleOptionNames[0];
-										float cePrice = getPriceFromTicks(ceStraddleOptionName);
-										fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-										// Place order
-										ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-										if (this.placeActualOrder) {
-											if (ceHedgeOptionName.equals("")) {								
-												ceHedgeOptionName =  entryStraddleOptionNames[2];
-												placeRealOrder(this.userId, ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
+										if (!peStraddleOptionName.equals("")) { // Exit and re enter
+											fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+											if (this.placeActualOrder) {
+												placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 											}
-											placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											peStraddleOptionName = "";
+										}
+										if (this.noOfOrders<maxAllowedNoOfOrders) {
+											peStraddleOptionName =  entryStraddleOptionNames[1];
+											float pePrice = getPriceFromTicks(peStraddleOptionName);
+											fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
+											// Place order
+											peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+											if (this.placeActualOrder) {
+												if (peHedgeOptionName.equals("")) {
+													peHedgeOptionName =  entryStraddleOptionNames[3];
+													placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+												}
+												placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											}
+										} else {
+											prepareExit("Too many orders");
 										}
 									} else {
-										prepareExit("Too many orders");
+										fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 									}
-								} else {
-									fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
 								}
-							} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
-								if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
-									fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-									// Exit CE
-									if (this.placeActualOrder) {
-										placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									ceStraddleOptionName = "";
-								}
-								if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
-									if (!peStraddleOptionName.equals("")) { // Exit and re enter
-										fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-										if (this.placeActualOrder) {
-											placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-										}
-										peStraddleOptionName = "";
-									}
-									if (this.noOfOrders<maxAllowedNoOfOrders) {
-										peStraddleOptionName =  entryStraddleOptionNames[1];
-										float pePrice = getPriceFromTicks(peStraddleOptionName);
-										fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-										// Place order
-										peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-										if (this.placeActualOrder) {
-											if (peHedgeOptionName.equals("")) {
-												peHedgeOptionName =  entryStraddleOptionNames[3];
-												placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-											}
-											placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-										}
-									} else {
-										prepareExit("Too many orders");
-									}
-								} else {
-									fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
-								}
+								lastKnownTrend = currentTrend;
+							}else {
+								prepareExit("Too many orders");
 							}
-							lastKnownTrend = currentTrend;
-						}
+						} 
 					}	
 				}
 						
@@ -291,8 +293,8 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 			fileLogTelegramWriter.close();
 		}
 	}
-	
-	private String getSellerDirectionByATMIVParity(String lastKnownTrend) {
+
+	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
 		Connection conn = null;
@@ -309,38 +311,36 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " order by record_time desc limit 1";
+					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
+			int gapCpunt = 0;
 			
-			float ceGreek = 0f;
-			float peGreek = 0f;
 			while (rs.next()) {
-				ceGreek = rs.getFloat("ceGreek");
-				peGreek = rs.getFloat("peGreek");
+				float ceGreek = rs.getFloat("ceGreek");
+				float peGreek = rs.getFloat("peGreek");
+				if (ceGreek>peGreek) {
+					gapCpunt++;
+				}
 			}
 			rs.close();			
 			stmt.close();
 			
-			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
-			//if (ceGreek < peGreek) greekDiffPercent = -greekDiffPercent;
+			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
 			
-			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
+			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
 			
-			if (greekDiffPercent >= ivDiffCutoffPercent || greekDiffPercent <= -ivDiffCutoffPercent ) {
-				fileLogTelegramWriter.write("Cutoff breached");
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
+			if (gapCpunt == 0) {
+				retVal = "PE";
+			} else if (gapCpunt == 5) {
+				retVal = "CE";
 			}
 			
 			if (retVal.equals("Unknown") ) {
-				if (greekDiffPercent > 0f) {
+				if (gapCpunt < 2 ) {
 					retVal = "PE";
-				} else {
+				} else if (gapCpunt > 3 ) {
 					retVal = "CE";
 				}
 			}
@@ -362,7 +362,7 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 	
 	public static void main(String[] args) {
 		
-		new G3GreekParityPremiumSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
+		new G3GreekGapSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
 	
 	}
 }

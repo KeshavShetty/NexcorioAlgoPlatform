@@ -17,17 +17,15 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass implements Runnable{
+public class G3OIWorthSellerDirectionAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3DualIVParityAndOIWorthStraddleAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3OIWorthSellerDirectionAlgoThread.class);
 	
-	public float baseDelta = 0.6f;
-	
-	public float ivDiffCutoffPercent = 5f;
+	public float baseDelta = 0.5f;
 	public boolean filterOptionWorth = false;
-	public int topOis = 7;
+	public int topOis = 5;
 	
-	public G3DualIVParityAndOIWorthStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3OIWorthSellerDirectionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -39,22 +37,49 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 	
 	@Override
 	public void run() {
+		
+		printFields(this);
+		
 		try {
-			
-			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
-			
-			printFields(this);
-			
 			long ceDbId = -1;
 			long peDbId = -1;
-			
+						
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String lastKnownTrendbyIV = "Unknown";
-			String lastKnownTrendbyOIWorth = "Unknown";
-			String lastKnownMergedTrend = "Unknown";
+			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
+			String lastKnownOptiontrend = "CE";
+			String optiontrend = getOptionTrendFromOIWorth(lastKnownOptiontrend);
+			lastKnownOptiontrend = optiontrend;
+			if (optiontrend.equals("CE")) {
+				ceStraddleOptionName =  entryStraddleOptionNames[0];
+				ceHedgeOptionName =  entryStraddleOptionNames[2];
+				
+				float cePrice = getPriceFromTicks(ceStraddleOptionName);
+				
+				String logString = "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName; 
+				log.info(logString);
+				fileLogTelegramWriter.write( " "+logString);
+				ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+				if (this.placeActualOrder) { // Place the straddle order with Kite
+					placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+					placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				}
+			} else { // PE
+				peStraddleOptionName =  entryStraddleOptionNames[1];
+				peHedgeOptionName =  entryStraddleOptionNames[3];
+				
+				float pePrice = getPriceFromTicks(peStraddleOptionName);
+				String logString = "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName; 
+				log.info(logString);
+				fileLogTelegramWriter.write( " "+logString);
+				peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+				if (this.placeActualOrder) { // Place the straddle order with Kite
+					placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+					placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				}
+			}
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();
@@ -65,7 +90,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			updateAlgoStatus("Running");
 			
 			do {
-				sleep(15); // Every 10sec
+				sleep(60); // Every 1 minute
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -80,6 +105,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 				if (!peStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(peStraddleOptionName, peDbId, runningPePrice);
 				
 				currentProfitPerUnit = getProfitFromDB();
+				
 				if (currentProfitPerUnit>maxProfitReached) {
 					maxProfitReached=currentProfitPerUnit;
 					maxProfitReachedAt = getCurrentTime();
@@ -88,44 +114,31 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 					maxLowestpointReached=currentProfitPerUnit;
 					maxLowestpointReachedAt = getCurrentTime();
 				}
-				trailingProfit = (currentProfitPerUnit-maxProfitReached);
+				trailingProfit = (currentProfitPerUnit-maxProfitReached)/lotSize;
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
-				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" ******* currentProfit="+currentProfitPerUnit+" ******* ");
+				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached/lotSize)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				String currentTrendByIV = getSellerDirectionByATMIVParity(lastKnownTrendbyIV);
-				String currentTrendByOIWorth = getSellerDirectionByOIWorth(lastKnownTrendbyOIWorth);
+				optiontrend = getOptionTrendFromOIWorth(lastKnownOptiontrend); // StatusQuo, CE, PE
 				
-				String mergedTrend = "Ambiguity";
-				
-				if (currentTrendByIV.equals("CE") && currentTrendByOIWorth.equals("CE")) mergedTrend = "CE";
-				else if (currentTrendByIV.equals("PE") && currentTrendByOIWorth.equals("PE")) mergedTrend = "PE";
-				
-				fileLogTelegramWriter.write( " currentTrendByIV="+currentTrendByIV+" currentTrendByOIWorth=" + currentTrendByOIWorth + " mergedTrend="+mergedTrend);
-				
-				if (!mergedTrend.equals(lastKnownMergedTrend)) {
-				
-					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
+				fileLogTelegramWriter.write( " optiontrend="+optiontrend);
+			
+				if (!lastKnownOptiontrend.equals(optiontrend)) {
+					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
 					
-					if (mergedTrend.equals("CE")) { // Exit PE, Enter CE
+					if (optiontrend.equals("CE")) {
+						// Exit PE
+						// Enter CE
 						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 							// Exit PE
 							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							peStraddleOptionName = "";
 						}
-						if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-							if (!ceStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-								// Exit CE
-								if (this.placeActualOrder) {
-									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								ceStraddleOptionName = "";
-							}
+						if (ceStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
@@ -135,33 +148,27 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 								if (this.placeActualOrder) {
 									if (ceHedgeOptionName.equals("")) {								
 										ceHedgeOptionName =  entryStraddleOptionNames[2];
-										placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
+							
 						}
-					} else if (mergedTrend.equals("PE")) { // Exit CE, Enter PE
+					} else if (optiontrend.equals("PE")) {
+						// Exit CE
+						// Enter PE
 						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
 							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							ceStraddleOptionName = "";
 						}
-						if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
-							if (!peStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-								if (this.placeActualOrder) {
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								peStraddleOptionName = "";
-							}
+						if (peStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
@@ -178,58 +185,10 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 						}
-					} else { // Ambiguity - Exit both CE & PE
-						fileLogTelegramWriter.write( " Forming Straddle");
-						
-						entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
-						
-						if (peStraddleOptionName.equals("")) {
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
-								peStraddleOptionName =  entryStraddleOptionNames[1];
-								float pePrice = getPriceFromTicks(peStraddleOptionName);
-								fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-								// Place order
-								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-								if (this.placeActualOrder) {
-									if (peHedgeOptionName.equals("")) {
-										peHedgeOptionName =  entryStraddleOptionNames[3];
-										placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-							} else {
-								prepareExit("Too many orders");
-							}
-						}
-						
-						if (ceStraddleOptionName.equals("")) {
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
-								ceStraddleOptionName =  entryStraddleOptionNames[0];
-								float cePrice = getPriceFromTicks(ceStraddleOptionName);
-								fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-								// Place order
-								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-								if (this.placeActualOrder) {
-									if (ceHedgeOptionName.equals("")) {								
-										ceHedgeOptionName =  entryStraddleOptionNames[2];
-										placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL",  false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-							} else {
-								prepareExit("Too many orders");
-							}
-						}
-					}
+					} 
 				}
-				
-				lastKnownMergedTrend = mergedTrend;
-				lastKnownTrendbyIV = currentTrendByIV;
-				lastKnownTrendbyOIWorth = currentTrendByOIWorth;
-				
+				lastKnownOptiontrend = optiontrend;
 				checkExitSignals();
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
@@ -243,7 +202,8 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) exitStraddle(ceDbId, peDbId);
-			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
+			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
+			
 		} catch (Exception e) {			
 			updateAlgoStatus("Error");
 			log.error("Error"+e.getMessage(), e);
@@ -253,8 +213,8 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 		}
 	}
 	
-	private String getSellerDirectionByOIWorth(String lastKnownTrend) {
-		String retVal = lastKnownTrend;
+	private String getOptionTrendFromOIWorth(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
 		
 		Connection conn = null;
 		String top4Options ="";
@@ -367,20 +327,11 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 			} else if (peOIWorth-ceOIWorth>10) {
 				retVal = "PE";
 			} else {
-				retVal = lastKnownTrend;
+				retVal = lastKnownOptiontrend;
 			}
-			
-			if (retVal.equals("Unknown") ) {
-				if (ceOIWorth > peOIWorth) {
-					retVal = "CE";
-				} else {
-					retVal = "PE";
-				}
-			}
-			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal+" topOptions="+top4Options;
+			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal+" top4Options="+top4Options;
 			fileLogTelegramWriter.write( logString);
 		} catch (Exception e) {
-			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		} finally {
 			try {
@@ -392,66 +343,8 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 		return retVal;
 	}
 	
-	private String getSellerDirectionByATMIVParity( String lastKnownTrend) {
-		String retVal = lastKnownTrend;
-		
-		Connection conn = null;
-		try {
-			conn = HDataSource.getConnection();
-			Statement stmt = conn.createStatement();
-			
-			String fetchSql = "select ceiv as ceGreek, peiv as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " order by record_time desc limit 1";
-			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			
-			float ceGreek = 0f;
-			float peGreek = 0f;
-			while (rs.next()) {
-				ceGreek = rs.getFloat("ceGreek");
-				peGreek = rs.getFloat("peGreek");
-			}
-			rs.close();			
-			stmt.close();
-			
-			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
-			//if (ceGreek < peGreek) greekDiffPercent = -greekDiffPercent;
-			
-			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
-			
-			if (greekDiffPercent >= ivDiffCutoffPercent || greekDiffPercent <= -ivDiffCutoffPercent ) {
-				fileLogTelegramWriter.write("Cutoff breached");
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
-			}
-			
-			if (retVal.equals("Unknown") ) {
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
-			}
-			
-		} catch(Exception ex) {
-			log.error("Error"+ex.getMessage(),ex);
-			ex.printStackTrace();
-		}finally {
-			try {
-				if (conn!=null) conn.close();
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-		}	
-		return retVal;
-	}
-	
 	public static void main(String[] args) {
-		new G3DualIVParityAndOIWorthStraddleAlgoThread(353L, null);
+		
 	}
 
 	

@@ -255,8 +255,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			stmt.close();
 			
 			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
-			if (ceGreek < peGreek)
-				greekDiffPercent = -greekDiffPercent;
+			//if (ceGreek < peGreek) greekDiffPercent = -greekDiffPercent;
 			
 			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
 			

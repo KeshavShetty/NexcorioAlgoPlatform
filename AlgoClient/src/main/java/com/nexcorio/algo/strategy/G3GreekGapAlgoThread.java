@@ -292,7 +292,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	}
 	
 	public static void main(String[] args) {
-		new G3GreekGapAlgoThread(353L, null);
+		new G3GreekGapAlgoThread(23L, null);
 	}
 
 	
