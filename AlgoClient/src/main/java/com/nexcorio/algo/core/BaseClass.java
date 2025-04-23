@@ -971,10 +971,12 @@ public class BaseClass {
 				
 				float ceOptionPrice = (float) (optionLtp.get("NFO:"+ceOptionName).lastPrice);
 				float peOptionPrice = (float) (optionLtp.get("NFO:"+peOptionName).lastPrice);
-				log.info("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
+				fileLogTelegramWriter.write("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
+				
+				returnHedgeDistance = defaultHedgeDistance + i;
+				
 				if ( (ceOptionPrice + peOptionPrice) <= 2f*hedgeTargetPrice ) {
-					returnHedgeDistance = defaultHedgeDistance + i;
-					fileLogTelegramWriter.write("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
+					fileLogTelegramWriter.write("Stopping here");
 					break;
 				}
 	    	}
@@ -1014,4 +1016,5 @@ public class BaseClass {
 		}
 		return workingDays;
 	}
+	
 }

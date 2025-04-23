@@ -373,7 +373,7 @@ public class KiteHelper {
 			stmt = conn.createStatement();
 			
 			String fetchSql = "SELECT id from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+" AND expiry_date='"+expiry+"' AND fno_segment='"+segment+"' AND fno_prefix='"+fnoPrefix+"'";
-			System.out.println(fetchSql);
+			log.info(fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			boolean recordExist = false;
 			while(rs.next()) {
@@ -715,5 +715,6 @@ public class KiteHelper {
 		KiteHelper kiteHelper = new KiteHelper();
 		System.out.println(inpStr + ","+  kiteHelper.getClearAlphaNumericText(inpStr));
 	}
+	
 
 }

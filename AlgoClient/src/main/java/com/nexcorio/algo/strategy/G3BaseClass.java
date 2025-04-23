@@ -6,8 +6,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,6 +19,11 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
+import com.zerodhatech.kiteconnect.KiteConnect;
+import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
+import com.zerodhatech.kiteconnect.utils.Constants;
+import com.zerodhatech.models.CombinedMarginData;
+import com.zerodhatech.models.MarginCalculationParams;
 
 public abstract class G3BaseClass extends BaseClass {
 	
@@ -35,9 +42,11 @@ public abstract class G3BaseClass extends BaseClass {
 	protected float maxFundAllocated = 0f;
 	protected int hedgeDistance = 0;
 	protected int optimalHedgeDistance = 0;
+	protected float maxHedgeCostPerLeg = 1.5f;
 	protected int maxAllowedNoOfOrders = 0;
 	protected int lotSize = 0;
 	protected int noOfOrders = 0;
+	protected boolean nonDirectional = true;
 	
 	protected float currentProfitPerUnit = 0f;
 	protected float trailingProfit = 0f;
@@ -124,10 +133,15 @@ public abstract class G3BaseClass extends BaseClass {
 		fileLogTelegramWriter = new FileLogTelegramWriter(this.mainInstrument.getShortName(), this.algoname, this.backtestDate);
 		
 		if (this.placeActualOrder) {
+			this.optimalHedgeDistance = getOptimalHedgeDistance(this.hedgeDistance, this.maxHedgeCostPerLeg);
+			
+			this.requiredMargin = getStraddleMargin(this.nonDirectional);
 			setLotBasedonAvailableMargin();
-			this.optimalHedgeDistance = getOptimalHedgeDistance(this.hedgeDistance, 1.5f);
+			
+		} else {
+			this.requiredMargin = this.mainInstrument.getStraddleMargin();
 		}
-		else this.requiredMargin = this.mainInstrument.getStraddleMargin();
+		
 	}
 
 	protected void initializeGenericParameters() {
@@ -137,7 +151,7 @@ public abstract class G3BaseClass extends BaseClass {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 						
-			String opOIFetch = "select f_user, f_main_instrument, algoname, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders, hedge_distance,"
+			String opOIFetch = "select f_user, f_main_instrument, algoname, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders, hedge_distance, max_hedge_cost_per_leg, non_directional, "
 					+ " order_enabled_monday, order_enabled_tuesday, order_enabled_wednesday, order_enabled_thursday, order_enabled_friday"
 					+ " from nexcorio_options_algo_strategy where id = " + this.napAlgoId;			  
 			  
@@ -150,10 +164,14 @@ public abstract class G3BaseClass extends BaseClass {
 				this.algoname =  "X"+this.napAlgoId + "-" + this.mainInstrument.getShortName() + "-" + rs.getString("algoname");
 				this.noOfLots = rs.getInt("no_of_lots");
 				this.maxFundAllocated = rs.getFloat("max_fund_allocated");
+				
+				this.maxHedgeCostPerLeg = rs.getFloat("max_hedge_cost_per_leg");
+				
 				this.hedgeDistance = rs.getInt("hedge_distance");
 				
 				this.optimalHedgeDistance = this.hedgeDistance;
 				
+				this.nonDirectional = rs.getBoolean("non_directional");
 				this.target = rs.getInt("target");
 				this.stoploss = rs.getInt("stoploss");
 				this.trailingStoploss = rs.getInt("trailing_stoploss");
@@ -181,8 +199,8 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 	}
 	
-	protected float setLotBasedonAvailableMargin() {
-		this.requiredMargin = this.mainInstrument.getStraddleMargin();
+	protected void setLotBasedonAvailableMargin() {
+		
 		float availableMargin = getAvailableMargin(getKiteConnect(this.userId), KiteUtil.SEGMENT_EQUITY);
 		
 		float maxFundCanUse = this.maxFundAllocated>availableMargin?availableMargin:this.maxFundAllocated;
@@ -202,8 +220,6 @@ public abstract class G3BaseClass extends BaseClass {
 		} else {
 			log.info(" requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
 		}
-		
-		return requiredMargin;
 	}
 	
 	protected float setLotBasedonAvailableMarginHalfStraddle() {
@@ -582,5 +598,89 @@ public abstract class G3BaseClass extends BaseClass {
 		} catch (Exception e) {			
 			log.error("Error"+e.getMessage(), e);
 		}
+	}
+	
+
+	protected float getStraddleMargin(boolean isFullStraddle) {
+		
+		float retVal = 0f;
+		
+		KiteConnect kiteconnect = getKiteConnect(this.userId);
+		String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( 0.5f, this.optimalHedgeDistance);
+		
+		float requiredMargin = getMarginRequiredForIronCondorFly(kiteconnect, entryStraddleOptionNames[0], entryStraddleOptionNames[1], entryStraddleOptionNames[2], entryStraddleOptionNames[3], this.lotSize, 60000f);
+		fileLogTelegramWriter.write("In getStraddleMargin fullrequiredMargin" + requiredMargin);
+		
+		float halfStraddleRequiredMargin = getMarginRequiredForIronCondorFly(kiteconnect, ceStraddleOptionName, null, ceHedgeOptionName, null, lotSize, 45000f);
+		fileLogTelegramWriter.write("In getStraddleMargin halfStraddleRequiredMargin" + halfStraddleRequiredMargin);
+		
+		if (isFullStraddle) {
+			retVal = requiredMargin;
+		} else {
+			retVal = halfStraddleRequiredMargin;
+		}
+		
+		return retVal;
+	}
+	
+	protected float getMarginRequiredForIronCondorFly(KiteConnect kiteconnect, String ceOptionName, String peOptionName, String ceHedgeOptionName, String peHedgeOptionName, int qty, float defaultReturnInCaseofError) {
+		float retVal = defaultReturnInCaseofError;
+		try {
+	    	// Check margin required
+    		List<MarginCalculationParams> params = new ArrayList<MarginCalculationParams>();
+    		
+    		if (ceHedgeOptionName!=null && !ceHedgeOptionName.equals("")) {
+	    		MarginCalculationParams ceHedgeItemMarginParam = new MarginCalculationParams();
+	    		ceHedgeItemMarginParam.exchange = "NFO"; 
+	    		ceHedgeItemMarginParam.variety = Constants.VARIETY_REGULAR;
+	    		ceHedgeItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
+	    		ceHedgeItemMarginParam.product = Constants.PRODUCT_MIS;
+	    		ceHedgeItemMarginParam.quantity = qty;
+	    		ceHedgeItemMarginParam.tradingSymbol = ceHedgeOptionName;			
+	    		ceHedgeItemMarginParam.transactionType = "BUY";
+				params.add(ceHedgeItemMarginParam);
+    		}
+    		if (peHedgeOptionName!=null && !peHedgeOptionName.equals("")) {
+				MarginCalculationParams peHedgeItemMarginParam = new MarginCalculationParams();
+	    		peHedgeItemMarginParam.exchange = "NFO"; 
+	    		peHedgeItemMarginParam.variety = Constants.VARIETY_REGULAR;
+	    		peHedgeItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
+	    		peHedgeItemMarginParam.product = Constants.PRODUCT_MIS;
+	    		peHedgeItemMarginParam.quantity = qty;
+	    		peHedgeItemMarginParam.tradingSymbol = peHedgeOptionName;			
+	    		peHedgeItemMarginParam.transactionType = "BUY";
+				params.add(peHedgeItemMarginParam);
+    		}
+    		if (ceOptionName!=null && !ceOptionName.equals("")) {    		
+				MarginCalculationParams ceItemMarginParam = new MarginCalculationParams();
+				ceItemMarginParam.exchange = "NFO"; 
+				ceItemMarginParam.variety = Constants.VARIETY_REGULAR;
+				ceItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
+				ceItemMarginParam.product = Constants.PRODUCT_MIS;
+				ceItemMarginParam.quantity = qty;
+				ceItemMarginParam.tradingSymbol = ceOptionName;			
+				ceItemMarginParam.transactionType = "SELL";
+				params.add(ceItemMarginParam);
+    		}
+    		if (peOptionName!=null && !peOptionName.equals("")) {
+				MarginCalculationParams peItemMarginParam = new MarginCalculationParams();
+				peItemMarginParam.exchange = "NFO"; 
+				peItemMarginParam.variety = Constants.VARIETY_REGULAR;
+				peItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
+				peItemMarginParam.product = Constants.PRODUCT_MIS;
+				peItemMarginParam.quantity = qty;
+				peItemMarginParam.tradingSymbol = peOptionName;			
+				peItemMarginParam.transactionType = "SELL";
+				params.add(peItemMarginParam);
+    		}
+    		
+    		CombinedMarginData marginData = kiteconnect.getCombinedMarginCalculation(params, true, false);
+    		fileLogTelegramWriter.write("In checkDailyMarginUsed -> initialMargin " + marginData.initialMargin.total+" finalMargin "+marginData.finalMargin.total);
+			retVal = ((float) marginData.initialMargin.total + (float) marginData.finalMargin.total)/2f;			
+		} catch (Exception | KiteException e) {			
+			e.printStackTrace();
+			log.info("Error in checkDailyMarginUsed"+e.getMessage(), e);
+		}
+		return retVal;
 	}
 }
