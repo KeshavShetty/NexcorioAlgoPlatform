@@ -49,7 +49,7 @@ public class JunkMain implements Runnable {
 			terraceConn = MultiDataSource.getTerraceConnection();
 			Statement stmt = terraceConn.createStatement();
 			
-			String chksql = "select count(*) from nexcorio_fno_expiry_dates where expiry_date = '" + expiryDate + "' and fno_prefix = '" + fnoPrefix + "' and fno_segment = 'NFO-OPT' and f_main_instrument = 2";
+			String chksql = "select count(*) from nexcorio_fno_expiry_dates where expiry_date = '" + expiryDate + "' and fno_prefix = '" + fnoPrefix + "' and fno_segment = 'NFO-FUT' and f_main_instrument = 2";
 			System.out.println(chksql);
 			
 			int recCount = 0;
@@ -60,7 +60,7 @@ public class JunkMain implements Runnable {
 			rs.close();
 			if (recCount==0) {
 				chksql = "INSERT INTO nexcorio_fno_expiry_dates (id, expiry_date, fno_prefix, fno_segment, f_main_instrument) VALUES ("
-						+ "nextval('nexcorio_fno_expiry_dates_id_seq'), '" + expiryDate + "', '" + fnoPrefix + "', 'NFO-OPT', 2)";
+						+ "nextval('nexcorio_fno_expiry_dates_id_seq'), '" + expiryDate + "', '" + fnoPrefix + "', 'NFO-FUT', 2)";
 				System.out.println(chksql);
 				stmt.executeUpdate(chksql);
 			}
@@ -94,9 +94,9 @@ public class JunkMain implements Runnable {
 			cal.set(Calendar.MINUTE, 30);
 			Date datEndTime= cal.getTime();
 			
-			String sourceSql = " SELECT instrument_token, record_time, last_traded_price, openinterest, trading_symbol from zerodha_intraday_streaming_data"
+			String sourceSql = " SELECT instrument_token, record_time, last_traded_price, openinterest, trading_symbol, total_buyquantity, total_sellquantity from zerodha_intraday_streaming_data"
 					+ " where quote_time >= '" + postgresLongDateFormat.format(datBeginTime) + "' and quote_time <= '" + postgresLongDateFormat.format(datEndTime) + "'"
-					+ " and (trading_symbol like '" + fnoPrefix + "%' or instrument_token = 256265)"
+					+ " and (instrument_token = 13939714)"
 					+ " order by quote_time";
 			
 			int page = 0;
@@ -124,7 +124,9 @@ public class JunkMain implements Runnable {
 				log.info(sourceSql);
 				
 				while (rs.next()) {
-					JunkThread junkThread = new JunkThread(expiryDate, fnoPrefix, rs.getLong("instrument_token"), rs.getString("trading_symbol"), rs.getTimestamp("record_time"), rs.getFloat("last_traded_price"), rs.getFloat("openinterest"));
+					JunkThread junkThread = new JunkThread(expiryDate, fnoPrefix, rs.getLong("instrument_token"), rs.getString("trading_symbol"), rs.getTimestamp("record_time"),
+							rs.getFloat("last_traded_price"), rs.getFloat("openinterest"), rs.getFloat("total_buyquantity"), rs.getFloat("total_sellquantity")
+							);
 					
 					recExist = true;
 				}
@@ -134,7 +136,7 @@ public class JunkMain implements Runnable {
 				rtxStmt.close();
 				rtxConn.close();
 			} while(recExist == true);
-			new ATMMovementAnalyzerThreadAlgoThread("NIFTY", forDate + " 09:20:00");
+			//new ATMMovementAnalyzerThreadAlgoThread("NIFTY", forDate + " 09:20:00");
 		} catch (Exception e) {
 			e.printStackTrace();
 			log.error("Error"+e.getMessage(),e);
@@ -154,21 +156,21 @@ public class JunkMain implements Runnable {
 
 	public static void main(String[] args) {
 	
-		new JunkMain("2025-04-01", "2025-04-03", "NIFTY25403");
-		new JunkMain("2025-04-02", "2025-04-03", "NIFTY25403");
-		new JunkMain("2025-04-03", "2025-04-03", "NIFTY25403");
+		new JunkMain("2025-04-01", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-02", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-03", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-04", "2025-04-24", "NIFTY25APR");
 		
-		new JunkMain("2025-04-04", "2025-04-09", "NIFTY25409");
-		new JunkMain("2025-04-07", "2025-04-09", "NIFTY25409");
-		new JunkMain("2025-04-08", "2025-04-09", "NIFTY25409");
-		new JunkMain("2025-04-09", "2025-04-09", "NIFTY25409");
-
-
-		new JunkMain("2025-04-11", "2025-04-17", "NIFTY25417");
-		new JunkMain("2025-04-15", "2025-04-17", "NIFTY25417");
-		new JunkMain("2025-04-16", "2025-04-17", "NIFTY25417");
-		new JunkMain("2025-04-17", "2025-04-17", "NIFTY25417");
-
+		new JunkMain("2025-04-07", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-08", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-09", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-11", "2025-04-24", "NIFTY25APR");
+		
+		new JunkMain("2025-04-15", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-16", "2025-04-24", "NIFTY25APR");
+		new JunkMain("2025-04-17", "2025-04-24", "NIFTY25APR");
+		
+		
 		
 	}
 	

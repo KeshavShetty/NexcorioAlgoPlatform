@@ -25,7 +25,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		
 		this.mainInstrument = KiteCache.getTradingSymbolMainInstrumentCache(instrumentName);
 		
-		this.algoname="ATMMovementAnalyzer";
+		this.algoname=this.mainInstrument.getShortName() + "ATMMovementAnalyzer";
 		
 		if (backDateStr!=null) {
 			try {

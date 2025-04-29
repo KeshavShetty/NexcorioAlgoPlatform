@@ -31,6 +31,7 @@ public class Main {
 		KiteHelper kiteHelper = new KiteHelper();
 		kiteHelper.login(); // First login to Kite 
 		log.info("Login done");
+		System.out.println("Login done");
 		
 		kiteHelper.populateInstruments();
 				

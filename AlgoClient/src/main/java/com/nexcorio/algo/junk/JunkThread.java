@@ -36,10 +36,12 @@ public class JunkThread implements Runnable {
 	Float ltp;
 	Float openinterest;
 	Long fStreamingId = null;
+	float total_buyquantity;
+	float total_sellquantity;
 	
 	private static float INTEREST_RATE = 0.1f;
 	
-	public JunkThread(String expiryDate, String fnoPrefix, Long instrument_token, String trading_symbol, Timestamp record_time, Float ltp, Float openinterest) {
+	public JunkThread(String expiryDate, String fnoPrefix, Long instrument_token, String trading_symbol, Timestamp record_time, Float ltp, Float openinterest, float total_buyquantity, float total_sellquantity) {
 		
 		this.expiryDate = expiryDate;
 		this.fnoPrefix = fnoPrefix;
@@ -48,6 +50,8 @@ public class JunkThread implements Runnable {
 		this.record_time = record_time;
 		this.ltp = ltp;
 		this.openinterest = openinterest;
+		this.total_buyquantity = total_buyquantity;
+		this.total_sellquantity = total_sellquantity;
 		
 		Thread t = new Thread(this, trading_symbol+record_time);
 		t.setPriority(Thread.MAX_PRIORITY);
@@ -59,13 +63,13 @@ public class JunkThread implements Runnable {
 	public void run() {
 		try {
 			//System.out.println(instrument_token+"-" + trading_symbol+"-"+record_time+"-"+ltp+"-"+openinterest);
-			if (this.instrument_token != 256265)  {
+			if (this.instrument_token != 13939714)  {
 				saveOrUpdateFnOInstrument(expiryDate, fnoPrefix);
 			}
 			
 			saveTick();
 			
-			if (this.instrument_token != 256265)  { // This is Option, calculate greeks
+			if (this.instrument_token != 13939714)  { // This is Option, calculate greeks
 				float indexPrice = getUnderlyingPriceFromTicks(record_time);
 				String optionType = trading_symbol.endsWith("CE")?"CE":"PE";
 				
@@ -101,8 +105,9 @@ public class JunkThread implements Runnable {
 				trading_symbolToUse = "NIFTY";
 			}
 			
-			String insertSql = "INSERT INTO nexcorio_tick_data (id, f_main_instrument, trading_symbol, record_time, last_traded_price, open_interest, quote_time) "
-					+ " VALUES (" + fStreamingId +  ", 2, '" + trading_symbolToUse + "', '" + postgresLongDateFormat.format(record_time) + "', " + ltp + ", " + openinterest + ",'"+ postgresLongDateFormat.format(record_time)+ "')";
+			String insertSql = "INSERT INTO nexcorio_tick_data (id, f_main_instrument, trading_symbol, record_time, last_traded_price, open_interest, quote_time, total_buy_qty, total_sell_qty) "
+					+ " VALUES (" + fStreamingId +  ", 2, '" + trading_symbolToUse + "', '" + postgresLongDateFormat.format(record_time) + "', " + ltp + ", " + openinterest + ",'"+ postgresLongDateFormat.format(record_time)+ "'"
+							+ "," + total_buyquantity + "," + total_sellquantity + " )";
 			System.out.println(insertSql);
 			stmt.execute(insertSql);
 			

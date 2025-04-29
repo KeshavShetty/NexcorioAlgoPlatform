@@ -504,8 +504,11 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String algoTag = "X" + this.napAlgoId;
 			
-			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, algo_order_id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag) VALUES "
-					+ " (nextval('nexcorio_real_orders_id_seq')," +dbOrderId + ", " + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'"+algoTag+"')"; 
+			String derivativeExchange = "NFO";
+			if (this.mainInstrument.getExchange().equals("BSE")) derivativeExchange = "BFO";
+			
+			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, algo_order_id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange) VALUES "
+					+ " (nextval('nexcorio_real_orders_id_seq')," +dbOrderId + ", " + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'"+algoTag + "','" + derivativeExchange+"')"; 
 			  log.info(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
@@ -532,8 +535,11 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String algoTag = "X" + this.napAlgoId;
 			
-			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag) VALUES "
-					+ " (nextval('nexcorio_real_orders_id_seq')," + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'" + algoTag+ "' )"; 
+			String derivativeExchange = "NFO";
+			if (this.mainInstrument.getExchange().equals("BSE")) derivativeExchange = "BFO";
+			
+			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange) VALUES "
+					+ " (nextval('nexcorio_real_orders_id_seq')," + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'" + algoTag+"','" + derivativeExchange+ "' )"; 
 			  log.info(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
@@ -552,7 +558,9 @@ public abstract class G3BaseClass extends BaseClass {
 	
 	protected void saveAlgoDailySummary(float profit, float maxProfit, Date maxProfitReachedAt, float worstProfit, Date maxLowestpointReachedAt, float maxTrailingProfit) {
 		Connection conn = null;
-		if (profit != 0 && maxProfit != 0) {
+		if (profit == 0 && maxProfit == 0 && worstProfit == 0) {
+			fileLogTelegramWriter.write("Blank day, skipping save");
+		}  else {
 			try {			
 				conn = HDataSource.getConnection();
 				Statement stmt = conn.createStatement();

@@ -1,10 +1,13 @@
 package com.nexcorio.algo.backtest;
 
 import java.lang.reflect.Constructor;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.experimental.theories.PotentialAssignment;
 
 /**
  * 
@@ -38,28 +41,35 @@ public class TriggerAlgo {
 		}
 	}
 	
-	public static void main(String[] args) {
-		Long algoId = 48L;
-		triggerAlgo(algoId, "2025-04-17 09:20:00");
-		triggerAlgo(algoId, "2025-04-16 09:20:00");
-		triggerAlgo(algoId, "2025-04-15 09:20:00");
+	public static void triggerAlgo(Long napAlgoId, String fromDate, String toDate) {
+		SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+		try {
+			Calendar cal = Calendar.getInstance();		
+			cal.setTime(postgresLongDateFormat.parse(fromDate));
+			
+			do {
+				System.out.println("Launching algo for day " + postgresLongDateFormat.format(cal.getTime()));
+				triggerAlgo(napAlgoId, postgresLongDateFormat.format(cal.getTime()));
+				cal.add(Calendar.DATE, 1);
+			} while(cal.getTime().before(postgresLongDateFormat.parse(toDate)) || cal.getTime().equals(postgresLongDateFormat.parse(toDate)));
+			
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}
 		
-//		triggerAlgo(algoId, "2025-04-01 09:20:00");
-//		triggerAlgo(algoId, "2025-04-02 09:20:00");
-//		triggerAlgo(algoId, "2025-04-03 09:20:00");
-//		triggerAlgo(algoId, "2025-04-04 09:20:00");
-//		triggerAlgo(algoId, "2025-04-07 09:20:00");
-//		triggerAlgo(algoId, "2025-04-08 09:20:00");
-//		triggerAlgo(algoId, "2025-04-09 09:20:00");
-//		triggerAlgo(algoId, "2025-04-11 09:20:00");
-//		
-//		triggerAlgo(algoId, "2025-04-15 09:20:00");
-//		triggerAlgo(algoId, "2025-04-16 09:20:00");
-//		triggerAlgo(algoId, "2025-04-17 09:20:00");
-//		
-//		triggerAlgo(algoId, "2025-04-21 09:20:00");
-//		triggerAlgo(algoId, "2025-04-22 09:20:00");
-//		triggerAlgo(algoId, "2025-04-23 09:20:00");
+	}
+	
+	public static void main(String[] args) {
+		//Long algoId = 42L;
+//		triggerAlgo(55L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+//		triggerAlgo(58L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+		
+		triggerAlgo(78L, "2025-04-29 09:20:00", "2025-04-29 09:24:00");
+		//triggerAlgo(66L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+//		triggerAlgo(63L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+//		triggerAlgo(65L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
 		
 	}
 	

@@ -9,6 +9,7 @@ CREATE TABLE nexcorio_real_orders
   option_name character varying(25),
   quantity integer,
   transaction_type character varying(5),
+  exchange character varying(5) DEFAULT 'NFO'::character varying,
   waitforpositionfill boolean,
   status character varying(15) DEFAULT 'PENDING'::character varying,
   record_time timestamp without time zone DEFAULT now(),

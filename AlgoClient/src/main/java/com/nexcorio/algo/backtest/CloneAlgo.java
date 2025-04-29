@@ -81,17 +81,18 @@ public class CloneAlgo {
 			Statement stmt = conn.createStatement();
 			
 			boolean isActive = true;
-			String fetchNextSeq = "select nextval('nexcorio_options_algo_strategy_id_seq') as nextId";
-	    	if (isTestAlgo) {
-	    		fetchNextSeq = "select nextval('nexcorio_options_algo_strategy_test_id_seq') as nextId";
-	    		isActive = false;
-	    	}
 			Long newAlgoId = null;
-	    	ResultSet rs = stmt.executeQuery(fetchNextSeq);
-			while (rs.next()) {
-				newAlgoId = rs.getLong("nextId");
-			}
-			rs.close();
+			String fetchNextSeq = "select nextval('nexcorio_options_algo_strategy_id_seq') as nextId";
+	    	if (isTestAlgo) {	    		
+	    		isActive = false;
+	    		newAlgoId = 9000 + napAlgoId;
+	    	} else {			
+		    	ResultSet rs = stmt.executeQuery(fetchNextSeq);
+				while (rs.next()) {
+					newAlgoId = rs.getLong("nextId");
+				}
+				rs.close();
+	    	}
 			
 			String opOIFetch = "select f_user, f_main_instrument, algoname, entry_time, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders, "
 					+ " order_enabled_monday, order_enabled_tuesday, order_enabled_wednesday, order_enabled_thursday, order_enabled_friday, algo_class_name from nexcorio_options_algo_strategy where id = " + napAlgoId;			  
@@ -101,7 +102,7 @@ public class CloneAlgo {
 			System.out.println("opOIFetch="+opOIFetch);
 			
 			String algoClassname = null;
-			rs = stmt.executeQuery(opOIFetch);
+			ResultSet rs = stmt.executeQuery(opOIFetch);
 			while (rs.next()) {
 				algoClassname = rs.getString("algo_class_name");
 				insertSqlPart = insertSqlPart + "," + rs.getLong("f_user");
@@ -171,7 +172,7 @@ public class CloneAlgo {
 	}
 	
 	public static void main(String[] args) {
-		cloneAlgo(48L, false, 2L);
+		cloneAlgo(5L, false, 2L);
 		
 	}
 }

@@ -39,6 +39,7 @@ class KiteOrderDetails {
 	String transactionType;
 	boolean waitforpositionfill;
 	String algoTag;
+	String exchange;
 	
 	String placedKiteOrderId;
 	
@@ -106,6 +107,14 @@ class KiteOrderDetails {
 
 	public void setAlgoTag(String algoTag) {
 		this.algoTag = algoTag;
+	}
+
+	public String getExchange() {
+		return exchange;
+	}
+
+	public void setExchange(String exchange) {
+		this.exchange = exchange;
 	}
 }
 
@@ -187,6 +196,26 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		}
 	}
 	
+	
+	private void changeOrderStatus(Long orderId, String status) {
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			stmt.executeUpdate("UPDATE nexcorio_real_orders set status='" + status +"', executed_time=NOW() WHERE id="+orderId);
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	private List<KiteOrderDetails> getPendingOrderIds() {
 		List<KiteOrderDetails> retList =  new ArrayList<KiteOrderDetails>();
 		
@@ -195,7 +224,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String opOIFetch = "select id, algo_order_id, option_name, quantity, transaction_type, waitforpositionfill, algo_tag from nexcorio_real_orders where f_user = " + this.userId + " and status='PENDING'";
+			String opOIFetch = "select id, algo_order_id, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange from nexcorio_real_orders where f_user = " + this.userId + " and status='PENDING'";
 			//fileLogTelegramWriter.write("opOIFetch="+opOIFetch);
 			
 			ResultSet rs = stmt.executeQuery(opOIFetch);
@@ -207,6 +236,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 						rs.getString("transaction_type"),
 						rs.getBoolean("waitforpositionfill"));
 				aOrder.setAlgoTag(rs.getString("algo_tag"));
+				aOrder.setExchange(rs.getString("exchange"));
 				retList.add(aOrder);
 			}
 			rs.close();
@@ -225,7 +255,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		return retList;
 	}
 	
-	private String placeKiteOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal, String algoTag) {
+	private String placeKiteOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal, String algoTag, String exchange) {
 		log.info("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal+" algoTag="+algoTag);
 		String orderId = null;
@@ -235,7 +265,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			OrderParams orderParameters = new OrderParams();
 			
 	        orderParameters.orderType=Constants.ORDER_TYPE_MARKET;
-	        orderParameters.exchange="NFO";
+	        orderParameters.exchange=exchange;
 	        orderParameters.validity=Constants.VALIDITY_DAY;
 	        orderParameters.tradingsymbol=optionname;
 			orderParameters.transactionType=transactionType;
@@ -414,7 +444,11 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 				if (optionKiteOrders.size()>0) {
 					if (isUserLevelRealtimeOrderEnabled()) {
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
-							String placedKiteOrderId = placeKiteOrder(aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag());
+							changeOrderStatus(aOrder.getId(), "PROCESSING"); // Immediately change order status, so that it is no more available for next run cycle (To avoid repeated order placing in case of Kite fail)
+							
+							String placedKiteOrderId = placeKiteOrder(aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
+									KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
+							
 							updateOrderStatus(aOrder.getId(), placedKiteOrderId);
 							aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 						}

@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ import org.json.JSONException;
 
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
+import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
@@ -1015,6 +1017,48 @@ public class BaseClass {
 			e.printStackTrace();
 		}
 		return workingDays;
+	}
+	
+	protected String getNextNFUTUREExpiryDatePrefix(Long mainInstrumentId, String exchange) {
+		fileLogTelegramWriter.write("In getNextNFUTUREExpiryDatePrefix exchange="+exchange);
+		String retStr = "";
+		
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getConnection();
+			stmt = conn.createStatement();
+			
+			String fnoExchange = "NFO-FUT";
+			if (exchange.equalsIgnoreCase("BSE")) fnoExchange = "BFO-FUT";
+			
+			Calendar cal = Calendar.getInstance();
+			if (backtestDate!=null) cal.setTime(backtestDate.getTime());
+			cal.add(Calendar.DATE, -1);
+			
+			String fetchSql = "SELECT fno_prefix from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
+					+ " ORDER BY expiry_date ASC LIMIT 1";
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			while(rs.next()) {
+				retStr = rs.getString("fno_prefix") + "FUT";
+			}
+			rs.close();			
+			stmt.close();
+			fileLogTelegramWriter.write("retStr="+retStr);
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retStr;
 	}
 	
 }
