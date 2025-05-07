@@ -1,11 +1,14 @@
 package com.nexcorio.algo.analytics;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -76,9 +79,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	private void processATMMovement() {
 		try {
-			processAndSaveRawStraddleData(0.4f);
-			processAndSaveRawStraddleData(0.5f);
-			processAndSaveRawStraddleData(0.6f);
+			Map<String, Integer> futuresMap = getFutureStandOff();
+			processAndSaveRawStraddleData(0.4f, futuresMap.get("Total"), futuresMap.get("Bullish"));
+			processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"));
+			processAndSaveRawStraddleData(0.6f, futuresMap.get("Total"), futuresMap.get("Bullish"));
 			
 		} catch (Exception e) {
 			log.error("Error"+e.getMessage(),e);
@@ -87,7 +91,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	
-	private void processAndSaveRawStraddleData(float baseDelta) {
+	private void processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint) {
 		Connection conn = null;
 		try {			
 			conn = HDataSource.getConnection();
@@ -112,6 +116,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", peIV"
 						+ ", ceLtp"
 						+ ", peLtp"
+						+ ", totalFuturePoints"
+						+ ", bullishFuturePoints"
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp +"," + baseDelta +""
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -134,6 +140,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + ceOptionGreek.getLtp() 
 						+ " ," + peOptionGreek.getLtp()
+						+ " ," + futuresTotalPoint
+						+ " ," + futuresBullishPoint
 						+ ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
@@ -149,6 +157,53 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				log.error(e);
 			}
 		}
+	}
+	
+	private Map<String, Integer> getFutureStandOff() {
+		Map<String, Integer> retMap = new HashMap<String, Integer>();
+		
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), this.mainInstrument.getExchange());
+			
+			String fetchSql = "SELECT count(*) as total, COUNT(DISTINCT CASE WHEN total_buy_qty > total_sell_qty THEN id END) as bullishCount,"
+					+ " COUNT(DISTINCT CASE WHEN total_buy_qty < total_sell_qty THEN id END) as bearishCount"
+					+ " FROM nexcorio_tick_data"
+					+ " WHERE quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " AND  quote_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'"
+					+ " AND trading_symbol='" + futurePrefix + "'";
+			
+			fileLogTelegramWriter.write( "  fetchSql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int totalEntry = 0;
+			int bullishEntry = 0;
+			
+			while (rs.next()) {
+				totalEntry = rs.getInt("total");
+				bullishEntry = rs.getInt("bullishCount");
+			}
+			rs.close();
+			
+			retMap.put("Total", totalEntry);
+			retMap.put("Bullish", bullishEntry);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap; 
 	}
 	
 	public static void main(String[] args) {

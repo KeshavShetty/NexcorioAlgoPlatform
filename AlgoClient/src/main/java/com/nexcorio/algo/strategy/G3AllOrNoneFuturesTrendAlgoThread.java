@@ -18,14 +18,13 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass implements Runnable{
+public class G3AllOrNoneFuturesTrendAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3TriangularisationFuturesTrendAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3AllOrNoneFuturesTrendAlgoThread.class);
 	
 	public float baseDelta = 0.5f;
-	public boolean usePointOrCount = true;
 	
-	public G3TriangularisationFuturesTrendAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3AllOrNoneFuturesTrendAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -53,38 +52,6 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 			String lastKnownTrend = "Unknown";
 			
 			String currentTrend = null;
-			do {
-				currentTrend = getSellerDirectionByFuturesTrend(lastKnownTrend);
-				if (currentTrend.equals("Unknown")) sleep(15);
-			} while (currentTrend.equals(lastKnownTrend));
-			
-			if (currentTrend.equals("CE")) {
-				ceStraddleOptionName =  entryStraddleOptionNames[0];
-				ceHedgeOptionName =  entryStraddleOptionNames[2];
-				
-				float cePrice = getPriceFromTicks(ceStraddleOptionName);
-				
-				fileLogTelegramWriter.write( "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName);
-				ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-				if (this.placeActualOrder) { 
-					placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-					placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-				}
-			} else { // PE
-				peStraddleOptionName =  entryStraddleOptionNames[1];
-				peHedgeOptionName =  entryStraddleOptionNames[3];
-				
-				float pePrice = getPriceFromTicks(peStraddleOptionName);
-				
-				fileLogTelegramWriter.write( "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName);
-				peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-				if (this.placeActualOrder) { 
-					placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-					placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-				}
-			}
-			
-			lastKnownTrend = currentTrend;
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();
@@ -95,7 +62,7 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 			updateAlgoStatus("Running");
 			
 			do {
-				sleep(15); // Every 10sec
+				sleep(5); // Every 10sec
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -124,86 +91,61 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByFuturesTrend(lastKnownTrend); // StatusQuo, CE, PE
+				currentTrend = getSellerDirectionByFuturesTrend(); // Unknown, CE, PE
 				
 				if (!currentTrend.equals(lastKnownTrend)) {
-				
-					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-					
-					if (currentTrend.equals("CE")) { // Exit PE, Enter CE
-						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-							// Exit PE
-							if (this.placeActualOrder) {
-								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							peStraddleOptionName = "";
+					fileLogTelegramWriter.write( " Trend changed, repositioning");
+					// Exit running position 
+					if (!peStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+						// Exit PE
+						if (this.placeActualOrder) {
+							placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
-						if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-							if (!ceStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-								// Exit CE
-								if (this.placeActualOrder) {
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								ceStraddleOptionName = "";
-							}
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
+						peStraddleOptionName = "";
+					}
+					if (!ceStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+						// Exit CE
+						if (this.placeActualOrder) {
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						ceStraddleOptionName = "";
+					}
+				
+					if (currentTrend.equals("CE") || currentTrend.equals("PE")) {
+						if (this.noOfOrders<maxAllowedNoOfOrders) {
+							entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+							
+							if (currentTrend.equals("CE")) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
 								
-								fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-								// Place order
+								fileLogTelegramWriter.write( "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName);
 								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
 								if (this.placeActualOrder) {
-									if (ceHedgeOptionName.equals("")) {								
+									if (ceHedgeOptionName.equals("") ) {
 										ceHedgeOptionName =  entryStraddleOptionNames[2];
-										placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
-							} else {
-								prepareExit("Too many orders");
-							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
-						}
-					} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-							// Exit CE
-							if (this.placeActualOrder) {
-								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							ceStraddleOptionName = "";
-						}
-						if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
-							if (!peStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-								if (this.placeActualOrder) {
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								peStraddleOptionName = "";
-							}
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
+							} else { // PE
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
 								
-								fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-								// Place order
+								fileLogTelegramWriter.write( "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName);
 								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 								if (this.placeActualOrder) {
-									if (peHedgeOptionName.equals("")) {
+									if (peHedgeOptionName.equals("") ) {
 										peHedgeOptionName =  entryStraddleOptionNames[3];
-										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
-							} else {
-								prepareExit("Too many orders");
 							}
 						} else {
-							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
+							prepareExit("Too many order");
 						}
 					}
 					lastKnownTrend = currentTrend;
@@ -232,9 +174,9 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 		}
 	}
 	
-	private String getSellerDirectionByFuturesTrend( String lastKnownTrend) {
+	private String getSellerDirectionByFuturesTrend() {
 
-		String retVal = lastKnownTrend;
+		String retVal = "Unknown";
 		
 		Connection conn = null;
 		try {
@@ -297,18 +239,10 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 			
 			fileLogTelegramWriter.write(" totalBullishPoint="+totalBullishPoint+" totalBearishPoint="+totalBearishPoint+" totalBullishCount="+totalBullishCount + " totalBearishCount="+totalBearishCount);
 			
-			if (usePointOrCount == true) { // usePoint
-				if (totalBullishPoint > totalBearishPoint) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
-			} else {
-				if (totalBullishCount > totalBearishCount) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
+			if (totalBullishCount==3) {
+				retVal = "PE";
+			} else if (totalBearishCount==3) {
+				retVal = "CE";
 			}
 		} catch(Exception ex) {
 			log.error("Error"+ex.getMessage(),ex);
@@ -325,7 +259,7 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 	}
 	
 	public static void main(String[] args) {
-		new G3TriangularisationFuturesTrendAlgoThread(23L, null);
+		new G3AllOrNoneFuturesTrendAlgoThread(23L, null);
 	}
 
 }

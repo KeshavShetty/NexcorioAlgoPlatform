@@ -5,6 +5,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -14,14 +18,16 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
+public class G3TriangularisationIVTrendAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekGapAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3TriangularisationIVTrendAlgoThread.class);
 	
+	public float baseDelta = 0.5f;
 	public String greekname = "iv";
-	public float baseDelta = 0.5f;	
 	
-	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
+	private Map<Long, String> lastKnownTrends = new HashMap<Long, String>();
+	
+	public G3TriangularisationIVTrendAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -35,7 +41,6 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	@Override
 	public void run() {
 		try {
-			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
 			
 			long ceDbId = -1;
 			long peDbId = -1;
@@ -46,20 +51,20 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			
-			String lastKnownTrend = "Unknown";
+			lastKnownTrends.put(2L, "Unknown"); // NIFTY
+			lastKnownTrends.put(3L, "Unknown"); // BANKNIFTY
+			lastKnownTrends.put(4L, "Unknown"); // SENSEX
 			
-			String currentTrend = null;
-			do {
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
-				if (currentTrend.equals("Unknown")) sleep(15);
-			} while (currentTrend.equals(lastKnownTrend));
+			String lastKnownMergedTrend = "Unknown";
 			
-			if (currentTrend.equals("CE")) {
+			String currentMergedTrend = getSellerDirectionByGreekTriangular();
+			
+			if (currentMergedTrend.equals("CE")) {
 				ceStraddleOptionName =  entryStraddleOptionNames[0];
 				ceHedgeOptionName =  entryStraddleOptionNames[2];
 				
 				float cePrice = getPriceFromTicks(ceStraddleOptionName);
-			
+				
 				fileLogTelegramWriter.write( "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName);
 				ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
 				if (this.placeActualOrder) { 
@@ -80,7 +85,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				}
 			}
 			
-			lastKnownTrend = currentTrend;
+			lastKnownMergedTrend = currentMergedTrend;
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();
@@ -91,7 +96,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			updateAlgoStatus("Running");
 			
 			do {
-				sleep(15); // Every 10sec
+				sleep(5); // Every 10sec
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -120,13 +125,13 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
+				currentMergedTrend = getSellerDirectionByGreekTriangular(); // StatusQuo, CE, PE
 				
-				if (!currentTrend.equals(lastKnownTrend)) {
+				if (!currentMergedTrend.equals(lastKnownMergedTrend)) {
 				
 					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 					
-					if (currentTrend.equals("CE")) { // Exit PE, Enter CE
+					if (currentMergedTrend.equals("CE")) { // Exit PE, Enter CE
 						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 							// Exit PE
@@ -147,6 +152,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
+								
 								fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
 								// Place order
 								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
@@ -163,7 +169,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 						} else {
 							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
 						}
-					} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
+					} else if (currentMergedTrend.equals("PE")) { // Exit CE, Enter PE
 						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
@@ -183,6 +189,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
+								
 								fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
 								// Place order
 								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
@@ -200,8 +207,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 						}
 					}
-					lastKnownTrend = currentTrend;
-				}
+					lastKnownMergedTrend = currentMergedTrend;
+				} 
 				
 				checkExitSignals();
 				
@@ -226,7 +233,30 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}
 	}
 	
-	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
+	private String getSellerDirectionByGreekTriangular() {
+		
+		int ceCount = 0;
+		int peCount = 0;
+		
+		Iterator<Long> iter =  lastKnownTrends.keySet().iterator();
+		while(iter.hasNext()) {
+			Long instrId = iter.next();
+			String currentSellerTrend =  getSellerDirectionByGreekTriangular(instrId, this.greekname, lastKnownTrends.get(instrId));
+			
+			if (currentSellerTrend.equals("CE")) ceCount++;
+			else if (currentSellerTrend.equals("PE")) peCount++;
+			
+			lastKnownTrends.put(instrId, currentSellerTrend);
+		}
+		
+		fileLogTelegramWriter.write("ceCount="+ceCount+" peCount="+peCount);
+		
+		if (ceCount > peCount) return "CE";
+		else if (peCount > ceCount) return "PE";
+		else return "Unknown";
+	}
+	
+	private String getSellerDirectionByGreekTriangular(Long mainInstrumentId, String greekName, String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
 		Connection conn = null;
@@ -235,13 +265,13 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";
-			if (this.greekname.equalsIgnoreCase("ltp")) {
+			if (greekName.equalsIgnoreCase("ltp")) {
 				fieldname = "celtp as ceGreek, peltp as peGreek";
-			} else if (this.greekname.equalsIgnoreCase("gamma")) {
+			} else if (greekName.equalsIgnoreCase("gamma")) {
 				fieldname = "cegamma as ceGreek, pegamma as peGreek";
 			} 
 			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + mainInstrumentId + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " order by record_time desc limit 5";
@@ -262,7 +292,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
 			
-			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
+			if (greekName.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
 			
 			if (gapCpunt == 0) {
 				retVal = "PE";
@@ -277,7 +307,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 					retVal = "CE";
 				}
 			}
-			
+			fileLogTelegramWriter.write(" For " + mainInstrumentId + " retruning " + retVal);
 		} catch(Exception ex) {
 			ex.printStackTrace();
 		}finally {
@@ -293,9 +323,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	}
 	
 	public static void main(String[] args) {
-		new G3GreekGapAlgoThread(23L, null);
+		new G3TriangularisationIVTrendAlgoThread(23L, null);
 	}
-
-	
 
 }

@@ -680,7 +680,7 @@ public class KiteHelper {
         //minimum value must be 5 for time interval for reconnection
         tickerProvider.setMaximumRetryInterval(10);
         //set number to times ticker can try reconnection, for infinite retries use -1
-        tickerProvider.setMaximumRetries(5000);
+        tickerProvider.setMaximumRetries(-1);
 
         /** connects to com.rainmatter.ticker server for getting live quotes*/
         tickerProvider.connect();

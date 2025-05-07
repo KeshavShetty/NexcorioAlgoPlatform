@@ -292,6 +292,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 					noOfOrdersExecuted++;
 	        	} while(remainingQty>0);
 	        	if (waitForPositionFill) {
+	        		fileLogTelegramWriter.write("waitForPositionFill=TRUE, openPositionsBeforeOrder=" + openPositionsBeforeOrder); 
 	        		waitTillAllPositionFilled(optionname, orderParameters.transactionType.equals("BUY")? orderParameters.quantity:-orderParameters.quantity, openPositionsBeforeOrder);
 	        	}
 	        }
@@ -319,7 +320,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	    	do {
 	    		Thread.sleep(500); // Sleep till order executed
 	    		newOpenPositionAfterOrder = getOpenPosition(optionName);
-	    		log.info(optionName + " waitTillAllPositionFilled loop qtyFromBuyOrder="+newOpenPositionAfterOrder+" ordered quantity="+orderQuantity);
+	    		fileLogTelegramWriter.write(optionName + " waitTillAllPositionFilled loop qtyFromBuyOrder="+newOpenPositionAfterOrder+" ordered quantity="+orderQuantity);
 	    		numberOfSecondPassed++;
 	    	} while(newOpenPositionAfterOrder!=openPositionsBeforeOrder+orderQuantity && numberOfSecondPassed<10); // Either all quantity filled or 10 seconds over 20*500ms
 		} catch (Exception ex) {

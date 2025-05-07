@@ -114,11 +114,11 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 					maxLowestpointReached=currentProfitPerUnit;
 					maxLowestpointReachedAt = getCurrentTime();
 				}
-				trailingProfit = (currentProfitPerUnit-maxProfitReached)/lotSize;
+				trailingProfit = (currentProfitPerUnit-maxProfitReached);
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
-				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached/lotSize)+" maxTrailingProfit="+maxTrailingProfit);
+				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
 				optiontrend = getOptionTrendFromOIWorth(lastKnownOptiontrend); // StatusQuo, CE, PE
 				

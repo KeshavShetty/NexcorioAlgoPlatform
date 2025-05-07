@@ -14,14 +14,13 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
+public class G3DirectionByATMPriceChangeAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekGapAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3DirectionByATMPriceChangeAlgoThread.class);
 	
-	public String greekname = "iv";
 	public float baseDelta = 0.5f;	
 	
-	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3DirectionByATMPriceChangeAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -44,15 +43,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-			
 			String lastKnownTrend = "Unknown";
 			
-			String currentTrend = null;
-			do {
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
-				if (currentTrend.equals("Unknown")) sleep(15);
-			} while (currentTrend.equals(lastKnownTrend));
+			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+						
+			String currentTrend = getSellerDirectionByATMPriceChange(lastKnownTrend);
 			
 			if (currentTrend.equals("CE")) {
 				ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -120,7 +115,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
+				currentTrend = getSellerDirectionByATMPriceChange(lastKnownTrend); // StatusQuo, CE, PE
 				
 				if (!currentTrend.equals(lastKnownTrend)) {
 				
@@ -226,57 +221,64 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}
 	}
 	
-	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
-		String retVal = lastKnownTrend;
+	private String getSellerDirectionByATMPriceChange(String lastknownTrend) {
+		String retVal = lastknownTrend;
 		
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fieldname = "ceiv as ceGreek, peiv as peGreek";
-			if (this.greekname.equalsIgnoreCase("ltp")) {
-				fieldname = "celtp as ceGreek, peltp as peGreek";
-			} else if (this.greekname.equalsIgnoreCase("gamma")) {
-				fieldname = "cegamma as ceGreek, pegamma as peGreek";
-			} 
-			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+			String fetchSql = "select celtp as ceGreek, peltp as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
 					+ " and base_delta > 0.49 and base_delta < 0.51"
-					+ " order by record_time desc limit 5";
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 1";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
-			int gapCpunt = 0;
+			float celtpNow = 0f;
+			float peltpNow = 0f;
 			
 			while (rs.next()) {
-				float ceGreek = rs.getFloat("ceGreek");
-				float peGreek = rs.getFloat("peGreek");
-				if (ceGreek>peGreek) {
-					gapCpunt++;
-				}
+				celtpNow = rs.getFloat("ceGreek");
+				peltpNow = rs.getFloat("peGreek");
 			}
-			rs.close();			
+			rs.close();	
+			
+			fetchSql = "select celtp as ceGreek, peltp as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+					+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime(-3)) + "'"
+					+ " order by record_time desc limit 1";
+			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+			rs = stmt.executeQuery(fetchSql);
+			
+			float celtpThen = 0f;
+			float peltpThen = 0f;
+			
+			while (rs.next()) {
+				celtpThen = rs.getFloat("ceGreek");
+				peltpThen = rs.getFloat("peGreek");
+			}
+			rs.close();
 			stmt.close();
 			
-			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
+			float ceChangeInPercent =  (celtpNow-celtpThen)*100f/celtpThen;
+			float peChangeInPercent =  (peltpNow-peltpThen)*100f/peltpThen;
 			
-			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
+			fileLogTelegramWriter.write("celtpNow="+celtpNow+" peltpNow="+peltpNow+" celtpThen="+celtpThen+" peltpThen="+peltpThen+" ceChangeInPercent="+ceChangeInPercent+" peChangeInPercent="+peChangeInPercent);
 			
-			if (gapCpunt == 0) {
+			if (ceChangeInPercent > 10f && peChangeInPercent < -10f) {
 				retVal = "PE";
-			} else if (gapCpunt == 5) {
+			} else if (peChangeInPercent > 10f && ceChangeInPercent < -10f) {
 				retVal = "CE";
-			}
-			
-			if (retVal.equals("Unknown") ) {
-				if (gapCpunt < 2 ) {
+			} else if (retVal.equals("Unknown")) {
+				if (ceChangeInPercent > peChangeInPercent) {
 					retVal = "PE";
-				} else if (gapCpunt > 3 ) {
+				} else {
 					retVal = "CE";
 				}
 			}
+			
 			
 		} catch(Exception ex) {
 			ex.printStackTrace();
@@ -293,7 +295,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	}
 	
 	public static void main(String[] args) {
-		new G3GreekGapAlgoThread(23L, null);
+		new G3DirectionByATMPriceChangeAlgoThread(23L, null);
 	}
 
 	

@@ -508,148 +508,41 @@ public class BaseClass {
 		}
 		return retStr;
 	}
-
-	protected String[] getStraddleOptionNamesByDeltaOptimised(float requiredDelta, int hedgeDistance) {
+	
+	protected String[] getStraddleOptionNamesByDeltaOptimisedFromATMData(float requiredDelta, int hedgeDistance) {
 		String[] retStr = null;
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
-	
-			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String fetchSql = "select ceoptionname, peoptionname from nexcorio_option_atm_movement_data where f_main_instrument="+this.mainInstrument.getId()
+					+ " and base_delta > " + (requiredDelta-0.01f) + " and base_delta < " + (requiredDelta+0.01f)		
+					+ " and record_time <=  '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc LIMIT 1"; 
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			
 			String ceTradingSymbol = null;
-			float ceDelta = 0f;
-			
-			if (backtestDate == null) {			
-				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%CE' "	
-						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
-						+ " order by deltaDiff limit 1";
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-				
-				ResultSet rs = stmt.executeQuery(fetchSql);
-				
-				while (rs.next()) {
-					ceTradingSymbol = rs.getString("trading_symbol");
-					ceDelta = rs.getFloat("delta");
-				}
-				rs.close();
-			} else {
-				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%CE' "
-						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTimeDifferSeconds(-2)) + "'"
-						+ " order by id desc"; // by deltaDiff
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-				
-				ResultSet rs = stmt.executeQuery(fetchSql);
-				List<String> tradingSymbols = new ArrayList<String>();
-				List<Float> delta = new ArrayList<Float>();
-				List<Float> deltaDiff = new ArrayList<Float>();
-				while (rs.next()) {
-					tradingSymbols.add(rs.getString("trading_symbol"));
-					delta.add(rs.getFloat("delta"));
-					deltaDiff.add(rs.getFloat("deltaDiff"));
-				}
-				rs.close();
-				
-				// Remove the duplicates
-				for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
-					for(int topPt = 0; topPt < bottomPt;topPt++) {
-						if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
-							tradingSymbols.remove(bottomPt);
-							delta.remove(bottomPt);
-							deltaDiff.remove(bottomPt);
-							break;
-						}
-					}
-				}				
-				
-				// Find the best row with minimal delta dif
-				float minimalDiff = deltaDiff.get(0);
-				int bestPosition = 0;
-				for(int i=1;i<deltaDiff.size();i++) {
-					if (deltaDiff.get(i) < minimalDiff) {
-						minimalDiff = deltaDiff.get(i);
-						bestPosition = i;
-					}
-				}				
-				ceTradingSymbol = tradingSymbols.get(bestPosition);
-				ceDelta = delta.get(bestPosition);
-			}
-			
 			String peTradingSymbol = null;
-			float peDelta = 0f;
-			if (backtestDate == null) {
-				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%PE' "					
-						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
-						+ " order by deltaDiff limit 1";
-				fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
-				
-				ResultSet rs = stmt.executeQuery(fetchSql);
-				
-				while (rs.next()) {
-					peTradingSymbol = rs.getString("trading_symbol");
-					peDelta = rs.getFloat("delta");
-				}
-				rs.close();
-				stmt.close();
-			} else {
-				String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
-						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						+ " order by id desc";
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-				
-				ResultSet rs = stmt.executeQuery(fetchSql);
-				List<String> tradingSymbols = new ArrayList<String>();
-				List<Float> delta = new ArrayList<Float>();
-				List<Float> deltaDiff = new ArrayList<Float>();
-				while (rs.next()) {
-					tradingSymbols.add(rs.getString("trading_symbol"));
-					delta.add(rs.getFloat("delta"));
-					deltaDiff.add(rs.getFloat("deltaDiff"));
-				}
-				rs.close();
-				
-				// Remove the duplicates
-				for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
-					for(int topPt = 0; topPt < bottomPt;topPt++) {
-						if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
-							tradingSymbols.remove(bottomPt);
-							delta.remove(bottomPt);
-							deltaDiff.remove(bottomPt);
-							break;
-						}
-					}
-				}				
-				
-				// Find the best row with minimal delta dif
-				float minimalDiff = deltaDiff.get(0);
-				int bestPosition = 0;
-				for(int i=1;i<deltaDiff.size();i++) {
-					if (deltaDiff.get(i) < minimalDiff) {
-						minimalDiff = deltaDiff.get(i);
-						bestPosition = i;
-					}
-				}				
-				peTradingSymbol = tradingSymbols.get(bestPosition);
-				peDelta = delta.get(bestPosition);
 			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				ceTradingSymbol = rs.getString("ceoptionname");
+				peTradingSymbol = rs.getString("peoptionname");
 			}
-			
-			String localCeStraddleOptionName =  ceTradingSymbol;
-			String localPeStraddleOptionName =  peTradingSymbol;
+			rs.close();
 			
 			String localCeHedgeOptionName =  "";
 			String localPeHedgeOptionName =  "";
 			if (hedgeDistance>0) {
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 				int centerStrike = getOptionCenterStrike(optionnamePrefix);
 				localCeHedgeOptionName =  optionnamePrefix + (centerStrike+hedgeDistance) + "CE";
 				localPeHedgeOptionName =  optionnamePrefix + (centerStrike-hedgeDistance) + "PE";
-			} 	
+			}
+			retStr = new String[]{ceTradingSymbol, peTradingSymbol, localCeHedgeOptionName, localPeHedgeOptionName};
 			
-			retStr = new String[]{localCeStraddleOptionName, localPeStraddleOptionName, localCeHedgeOptionName, localPeHedgeOptionName};
-			fileLogTelegramWriter.write(" for requiredDelta "+requiredDelta +" CE " +ceTradingSymbol +" ceDelta="+ceDelta+", " + peTradingSymbol +" peDelta="+peDelta);
+			stmt.close();
 		} catch(Exception ex) {
 			ex.printStackTrace();
 			log.error("Error"+ex.getMessage(),ex);
@@ -662,6 +555,170 @@ public class BaseClass {
 			}
 		}
 		return retStr;
+		
+	}
+
+	protected String[] getStraddleOptionNamesByDeltaOptimised(float requiredDelta, int hedgeDistance) {
+		
+		 if (backtestDate != null && (requiredDelta == 0.4f || requiredDelta == 0.5f || requiredDelta == 0.6f)  ) {
+			 return getStraddleOptionNamesByDeltaOptimisedFromATMData(requiredDelta, hedgeDistance) ;
+		 } else {
+			String[] retStr = null;
+			Connection conn = null;
+			try {
+				conn = HDataSource.getConnection();
+				Statement stmt = conn.createStatement();
+		
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				
+				String ceTradingSymbol = null;
+				float ceDelta = 0f;
+				
+				if (backtestDate == null) {			
+					String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%CE' "	
+							+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
+							+ " order by deltaDiff limit 1";
+					fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+					
+					ResultSet rs = stmt.executeQuery(fetchSql);
+					
+					while (rs.next()) {
+						ceTradingSymbol = rs.getString("trading_symbol");
+						ceDelta = rs.getFloat("delta");
+					}
+					rs.close();
+				} else {
+					String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%CE' "
+							+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
+							+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTimeDifferSeconds(-2)) + "'"
+							+ " order by id desc"; // by deltaDiff
+					fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+					
+					ResultSet rs = stmt.executeQuery(fetchSql);
+					List<String> tradingSymbols = new ArrayList<String>();
+					List<Float> delta = new ArrayList<Float>();
+					List<Float> deltaDiff = new ArrayList<Float>();
+					while (rs.next()) {
+						tradingSymbols.add(rs.getString("trading_symbol"));
+						delta.add(rs.getFloat("delta"));
+						deltaDiff.add(rs.getFloat("deltaDiff"));
+						
+						//fileLogTelegramWriter.write("tradingSymbols="+tradingSymbols.get(tradingSymbols.size()-1) + " delta="+delta.get(delta.size()-1) + " deltaDiff="+deltaDiff.get(deltaDiff.size()-1));
+						
+					}
+					rs.close();
+					
+					// Remove the duplicates
+					for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
+						for(int topPt = 0; topPt < bottomPt;topPt++) {
+							if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
+								tradingSymbols.remove(bottomPt);
+								delta.remove(bottomPt);
+								deltaDiff.remove(bottomPt);
+								break;
+							}
+						}
+					}				
+					
+					// Find the best row with minimal delta dif
+					float minimalDiff = deltaDiff.get(0);
+					int bestPosition = 0;
+					for(int i=1;i<deltaDiff.size();i++) {
+						if (deltaDiff.get(i) < minimalDiff) {
+							minimalDiff = deltaDiff.get(i);
+							bestPosition = i;
+						}
+					}				
+					ceTradingSymbol = tradingSymbols.get(bestPosition);
+					ceDelta = delta.get(bestPosition);
+				}
+				
+				String peTradingSymbol = null;
+				float peDelta = 0f;
+				if (backtestDate == null) {
+					String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%PE' "					
+							+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
+							+ " order by deltaDiff limit 1";
+					fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+					
+					ResultSet rs = stmt.executeQuery(fetchSql);
+					
+					while (rs.next()) {
+						peTradingSymbol = rs.getString("trading_symbol");
+						peDelta = rs.getFloat("delta");
+					}
+					rs.close();
+					stmt.close();
+				} else {
+					String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
+							+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
+							+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTimeDifferSeconds(-2)) + "'"
+							+ " order by id desc";
+					fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+					
+					ResultSet rs = stmt.executeQuery(fetchSql);
+					List<String> tradingSymbols = new ArrayList<String>();
+					List<Float> delta = new ArrayList<Float>();
+					List<Float> deltaDiff = new ArrayList<Float>();
+					while (rs.next()) {
+						tradingSymbols.add(rs.getString("trading_symbol"));
+						delta.add(rs.getFloat("delta"));
+						deltaDiff.add(rs.getFloat("deltaDiff"));
+					}
+					rs.close();
+					
+					// Remove the duplicates
+					for(int bottomPt = tradingSymbols.size()-1; bottomPt>0;bottomPt--) {
+						for(int topPt = 0; topPt < bottomPt;topPt++) {
+							if ( tradingSymbols.get(bottomPt).equals(tradingSymbols.get(topPt)) ) {
+								tradingSymbols.remove(bottomPt);
+								delta.remove(bottomPt);
+								deltaDiff.remove(bottomPt);
+								break;
+							}
+						}
+					}				
+					
+					// Find the best row with minimal delta dif
+					float minimalDiff = deltaDiff.get(0);
+					int bestPosition = 0;
+					for(int i=1;i<deltaDiff.size();i++) {
+						if (deltaDiff.get(i) < minimalDiff) {
+							minimalDiff = deltaDiff.get(i);
+							bestPosition = i;
+						}
+					}				
+					peTradingSymbol = tradingSymbols.get(bestPosition);
+					peDelta = delta.get(bestPosition);
+				
+				}
+				
+				String localCeStraddleOptionName =  ceTradingSymbol;
+				String localPeStraddleOptionName =  peTradingSymbol;
+				
+				String localCeHedgeOptionName =  "";
+				String localPeHedgeOptionName =  "";
+				if (hedgeDistance>0) {
+					int centerStrike = getOptionCenterStrike(optionnamePrefix);
+					localCeHedgeOptionName =  optionnamePrefix + (centerStrike+hedgeDistance) + "CE";
+					localPeHedgeOptionName =  optionnamePrefix + (centerStrike-hedgeDistance) + "PE";
+				} 	
+				
+				retStr = new String[]{localCeStraddleOptionName, localPeStraddleOptionName, localCeHedgeOptionName, localPeHedgeOptionName};
+				fileLogTelegramWriter.write(" for requiredDelta "+requiredDelta +" CE " +ceTradingSymbol +" ceDelta="+ceDelta+", " + peTradingSymbol +" peDelta="+peDelta);
+			} catch(Exception ex) {
+				ex.printStackTrace();
+				log.error("Error"+ex.getMessage(),ex);
+			}finally {
+				try {
+					if (conn!=null) conn.close();
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			return retStr;
+		 }
 	}
 	
 	public int getOptionCenterStrike(String optionnamePrefix) {
@@ -978,6 +1035,7 @@ public class BaseClass {
 				returnHedgeDistance = defaultHedgeDistance + i;
 				
 				if ( (ceOptionPrice + peOptionPrice) <= 2f*hedgeTargetPrice ) {
+				//if ( ceOptionPrice < hedgeTargetPrice ||  peOptionPrice < hedgeTargetPrice ) {
 					fileLogTelegramWriter.write("Stopping here");
 					break;
 				}
@@ -1059,6 +1117,31 @@ public class BaseClass {
 			}
 		}
 		return retStr;
+	}
+	
+	protected int getStrikePriceFromOptionName(String optionName) {
+		int retVal = 0;
+		retVal = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
+		return retVal;
+	}
+	
+	protected float getTimeValue(String optionName, float indexLtp, float optionLtp) {
+		float timeValue = 0f;
+		int optionStrikePrice = getStrikePriceFromOptionName(optionName);
+		if (optionName.endsWith("CE")) {
+			if (indexLtp > optionStrikePrice ) {
+				timeValue = optionLtp - (indexLtp - optionStrikePrice) ;
+			} else {
+				timeValue = optionLtp;
+			}
+		} else { // PE
+			if (indexLtp < optionStrikePrice ) {
+				timeValue = optionLtp - (optionStrikePrice - indexLtp) ;
+			} else {
+				timeValue = optionLtp ;
+			}
+		}
+		return timeValue;
 	}
 	
 }

@@ -34,7 +34,7 @@ public class Main {
 		System.out.println("Login done");
 		
 		kiteHelper.populateInstruments();
-				
+		System.out.println("Populate Instruments done");
 		// Wait till 9:10:05
 		try {
 			while  ( (new Date()).before(KiteUtil.getDailyCustomTime(9, 10, 5)) )  {

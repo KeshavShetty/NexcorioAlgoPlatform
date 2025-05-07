@@ -96,7 +96,7 @@ public class G3ATMMomentumDirection1MAlgoThread extends G3BaseClass implements R
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
-				fileLogTelegramWriter.write( " IndexLtp=" + this.instrumentLtp +" [[ currentProfit="+currentProfitPerUnit+" ]] maxLowestpointReachedPerUnit="+(maxLowestpointReached/lotSize)+" maxTrailingProfit="+maxTrailingProfit);
+				fileLogTelegramWriter.write( " IndexLtp=" + this.instrumentLtp +" [[ currentProfit="+currentProfitPerUnit+" ]] maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
 				boolean reAlignmentRequired = checkDeltaGammaEffectForRealignment(ceStraddleOptionName, peStraddleOptionName);
 

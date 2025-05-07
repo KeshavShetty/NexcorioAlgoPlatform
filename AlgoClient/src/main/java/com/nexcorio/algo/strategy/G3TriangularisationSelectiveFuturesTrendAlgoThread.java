@@ -5,23 +5,30 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
+public class G3TriangularisationSelectiveFuturesTrendAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekGapAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3TriangularisationSelectiveFuturesTrendAlgoThread.class);
 	
-	public String greekname = "iv";
-	public float baseDelta = 0.5f;	
+	public float baseDelta = 0.5f;
+	public String selectiveAssetsMainInstrumentIds = null; // Comma separated
 	
-	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
+	private Map<Long, MainInstruments> selectiveAssetsMainInstrumentsMap = new HashMap<Long, MainInstruments>();
+	
+	public G3TriangularisationSelectiveFuturesTrendAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -37,6 +44,14 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		try {
 			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
 			
+			// Prefill MainInstruments			
+			String[] selectiveAssetsIds = selectiveAssetsMainInstrumentIds.split(",");
+			for(int i=0;i<selectiveAssetsIds.length;i++) {
+				Long aId = Long.parseLong(selectiveAssetsIds[i].trim());
+				MainInstruments aInstrument = getMainInstrumentDtoById(aId);
+				selectiveAssetsMainInstrumentsMap.put(aId, aInstrument);
+			}
+			
 			long ceDbId = -1;
 			long peDbId = -1;
 			
@@ -50,7 +65,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			String currentTrend = null;
 			do {
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
+				currentTrend = getSellerDirectionByFuturesTrend(lastKnownTrend);
 				if (currentTrend.equals("Unknown")) sleep(15);
 			} while (currentTrend.equals(lastKnownTrend));
 			
@@ -59,7 +74,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				ceHedgeOptionName =  entryStraddleOptionNames[2];
 				
 				float cePrice = getPriceFromTicks(ceStraddleOptionName);
-			
+				
 				fileLogTelegramWriter.write( "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName);
 				ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
 				if (this.placeActualOrder) { 
@@ -120,7 +135,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
+				currentTrend = getSellerDirectionByFuturesTrend(lastKnownTrend); // StatusQuo, CE, PE
 				
 				if (!currentTrend.equals(lastKnownTrend)) {
 				
@@ -147,6 +162,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
+								
 								fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
 								// Place order
 								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
@@ -183,6 +199,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
+								
 								fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
 								// Place order
 								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
@@ -201,7 +218,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 						}
 					}
 					lastKnownTrend = currentTrend;
-				}
+				} 
 				
 				checkExitSignals();
 				
@@ -226,7 +243,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}
 	}
 	
-	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
+	private String getSellerDirectionByFuturesTrend( String lastKnownTrend) {
+
 		String retVal = lastKnownTrend;
 		
 		Connection conn = null;
@@ -234,68 +252,78 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fieldname = "ceiv as ceGreek, peiv as peGreek";
-			if (this.greekname.equalsIgnoreCase("ltp")) {
-				fieldname = "celtp as ceGreek, peltp as peGreek";
-			} else if (this.greekname.equalsIgnoreCase("gamma")) {
-				fieldname = "cegamma as ceGreek, pegamma as peGreek";
-			} 
+			float totalBullishPoint = 0f;
+			float totalBearishPoint = 0f;
 			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " and base_delta > 0.49 and base_delta < 0.51"
-					+ " order by record_time desc limit 5";
-			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-			ResultSet rs = stmt.executeQuery(fetchSql);
+			int totalBullishCount = 0;
+			int totalBearishCount = 0;
 			
-			int gapCpunt = 0;
-			
-			while (rs.next()) {
-				float ceGreek = rs.getFloat("ceGreek");
-				float peGreek = rs.getFloat("peGreek");
-				if (ceGreek>peGreek) {
-					gapCpunt++;
+		
+			Iterator<Long> iter =  selectiveAssetsMainInstrumentsMap.keySet().iterator();
+			while(iter.hasNext()) {
+				Long mainInstrumentId = iter.next();
+				String exchange = selectiveAssetsMainInstrumentsMap.get(mainInstrumentId).getExchange();
+				
+				String futurePrefix = getNextNFUTUREExpiryDatePrefix(mainInstrumentId, exchange);
+				
+				String fetchSql = "SELECT count(*) as total, COUNT(DISTINCT CASE WHEN total_buy_qty > total_sell_qty THEN id END) as bullishCount,"
+						+ " COUNT(DISTINCT CASE WHEN total_buy_qty < total_sell_qty THEN id END) as bearishCount"
+						+ " FROM nexcorio_tick_data"
+						+ " WHERE quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+						+ " AND  quote_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'"
+						+ " AND trading_symbol='" + futurePrefix + "'";
+				
+				fileLogTelegramWriter.write("For " + mainInstrumentId + "  fetchSql="+fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				int totalEntry = 0;
+				int bullishEntry = 0;
+				int bearishEntry = 0;
+				
+				while (rs.next()) {
+					totalEntry = rs.getInt("total");
+					bullishEntry = rs.getInt("bullishCount");
+					bearishEntry = rs.getInt("bearishCount");
 				}
+				rs.close();
+				
+				float bullishPoint = (float)bullishEntry/(float)totalEntry;
+				float bearishPoint = (float)bearishEntry/(float)totalEntry;
+				
+				fileLogTelegramWriter.write("Local bullishPoint="+bullishPoint+" bearishPoint="+bearishPoint);
+				
+				totalBullishPoint = totalBullishPoint + bullishPoint;
+				totalBearishPoint = totalBearishPoint + bearishPoint;
+				
+				if (bullishPoint > 0.50f) totalBullishCount++;
+				else totalBearishCount++;
 			}
-			rs.close();			
 			stmt.close();
 			
-			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
+			fileLogTelegramWriter.write(" totalBullishPoint="+totalBullishPoint+" totalBearishPoint="+totalBearishPoint+" totalBullishCount="+totalBullishCount + " totalBearishCount="+totalBearishCount);
 			
-			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
-			
-			if (gapCpunt == 0) {
+			if (totalBullishPoint > totalBearishPoint) {
 				retVal = "PE";
-			} else if (gapCpunt == 5) {
+			} else {
 				retVal = "CE";
 			}
-			
-			if (retVal.equals("Unknown") ) {
-				if (gapCpunt < 2 ) {
-					retVal = "PE";
-				} else if (gapCpunt > 3 ) {
-					retVal = "CE";
-				}
-			}
-			
 		} catch(Exception ex) {
+			log.error("Error"+ex.getMessage(),ex);
 			ex.printStackTrace();
 		}finally {
 			try {
 				if (conn!=null) conn.close();
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
-			
+		}	
 		return retVal;
+	
 	}
 	
 	public static void main(String[] args) {
-		new G3GreekGapAlgoThread(23L, null);
+		new G3TriangularisationSelectiveFuturesTrendAlgoThread(23L, null);
 	}
-
-	
 
 }
