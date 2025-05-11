@@ -184,7 +184,7 @@ public class KiteHelper {
 	public void populateInstruments() {
 		URLConnection urlConnection;
 		try {
-			
+			int totaRecInserted = 0;
 			Map<String, Long> mainInstruments = getMainInstruments();
 			
 			URL exchangeLink = new URL("https://api.kite.trade/instruments");
@@ -227,7 +227,7 @@ public class KiteHelper {
 							}
 							saveExpiryDate(mainInstrumentId, expiry, segment, fnoPrefix);
 							
-							saveFnOInstruments(mainInstrumentId, tradingsymbol, instrument_token, exchange, Integer.parseInt(strike), expiry);
+							totaRecInserted = totaRecInserted + saveFnOInstruments(mainInstrumentId, tradingsymbol, instrument_token, exchange, Integer.parseInt(strike), expiry);
 							
 							
 						}
@@ -237,6 +237,7 @@ public class KiteHelper {
 				}
 			}
 			in.close();
+			System.out.println("Total Instruments Inserted="+totaRecInserted);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -403,9 +404,9 @@ public class KiteHelper {
 		
 	}
 	
-	private void saveFnOInstruments(Long mainInstrumentId, String tradingsymbol, String instrument_token, String exchange, int strike, String expiryDateStr) {
+	private int saveFnOInstruments(Long mainInstrumentId, String tradingsymbol, String instrument_token, String exchange, int strike, String expiryDateStr) {
 		//log.info("In saveFnOInstruments " + mainInstrumentId + "," + tradingsymbol + "," + instrument_token + "," + exchange);
-		
+		int retVal = 0;
 		Connection conn = null;
 		Statement stmt = null;
 		try {
@@ -424,6 +425,7 @@ public class KiteHelper {
 				log.info("Inserting");
 				stmt.executeUpdate("INSERT INTO nexcorio_fno_instruments (id, f_main_instrument, trading_symbol, zerodha_instrument_token, exchange, strike, expiry_date) "
 						+ "VALUES (nextval('nexcorio_fno_instruments_id_seq'),"+mainInstrumentId+ ",'" + tradingsymbol + "',"+instrument_token+",'"+exchange+"',"+strike+",'"+expiryDateStr+"')");
+				retVal=1;
 			} else {
 				//log.info("Record already exist");
 			}
@@ -438,6 +440,7 @@ public class KiteHelper {
 				log.error(e);
 			}
 		}
+		return retVal;
 	}
 	
 	public List<Long>  getZerodhaTokensToSubscribe() {
@@ -680,7 +683,7 @@ public class KiteHelper {
         //minimum value must be 5 for time interval for reconnection
         tickerProvider.setMaximumRetryInterval(10);
         //set number to times ticker can try reconnection, for infinite retries use -1
-        tickerProvider.setMaximumRetries(-1);
+        tickerProvider.setMaximumRetries(5000);
 
         /** connects to com.rainmatter.ticker server for getting live quotes*/
         tickerProvider.connect();

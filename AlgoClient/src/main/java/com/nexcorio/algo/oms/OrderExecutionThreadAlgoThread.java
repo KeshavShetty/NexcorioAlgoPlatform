@@ -436,7 +436,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			float minUtilizedMargin = 1000000000f;
 			
 			do {
-				Thread.sleep(100);
+				Thread.sleep(1000);
 				i++;
 				this.noOfOrdersExecuted = 0;
 				

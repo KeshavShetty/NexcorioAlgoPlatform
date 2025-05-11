@@ -38,7 +38,7 @@ public class Main {
 		// Wait till 9:10:05
 		try {
 			while  ( (new Date()).before(KiteUtil.getDailyCustomTime(9, 10, 5)) )  {
-				log.info("Too early going to sleep for 30 seconds");
+				System.out.println("Too early going to sleep for 30 seconds");
 				Thread.sleep(30*1000);
 			}
 			System.out.println("Ready to fire");

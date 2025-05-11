@@ -572,6 +572,7 @@ public abstract class G3BaseClass extends BaseClass {
 						+ "exit_profit=" + (profit) + ", best_profit=" + (maxProfit) + ", worst_profit=" + (worstProfit) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
 						+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
 						+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
+						+ (this.exitThread==true?(", exit_reason='" + this.exitReason+ "'"):"")
 						+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
 						
 				int recUpdated = stmt.executeUpdate(updateSql);
