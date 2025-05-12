@@ -118,6 +118,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", peLtp"
 						+ ", totalFuturePoints"
 						+ ", bullishFuturePoints"
+						+ ", ceOi"
+						+ ", peOi"
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp +"," + baseDelta +""
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -142,6 +144,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + peOptionGreek.getLtp()
 						+ " ," + futuresTotalPoint
 						+ " ," + futuresBullishPoint
+						+ " ," + ceOptionGreek.getOi()
+						+ " ," + peOptionGreek.getOi()
 						+ ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
@@ -207,7 +211,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-04-21 09:15:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-05-09 09:17:00");		
 	}
 
 }

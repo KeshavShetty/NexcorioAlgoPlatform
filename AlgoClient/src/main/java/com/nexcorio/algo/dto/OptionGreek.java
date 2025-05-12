@@ -14,6 +14,7 @@ public class OptionGreek {
 	private float theta;
 	private float gamma;
 	private float ltp;
+	private float oi;
 	
 	private float underlyingValue;
 	
@@ -36,6 +37,18 @@ public class OptionGreek {
 		this.theta = theta;
 		this.gamma = gamma;
 		this.ltp = ltp;
+	}
+	
+	public OptionGreek(String tradingSymbol, float iv, float delta, float vega, float theta, float gamma, float ltp, float oi) {
+		super();
+		this.tradingSymbol = tradingSymbol;
+		this.iv = iv;
+		this.delta = delta;
+		this.vega = vega;
+		this.theta = theta;
+		this.gamma = gamma;
+		this.ltp = ltp;
+		this.oi = oi;
 	}
 	
 	public OptionGreek() {
@@ -108,6 +121,14 @@ public class OptionGreek {
 
 	public void setLtp(float ltp) {
 		this.ltp = ltp;
+	}
+
+	public float getOi() {
+		return oi;
+	}
+
+	public void setOi(float oi) {
+		this.oi = oi;
 	}
 }
 

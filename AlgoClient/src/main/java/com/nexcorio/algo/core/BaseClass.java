@@ -142,13 +142,13 @@ public class BaseClass {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select iv, delta, vega, theta, gamma, ltp from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
+			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
 					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(backtestDate.getTime())+ "'") : "" )
 					+ " order by quote_time desc limit 1";
 			fileLogTelegramWriter.write("In getOptionGreeks fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
-				retVal = new OptionGreek(optionName, rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"));
+				retVal = new OptionGreek(optionName, rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"), rs.getFloat("oi"));
 			}
 			rs.close();
 			stmt.close();
