@@ -408,6 +408,48 @@ public abstract class G3BaseClass extends BaseClass {
 		return retId;
 	}
 	
+	protected long createAlgoBuyOrder(String optionName, float optionPrice, int quantity) {
+		
+		long retId = -1;
+		Connection conn = null;
+		try {
+			Date expiryDate = getOptionCurrentWeekExpiryDate();
+			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchNextSeq = "select nextval('nexcorio_option_algo_orders_id_seq') as nextId";
+	    	
+	    	ResultSet rs = stmt.executeQuery(fetchNextSeq);
+			while (rs.next()) {
+				retId = rs.getLong("nextId");
+			}
+			rs.close();
+			
+			String insertSql = "INSERT INTO nexcorio_option_algo_orders (id, f_strategy, option_name, sell_price, buy_price, place_actual_order, quantity, days_to_expiry, short_date, entry_time, exit_time)"
+					+ " VALUES (" + retId +"," + this.napAlgoId + ",'" + optionName +"'," + optionPrice + "," + optionPrice +"," + this.placeActualOrder+"," + quantity +"," + getDaysBetween(getCurrentTime(), expiryDate) 
+					+ ",'" + postgresShortDateFormat.format(getCurrentTime())+ "'"
+					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
+					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
+					+ ")";
+			fileLogTelegramWriter.write(insertSql);
+			stmt.execute(insertSql);
+			
+			stmt.close();
+			this.noOfOrders++;
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retId;
+	}
+	
 	protected void updateCurrentOrderBuyPrice(String optionName, long orderDbId, float optionPrice) {
 		if (!optionName.equals("") && optionPrice>0f) {
 			Connection conn = null;
@@ -416,6 +458,31 @@ public abstract class G3BaseClass extends BaseClass {
 				Statement stmt = conn.createStatement();
 							
 				String updateSql = "UPDATE nexcorio_option_algo_orders set buy_price=" + optionPrice+", exit_time='" + postgresLongDateFormat.format(getCurrentTime()) +"' WHERE id=" + orderDbId ;
+				fileLogTelegramWriter.write(updateSql);
+				stmt.execute(updateSql);
+				
+				stmt.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error("Error"+e.getMessage(),e);
+			} finally {
+				try {
+					if (conn!=null) conn.close();
+				} catch (SQLException e) {
+					log.error(e);
+				}
+			}
+		}
+	}
+	
+	protected void updateCurrentOrderSellPrice(String optionName, long orderDbId, float optionPrice) {
+		if (!optionName.equals("") && optionPrice>0f) {
+			Connection conn = null;
+			try {			
+				conn = HDataSource.getConnection();
+				Statement stmt = conn.createStatement();
+							
+				String updateSql = "UPDATE nexcorio_option_algo_orders set sell_price=" + optionPrice+", exit_time='" + postgresLongDateFormat.format(getCurrentTime()) +"' WHERE id=" + orderDbId ;
 				fileLogTelegramWriter.write(updateSql);
 				stmt.execute(updateSql);
 				
