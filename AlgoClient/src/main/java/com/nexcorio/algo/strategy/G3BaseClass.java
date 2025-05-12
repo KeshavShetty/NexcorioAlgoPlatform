@@ -1,5 +1,9 @@
 package com.nexcorio.algo.strategy;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -16,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.core.BaseClass;
 import com.nexcorio.algo.dto.OptionGreek;
+import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
@@ -596,6 +601,23 @@ public abstract class G3BaseClass extends BaseClass {
 				}
 			}
 		}
+	}
+	
+	protected void saveObject(Object objectToSave) {
+		System.out.println("Writing to file");
+		try {
+			FileOutputStream file = new FileOutputStream(ApplicationConfig.getProperty("ObjectFileStoreLocation") + File.separator + this.napAlgoId + postgresShortDateFormat.format(getCurrentTime())+ ".obj");
+	        ObjectOutput out = new ObjectOutputStream(file);
+	            
+	        // Method for serialization of object
+	        out.writeObject(objectToSave);
+	            
+	        out.close();
+	        file.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		System.out.println("Writing to file - Complete");
 	}
 	
 	protected void exitStraddle(Long ceDbId, Long peDbId) {

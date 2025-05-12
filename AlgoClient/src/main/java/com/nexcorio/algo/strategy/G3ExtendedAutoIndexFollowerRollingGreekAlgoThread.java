@@ -1,5 +1,6 @@
 package com.nexcorio.algo.strategy;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -9,7 +10,7 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 
-public class G3ExtendedAutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass implements Runnable {
+public class G3ExtendedAutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass implements Runnable, Serializable {
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 
@@ -176,6 +177,7 @@ public class G3ExtendedAutoIndexFollowerRollingGreekAlgoThread extends G3BaseCla
 					}
 				}	
 				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
+				saveObject(this);
 			} while(!exitThread);
 			updateAlgoStatus("Terminated");
 			logString = "Exiting Strddle ceStraddleOptionName="+ceStraddleOptionName + " peStraddleOptionName="+peStraddleOptionName; 
