@@ -986,11 +986,51 @@ public class BaseClass {
 		return avgeAtmPremium;
 	}
 	
+	protected Map<String, Float> getCurrentATMIV() {
+		Map<String, Float> ivMap = new HashMap<>();
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
+					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			
+			if (this.backtestDate!=null) {
+				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
+			}
+			fetchSql = fetchSql + " order by record_time desc limit 1";
+			
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			while (rs.next()) {
+				ivMap.put("CE", rs.getFloat("ceiv"));
+				ivMap.put("PE", rs.getFloat("peiv"));
+			}
+			rs.close();			
+			stmt.close();
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return ivMap;
+	}
+	
 	protected int getOptimalHedgeDistance(int defaultHedgeDistance, float dailyMaxHedgeCostPerLeg) {
 		int returnHedgeDistance = defaultHedgeDistance;
 		
 		try {
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String exchangeToUse = "NFO";
+			if (this.mainInstrument.getExchange().equals("BSE")) exchangeToUse = "BFO";
 			
 			int centerStrike = getOptionCenterStrike(optionnamePrefix);
 			
@@ -1002,8 +1042,8 @@ public class BaseClass {
 				String ceOptionName =  optionnamePrefix + (centerStrike+defaultHedgeDistance + i) + "CE";
 				String peOptionName =  optionnamePrefix + (centerStrike-defaultHedgeDistance - i) + "PE";
 				
-				OpInstruments.add("NFO:"+ ceOptionName);
-				OpInstruments.add("NFO:"+ peOptionName);
+				OpInstruments.add(exchangeToUse+":"+ ceOptionName);
+				OpInstruments.add(exchangeToUse+":"+ peOptionName);
 			}
 			
 			Map<String, LTPQuote> optionLtp;
@@ -1028,8 +1068,8 @@ public class BaseClass {
 				String ceOptionName =  optionnamePrefix + (centerStrike+defaultHedgeDistance + i) + "CE";
 				String peOptionName =  optionnamePrefix + (centerStrike-defaultHedgeDistance - i) + "PE";
 				
-				float ceOptionPrice = (float) (optionLtp.get("NFO:"+ceOptionName).lastPrice);
-				float peOptionPrice = (float) (optionLtp.get("NFO:"+peOptionName).lastPrice);
+				float ceOptionPrice = (float) (optionLtp.get(exchangeToUse+":"+ceOptionName).lastPrice);
+				float peOptionPrice = (float) (optionLtp.get(exchangeToUse+":"+peOptionName).lastPrice);
 				fileLogTelegramWriter.write("ceOptionPrice="+ceOptionPrice+" peOptionPrice="+peOptionPrice);
 				
 				returnHedgeDistance = defaultHedgeDistance + i;

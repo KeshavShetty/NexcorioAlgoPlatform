@@ -1,6 +1,7 @@
 package com.nexcorio.algo.strategy;
 
 import java.util.Date;
+import java.util.Map;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -9,20 +10,16 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 
-public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Runnable{
+public class G3AutoIndexFollowerRollingPremiumSpikeProtectionAlgoThread extends G3BaseClass implements Runnable{
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 	
-	public float baseDelta = 0.25f;
-	public String greekname = "delta";
+	public float baseDelta = 0.5f;
+	public float indexPoints = 25f;
 	
-	public float premiumSpikePercent = 8f;
+	public float deltaBias = 0.1f;
 	
-	public float premiumDiff = 0f;
-	public float acceptableDiff = 0f;	
-	public float rollingPoints = 0f;
-	
-	public G3SpikeAversionStrangleAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3AutoIndexFollowerRollingPremiumSpikeProtectionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -38,10 +35,12 @@ public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Ru
 		try {
 			long ceDbId = -1;
 			long peDbId = -1;
-						
+			
+			float atmStraddlePremiumAt920 = getATMStraddlePremium();
+			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			
-			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
+			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp +" referenceCeIv="+atmStraddlePremiumAt920+" referencePeIv=" + atmStraddlePremiumAt920);
 			
 			printFields(this);
 			
@@ -53,13 +52,10 @@ public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Ru
 			
 			updateAlgoStatus("Running");
 			
-			float lowestATMStraddlePremium = getATMStraddlePremium();
-			float highestATMStraddlePremium = lowestATMStraddlePremium;
-			
-			float totalPremiumCaptured = 0f;
+			sleep(60*10); // 5 minutes
 			float indexWhenStraddleFormed = 0f;
 			do {
-				sleep(15); // Quick to react
+				sleep(5); // Quick to react
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -88,14 +84,13 @@ public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Ru
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				fileLogTelegramWriter.write("lowestATMStraddlePremium="+ lowestATMStraddlePremium+" highestATMStraddlePremium="+highestATMStraddlePremium+" Entry at "
-						+ (highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) + " Exit at " + ( lowestATMStraddlePremium*(100f + premiumSpikePercent)/100f) );  
+				float atmStraddlePremiumNow = getATMStraddlePremium();
 				
-				float currentATMStraddlePremium = getATMStraddlePremium();
+				fileLogTelegramWriter.write( " atmStraddlePremiumNow="+atmStraddlePremiumNow);
 				
 				if (ceStraddleOptionName.equals("")) { // No open position
-					if (currentATMStraddlePremium < highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) {
-						String[] entryStraddleOptionNames = getStraddleOptionNamesByGreekOptimised(greekname, baseDelta, this.hedgeDistance);
+					if (atmStraddlePremiumAt920 > atmStraddlePremiumNow*1.05f ) {
+						String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
 						
 						ceStraddleOptionName =  entryStraddleOptionNames[0];
 						peStraddleOptionName =  entryStraddleOptionNames[1];
@@ -128,17 +123,12 @@ public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Ru
 							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
 						
-						totalPremiumCaptured = ceOptionGreeks.getLtp() + peOptionGreeks.getLtp();
-						
-						highestATMStraddlePremium = currentATMStraddlePremium;
-						lowestATMStraddlePremium  = currentATMStraddlePremium;
 						indexWhenStraddleFormed = this.instrumentLtp;
 						
 						fileLogTelegramWriter.write( "Forming indexWhenStraddleFormed="+indexWhenStraddleFormed);
 					}
 				} else { // Already positions running, check for exit rule
-					if (currentATMStraddlePremium > lowestATMStraddlePremium*(100f + premiumSpikePercent)/100f
-							) { // && currentATMStraddlePremium > atmPremiumWhenStraddleFormed
+					if (atmStraddlePremiumAt920 < atmStraddlePremiumNow*0.95f ) {
 						fileLogTelegramWriter.write( " Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
 						if (this.placeActualOrder) {
 							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
@@ -149,96 +139,51 @@ public class G3SpikeAversionStrangleAlgoThread extends G3BaseClass implements Ru
 						ceStraddleOptionName = "";
 						peStraddleOptionName = "";
 						
-						highestATMStraddlePremium = currentATMStraddlePremium;
-						lowestATMStraddlePremium  = currentATMStraddlePremium;
-						
 						if (this.noOfOrders >= maxAllowedNoOfOrders) {
 							prepareExit("Too many orders");
 						}
-					}
-				}
-				
-				if (currentATMStraddlePremium > highestATMStraddlePremium) highestATMStraddlePremium = currentATMStraddlePremium;
-				if (currentATMStraddlePremium < lowestATMStraddlePremium)  lowestATMStraddlePremium  = currentATMStraddlePremium;
-				
-				if (!ceStraddleOptionName.equals("")) {
-					
-					boolean realignmentRequired = false;
-					if (premiumDiff > 0f) {
-						float currentPremium = ceOptionGreeks.getLtp() + peOptionGreeks.getLtp();
-						if (currentPremium - totalPremiumCaptured > premiumDiff) realignmentRequired = true;
-					}
-					fileLogTelegramWriter.write( "After 1. realignment required? " + realignmentRequired);
-					if (realignmentRequired == false && acceptableDiff > 0f) {
-						float greekSum = 0f;
-						float greekDiff = 0f;
-						if (greekname.equals("delta")) {					
-							greekSum = Math.abs(ceOptionGreeks.getDelta()) + Math.abs(peOptionGreeks.getDelta());
-							greekDiff = Math.abs( Math.abs(ceOptionGreeks.getDelta()) - Math.abs(peOptionGreeks.getDelta()) );
-						} else if (greekname.equals("ltp")) {
-							float ceLtp = Math.abs(ceOptionGreeks.getLtp());
-							float peLtp = Math.abs(peOptionGreeks.getLtp());
-							greekSum = ceLtp + peLtp;
-							greekDiff = Math.abs( ceLtp - peLtp );
-						} else if (greekname.equals("vega")) {					
-							greekSum = Math.abs(ceOptionGreeks.getVega()) + Math.abs(peOptionGreeks.getVega());
-							greekDiff = Math.abs( Math.abs(ceOptionGreeks.getVega()) - Math.abs(peOptionGreeks.getVega()) );
+					} else if (this.instrumentLtp > indexWhenStraddleFormed + indexPoints || this.instrumentLtp < indexWhenStraddleFormed - indexPoints) {						
+						// Exit existing function
+						fileLogTelegramWriter.write( " Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
+						if (this.placeActualOrder) {
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
+						updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
+						updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
+						ceStraddleOptionName = "";
+						peStraddleOptionName = "";
 						
-						float diffRatio = greekDiff/greekSum;
-						fileLogTelegramWriter.write(" greekSum="+greekSum+" greekDiff=" + " DiffRatio="+diffRatio);
-						
-						if (diffRatio > this.acceptableDiff) {
-							realignmentRequired = true;
-						}
-					}
-					fileLogTelegramWriter.write( "After 2. realignment required? " + realignmentRequired);
-					
-					if (realignmentRequired == false && rollingPoints > 0f) {
-						fileLogTelegramWriter.write( "this.instrumentLtp="+this.instrumentLtp+ " indexWhenStraddleFormed="+indexWhenStraddleFormed+" upper="+(indexWhenStraddleFormed+this.rollingPoints) +
-								"lower="+ (indexWhenStraddleFormed-this.rollingPoints));
-						if (this.instrumentLtp > indexWhenStraddleFormed+this.rollingPoints
-								|| this.instrumentLtp < indexWhenStraddleFormed-this.rollingPoints) {
-							realignmentRequired = true;
-						}
-					}
-					fileLogTelegramWriter.write( "After 3. realignment required? " + realignmentRequired);
-					
-					fileLogTelegramWriter.write( "After 4. realignment required? " + realignmentRequired);
-					
-					if (realignmentRequired == true) {
-						fileLogTelegramWriter.write( "Realignment required");
-						if (this.noOfOrders<maxAllowedNoOfOrders) {
-							fileLogTelegramWriter.write( " Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
-							// Exit PE
-							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						if (this.noOfOrders < maxAllowedNoOfOrders) {
+							
+							String[] entryStraddleOptionNames1 = getStraddleOptionNamesByDeltaOptimised( baseDelta+deltaBias, 0);
+							String[] entryStraddleOptionNames2 = getStraddleOptionNamesByDeltaOptimised( baseDelta-deltaBias, 0);
+							
+							if (this.instrumentLtp > indexWhenStraddleFormed + indexPoints) {
+								ceStraddleOptionName =  entryStraddleOptionNames2[0];
+								peStraddleOptionName =  entryStraddleOptionNames1[1];
+							} else {
+								ceStraddleOptionName =  entryStraddleOptionNames1[0];
+								peStraddleOptionName =  entryStraddleOptionNames2[1];
 							}
-							updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
-							updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
 							
-							String[] entryStraddleOptionNames = getStraddleOptionNamesByGreekOptimised(greekname, baseDelta, this.hedgeDistance);
+							ceOptionGreeks = getOptionGreeks(ceStraddleOptionName);
+							peOptionGreeks = getOptionGreeks(peStraddleOptionName);
+							print(ceOptionGreeks, peOptionGreeks);
 							
-							ceStraddleOptionName =  entryStraddleOptionNames[0];					
-							peStraddleOptionName =  entryStraddleOptionNames[1];
-								
-							float cePrice = getPriceFromTicks(ceStraddleOptionName);
-							float pePrice = getPriceFromTicks(peStraddleOptionName);
+							String logString = "ReForming straddleceStraddleOptionName="+ceStraddleOptionName + "(@" + ceOptionGreeks.getLtp() +") ceHedgeOptionName="+ceHedgeOptionName+" " + peStraddleOptionName + "(@" + peOptionGreeks.getLtp() +") peHedgeOptionName="+peHedgeOptionName; 
+							fileLogTelegramWriter.write( " "+logString);
 							
-							fileLogTelegramWriter.write("Forming straddleceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") "+peStraddleOptionName + "(@" + pePrice +")");
-							
-							ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-							peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+							ceDbId = createAlgoSellOrder(ceStraddleOptionName, ceOptionGreeks.getLtp(), noOfLots*lotSize);
+							peDbId = createAlgoSellOrder(peStraddleOptionName, peOptionGreeks.getLtp(), noOfLots*lotSize);
 							
 							if (this.placeActualOrder) { // Place the straddle order with Kite
-								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
-							totalPremiumCaptured = cePrice + pePrice;
 							indexWhenStraddleFormed = this.instrumentLtp;
 						} else {
-							prepareExit("Need alignment, But too many orders");
+							prepareExit("Too many orders");
 						}
 					}
 				}

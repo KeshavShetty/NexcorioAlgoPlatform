@@ -75,8 +75,14 @@ public class G3SpikeManagedBuyAndAutoIndexFollowerAlgoThread extends G3BaseClass
 				if (!ceStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(ceStraddleOptionName, ceDbId, runningCePrice);
 				if (!peStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(peStraddleOptionName, peDbId, runningPePrice);
 				
-				if (!ceBuyOptionname.equals("")) updateCurrentOrderSellPrice(ceBuyOptionname, buyCeDbId, getPriceFromTicks(ceBuyOptionname));
-				if (!peBuyOptionname.equals("")) updateCurrentOrderSellPrice(peBuyOptionname, buyPeDbId, getPriceFromTicks(peBuyOptionname));
+				if (!ceBuyOptionname.equals("")) {
+					updateCurrentOrderSellPrice(ceBuyOptionname, buyCeDbId, getPriceFromTicks(ceBuyOptionname));
+					fileLogTelegramWriter.write( "Buy [" + ceBuyOptionname + "] price now " + getPriceFromTicks(ceBuyOptionname));
+				}
+				if (!peBuyOptionname.equals("")) {
+					updateCurrentOrderSellPrice(peBuyOptionname, buyPeDbId, getPriceFromTicks(peBuyOptionname));
+					fileLogTelegramWriter.write( "Buy [" + peBuyOptionname + "] price now " + getPriceFromTicks(peBuyOptionname));
+				}
 				
 				currentProfitPerUnit = getProfitFromDB();
 				if (currentProfitPerUnit>maxProfitReached) {
@@ -156,12 +162,15 @@ public class G3SpikeManagedBuyAndAutoIndexFollowerAlgoThread extends G3BaseClass
 						fileLogTelegramWriter.write( "Forming indexWhenStraddleFormed="+indexWhenStraddleFormed);
 					} else if (ceBuyOptionname.equals("")) { // Long also empty
 						if (currentATMStraddlePremium > lowestATMStraddlePremium*(100f + premiumSpikePercent)/100f ) {
+							fileLogTelegramWriter.write( "1. Entering Buy position");
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
 							ceBuyOptionname = entryStraddleOptionNames[0];
 							peBuyOptionname = entryStraddleOptionNames[1];
 							
 							float cePrice = getPriceFromTicks(ceBuyOptionname);
 							float pePrice = getPriceFromTicks(peBuyOptionname);
+							
+							fileLogTelegramWriter.write( ceBuyOptionname + "@" +  cePrice+ ", " + peBuyOptionname + "@" + pePrice );
 							
 							buyCeDbId = createAlgoBuyOrder(ceBuyOptionname, cePrice, noOfLots*lotSize);
 							buyPeDbId = createAlgoBuyOrder(peBuyOptionname, pePrice, noOfLots*lotSize);
@@ -191,13 +200,16 @@ public class G3SpikeManagedBuyAndAutoIndexFollowerAlgoThread extends G3BaseClass
 						
 						if (this.noOfOrders >= maxAllowedNoOfOrders) {
 							prepareExit("Too many orders");
-						} else { // Enter long 
+						} else { // Enter long
+							fileLogTelegramWriter.write( "2. Entering Buy position");
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
 							ceBuyOptionname = entryStraddleOptionNames[0];
 							peBuyOptionname = entryStraddleOptionNames[1];
 							
 							float cePrice = getPriceFromTicks(ceBuyOptionname);
 							float pePrice = getPriceFromTicks(peBuyOptionname);
+							
+							fileLogTelegramWriter.write( ceBuyOptionname + "@" +  cePrice+ ", " + peBuyOptionname + "@" + pePrice );
 							
 							buyCeDbId = createAlgoBuyOrder(ceBuyOptionname, cePrice, noOfLots*lotSize);
 							buyPeDbId = createAlgoBuyOrder(peBuyOptionname, pePrice, noOfLots*lotSize);

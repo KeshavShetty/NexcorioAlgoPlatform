@@ -727,9 +727,12 @@ public abstract class G3BaseClass extends BaseClass {
 	    	// Check margin required
     		List<MarginCalculationParams> params = new ArrayList<MarginCalculationParams>();
     		
+    		String exchangeToUse = "NFO";
+			if (this.mainInstrument.getExchange().equals("BSE")) exchangeToUse = "BFO";
+			
     		if (ceHedgeOptionName!=null && !ceHedgeOptionName.equals("")) {
 	    		MarginCalculationParams ceHedgeItemMarginParam = new MarginCalculationParams();
-	    		ceHedgeItemMarginParam.exchange = "NFO"; 
+	    		ceHedgeItemMarginParam.exchange = exchangeToUse; 
 	    		ceHedgeItemMarginParam.variety = Constants.VARIETY_REGULAR;
 	    		ceHedgeItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
 	    		ceHedgeItemMarginParam.product = Constants.PRODUCT_MIS;
@@ -740,7 +743,7 @@ public abstract class G3BaseClass extends BaseClass {
     		}
     		if (peHedgeOptionName!=null && !peHedgeOptionName.equals("")) {
 				MarginCalculationParams peHedgeItemMarginParam = new MarginCalculationParams();
-	    		peHedgeItemMarginParam.exchange = "NFO"; 
+	    		peHedgeItemMarginParam.exchange = exchangeToUse; 
 	    		peHedgeItemMarginParam.variety = Constants.VARIETY_REGULAR;
 	    		peHedgeItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
 	    		peHedgeItemMarginParam.product = Constants.PRODUCT_MIS;
@@ -751,7 +754,7 @@ public abstract class G3BaseClass extends BaseClass {
     		}
     		if (ceOptionName!=null && !ceOptionName.equals("")) {    		
 				MarginCalculationParams ceItemMarginParam = new MarginCalculationParams();
-				ceItemMarginParam.exchange = "NFO"; 
+				ceItemMarginParam.exchange = exchangeToUse; 
 				ceItemMarginParam.variety = Constants.VARIETY_REGULAR;
 				ceItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
 				ceItemMarginParam.product = Constants.PRODUCT_MIS;
@@ -762,7 +765,7 @@ public abstract class G3BaseClass extends BaseClass {
     		}
     		if (peOptionName!=null && !peOptionName.equals("")) {
 				MarginCalculationParams peItemMarginParam = new MarginCalculationParams();
-				peItemMarginParam.exchange = "NFO"; 
+				peItemMarginParam.exchange = exchangeToUse; 
 				peItemMarginParam.variety = Constants.VARIETY_REGULAR;
 				peItemMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
 				peItemMarginParam.product = Constants.PRODUCT_MIS;

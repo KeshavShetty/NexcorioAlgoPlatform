@@ -17,6 +17,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 	public float deltaUpgradeStep = 0.05f;
 	
 	public float premiumSpikePercent = 8f;
+	public boolean startFromBaseDelta = false;
 	
 	public G3StraddleToStrangleSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -131,6 +132,9 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 					if (currentATMStraddlePremium < highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) {
 						
 						currentDelta = currentDelta - deltaUpgradeStep;
+						if (startFromBaseDelta) {
+							currentDelta = startingDelta + deltaUpgradeStep;	
+						}
 						if (currentDelta >= 0.25f ) {
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( currentDelta, this.hedgeDistance);
 							
@@ -168,7 +172,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 							highestATMStraddlePremium = currentATMStraddlePremium;
 							lowestATMStraddlePremium  = currentATMStraddlePremium;
 						} else {
-							prepareExit(" Too many positions");
+							prepareExit(" Reached lowerDelta level");
 						}
 					}
 				} else { // Already positions running, check for exit rule

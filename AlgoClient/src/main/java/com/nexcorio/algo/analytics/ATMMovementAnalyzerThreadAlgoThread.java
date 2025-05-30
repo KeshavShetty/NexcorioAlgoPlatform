@@ -58,7 +58,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			System.out.println("Time has come to process ATM Data");
 			do {
 				//System.out.println("Going to sleep");
-				sleep(15);				
+				sleep(5);				
 				//System.out.println("Wakreup");
 				fileLogTelegramWriter.write("====================================================================================================");
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
@@ -80,18 +80,230 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	private void processATMMovement() {
 		try {
 			Map<String, Integer> futuresMap = getFutureStandOff();
-			processAndSaveRawStraddleData(0.4f, futuresMap.get("Total"), futuresMap.get("Bullish"));
-			processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"));
-			processAndSaveRawStraddleData(0.6f, futuresMap.get("Total"), futuresMap.get("Bullish"));
+			Map<String, Float> totaOis = getTotalOis();
+			Map<String, Float> totaIVs = getTotalIVs();
+			Map<String, Float> totaGammas = getTotalGammas();
+			Map<String, Float> totaVegas = getTotalVegas();
 			
+			Map<String, OptionGreek> otmGreeksMap = processAndSaveRawStraddleData(0.4f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
+					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
+					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
+					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega"));
+			Map<String, OptionGreek> atmGreeksMap = processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
+					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
+					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
+					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega") );
+			Map<String, OptionGreek> itmGreeksMap = processAndSaveRawStraddleData(0.6f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
+					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
+					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
+					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega") );
+			
+			saveAdjustedData(otmGreeksMap, atmGreeksMap, itmGreeksMap);
 		} catch (Exception e) {
 			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
 		}
 	}
 	
+	private void saveAdjustedData(Map<String, OptionGreek> otmGreeksMap, Map<String, OptionGreek> atmGreeksMap, Map<String, OptionGreek> itmGreeksMap) {
+		
+	}
 	
-	private void processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint) {
+	private Map<String, Float> getTotalOis() {
+		Map<String, Float> retMap = new HashMap<>();
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String fetchSql = "select sum(oi) as totalOI from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float totalCEOI = 0f;
+			while (rs.next()) {
+				totalCEOI = rs.getFloat("totalOI");
+			}
+			rs.close();
+			retMap.put("TotalCEOI", totalCEOI);
+			
+			fetchSql = "select sum(oi) as totalOI from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			float totalPEOI = 0f;
+			while (rs.next()) {
+				totalPEOI = rs.getFloat("totalOI");
+			}
+			rs.close();
+			retMap.put("TotalPEOI", totalPEOI);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	
+	private Map<String, Float> getTotalIVs() {
+		Map<String, Float> retMap = new HashMap<>();
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String fetchSql = "select sum(iv)/count(*) as totalIV from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float totalCEIV = 0f;
+			while (rs.next()) {
+				totalCEIV = rs.getFloat("totalIV");
+			}
+			rs.close();
+			retMap.put("TotalCEIV", totalCEIV);
+			
+			fetchSql = "select sum(iv)/count(*) as totalIV from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			float totalPEIV = 0f;
+			while (rs.next()) {
+				totalPEIV = rs.getFloat("totalIV");
+			}
+			rs.close();
+			retMap.put("TotalPEIV", totalPEIV);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	
+	private Map<String, Float> getTotalGammas() {
+		Map<String, Float> retMap = new HashMap<>();
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String fetchSql = "select sum(gamma) as totalGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float totalCEGamma = 0f;
+			while (rs.next()) {
+				totalCEGamma = rs.getFloat("totalGamma");
+			}
+			rs.close();
+			retMap.put("TotalCEGamma", totalCEGamma);
+			
+			fetchSql = "select sum(gamma) as totalGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			float totalPEGamma = 0f;
+			while (rs.next()) {
+				totalPEGamma = rs.getFloat("totalGamma");
+			}
+			rs.close();
+			retMap.put("TotalPEGamma", totalPEGamma);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	
+	private Map<String, Float> getTotalVegas() {
+		Map<String, Float> retMap = new HashMap<>();
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			String fetchSql = "select sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float totalCEVega = 0f;
+			while (rs.next()) {
+				totalCEVega = rs.getFloat("totalVega");
+			}
+			rs.close();
+			retMap.put("TotalCEVega", totalCEVega);
+			
+			fetchSql = "select sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			float totalPEVega = 0f;
+			while (rs.next()) {
+				totalPEVega = rs.getFloat("totalVega");
+			}
+			rs.close();
+			retMap.put("TotalPEVega", totalPEVega);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
+			float totalCEGamma, float totalPEGamma,
+			float totalCEVega, float totalPEVega) {
+		Map<String, OptionGreek> retMap = null;
+		
 		Connection conn = null;
 		try {			
 			conn = HDataSource.getConnection();
@@ -120,6 +332,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", bullishFuturePoints"
 						+ ", ceOi"
 						+ ", peOi"
+						+ ", totalCEOI"
+						+ ", totalPEOI"
+						+ ", totalCEIV"
+						+ ", totalPEIV"					
+						+ ", totalCEGamma"
+						+ ", totalPEGamma"
+						+ ", totalCEVega"
+						+ ", totalPEVega"
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp +"," + baseDelta +""
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -146,9 +366,21 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + futuresBullishPoint
 						+ " ," + ceOptionGreek.getOi()
 						+ " ," + peOptionGreek.getOi()
+						+ " ," + totalCEOI
+						+ " ," + totalPEOI
+						+ " ," + totalCEIV
+						+ " ," + totalPEIV
+						+ " ," + totalCEGamma
+						+ " ," + totalPEGamma
+						+ " ," + totalCEVega
+						+ " ," + totalPEVega
 						+ ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
+				
+				retMap = new HashMap<>();
+				retMap.put("CE", ceOptionGreek);
+				retMap.put("PE", peOptionGreek);
 			}
 			stmt.close();
 		} catch (Exception e) {
@@ -161,6 +393,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				log.error(e);
 			}
 		}
+		return retMap;
 	}
 	
 	private Map<String, Integer> getFutureStandOff() {
@@ -211,7 +444,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-05-09 09:17:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-05-27 09:17:00");		
 	}
 
 }

@@ -7,25 +7,31 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
+public class G3TriangularisationSelectiveFuturesSpikeAversionAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3OISupportStrengthSpikeAversionAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3TriangularisationSelectiveFuturesSpikeAversionAlgoThread.class);
 		
 	public float baseDelta = 0.5f;
-	public float premiumSpikePercent = 8f;	
-	public int topOIs = 5;
+	public float premiumSpikePercent = 8f;
+	public String selectiveAssetsMainInstrumentIds = null; // Comma separated
 	
-	public G3OISupportStrengthSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
+	private Map<Long, MainInstruments> selectiveAssetsMainInstrumentsMap = new HashMap<Long, MainInstruments>();
+	
+	public G3TriangularisationSelectiveFuturesSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -38,6 +44,13 @@ public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass impl
 	@Override
 	public void run() {
 		try {
+			
+			String[] selectiveAssetsIds = selectiveAssetsMainInstrumentIds.split(",");
+			for(int i=0;i<selectiveAssetsIds.length;i++) {
+				Long aId = Long.parseLong(selectiveAssetsIds[i].trim());
+				MainInstruments aInstrument = getMainInstrumentDtoById(aId);
+				selectiveAssetsMainInstrumentsMap.put(aId, aInstrument);
+			}
 			
 			long ceDbId = -1;
 			long peDbId = -1;
@@ -102,7 +115,8 @@ public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass impl
 						
 						fileLogTelegramWriter.write(" Forming condition 1");
 						
-						String currentTrend = getSellerDirectionBySupportStrength(); // CE, PE
+						String currentTrend = getSellerDirectionByFuturesTrend();
+						
 						String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
 						
 						if (currentTrend.equals("CE")) {
@@ -178,7 +192,7 @@ public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass impl
 							prepareExit("Too many orders");
 						}
 					} else { // Check change in direction
-						String currentTrend = getSellerDirectionBySupportStrength();
+						String currentTrend = getSellerDirectionByFuturesTrend();
 						if (!currentTrend.equals(lastKnownTrend)) {
 							fileLogTelegramWriter.write(" Forming condition 3");
 							String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, this.hedgeDistance);
@@ -293,126 +307,87 @@ public class G3OISupportStrengthSpikeAversionAlgoThread extends G3BaseClass impl
 		}
 	}
 	
-	private String getSellerDirectionBySupportStrength() {
-		String retVal = "Neutral";
+	private String getSellerDirectionByFuturesTrend() {
+
+		String retVal = "";
+		
 		Connection conn = null;
-		String top4Options ="";
-		String logString = "";
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
-			boolean filterOptionWorth = true;
 			
-			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			float totalBullishPoint = 0f;
+			float totalBearishPoint = 0f;
 			
-			String opOIFetch = "select trading_symbol, oi as open_interest, strike, oi*ltp/10000000 as worthInCr from nexcorio_option_snapshot"
-					+ " where trading_symbol like '" + optionnamePrefix + "%' and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) +"' "
-					+ (filterOptionWorth==true?" and oi*ltp/10000000>10":"")  + " order by oi desc limit "+this.topOIs;
+			int totalBullishCount = 0;
+			int totalBearishCount = 0;
 			
-			// Todo:backtest support pending
-			
-			log.info("opOIFetch="+opOIFetch);
-			int ceCount = 0;
-			int peCount = 0;
-			
-			int top5CeCount = 0;
-			int top5PeCount = 0;
-			
-			float totalCeOI = 0;
-			float totalPeOI = 0;
-			
-			float totalCeOIWorth = 0;
-			float totalPeOIWorth = 0;
-			
-			ResultSet rs = stmt.executeQuery(opOIFetch);
-			int recCount = 0;
-			List<Integer> ceStrikes = new ArrayList<Integer>();
-			List<Integer> peStrikes = new ArrayList<Integer>();
-			while (rs.next()) {
-				String tradingSymbol = rs.getString("trading_symbol");
-				int strikePrice = (int) rs.getFloat("strike");
-				float openInterest = rs.getFloat("open_interest");
-				float oiWorth = rs.getFloat("worthInCr");
-				top4Options = top4Options + tradingSymbol +" ";
-				if (tradingSymbol.endsWith("CE")) {
-					ceCount++;
-					totalCeOI = totalCeOI + openInterest;
-					totalCeOIWorth =  totalCeOIWorth + oiWorth;
-					if (recCount<5) top5CeCount++;
-					ceStrikes.add(strikePrice);
-				} else {
-					peCount++;
-					totalPeOI = totalPeOI + openInterest;
-					totalPeOIWorth =  totalPeOIWorth + oiWorth;
-					if (recCount<5) top5PeCount++;
-					peStrikes.add(strikePrice);
+		
+			Iterator<Long> iter =  selectiveAssetsMainInstrumentsMap.keySet().iterator();
+			while(iter.hasNext()) {
+				Long mainInstrumentId = iter.next();
+				String exchange = selectiveAssetsMainInstrumentsMap.get(mainInstrumentId).getExchange();
+				
+				String futurePrefix = getNextNFUTUREExpiryDatePrefix(mainInstrumentId, exchange);
+				
+				String fetchSql = "SELECT count(*) as total, COUNT(DISTINCT CASE WHEN total_buy_qty > total_sell_qty THEN id END) as bullishCount,"
+						+ " COUNT(DISTINCT CASE WHEN total_buy_qty < total_sell_qty THEN id END) as bearishCount"
+						+ " FROM nexcorio_tick_data"
+						+ " WHERE quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+						+ " AND  quote_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'"
+						+ " AND trading_symbol='" + futurePrefix + "'";
+				
+				fileLogTelegramWriter.write("For " + mainInstrumentId + "  fetchSql="+fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				int totalEntry = 0;
+				int bullishEntry = 0;
+				int bearishEntry = 0;
+				
+				while (rs.next()) {
+					totalEntry = rs.getInt("total");
+					bullishEntry = rs.getInt("bullishCount");
+					bearishEntry = rs.getInt("bearishCount");
 				}
-				recCount++;
+				rs.close();
+				
+				float bullishPoint = (float)bullishEntry/(float)totalEntry;
+				float bearishPoint = (float)bearishEntry/(float)totalEntry;
+				
+				fileLogTelegramWriter.write("Local bullishPoint="+bullishPoint+" bearishPoint="+bearishPoint);
+				
+				totalBullishPoint = totalBullishPoint + bullishPoint;
+				totalBearishPoint = totalBearishPoint + bearishPoint;
+				
+				if (bullishPoint > 0.50f) totalBullishCount++;
+				else totalBearishCount++;
 			}
-			rs.close();			
 			stmt.close();
 			
-			Collections.sort(ceStrikes);
-			Collections.sort(peStrikes, Collections.reverseOrder());
+			fileLogTelegramWriter.write(" totalBullishPoint="+totalBullishPoint+" totalBearishPoint="+totalBearishPoint+" totalBullishCount="+totalBullishCount + " totalBearishCount="+totalBearishCount);
 			
-			fileLogTelegramWriter.write(" Printing ordered CE Strikes");
-			//print(ceStrikes);
-			fileLogTelegramWriter.write(" Printing ordered PE Strikes");
-			//print(peStrikes);
-			
-			int ceGap = 0;
-			int peGap = 0;
-			float ceSupprotDistance4mIndex = 0f;
-			float peSupprotDistance4mIndex = 0f;
-			if (ceStrikes.size()>1) {
-				ceGap = ceStrikes.get(1) - ceStrikes.get(0);
-				ceSupprotDistance4mIndex = ceStrikes.get(0) - this.instrumentLtp;
-			} else {
-				ceGap = 2000;
-				ceSupprotDistance4mIndex = 2000f;
-			}
-			
-			if (peStrikes.size()>1) {
-				peGap = peStrikes.get(0) - peStrikes.get(1);
-				peSupprotDistance4mIndex = this.instrumentLtp - peStrikes.get(0);
-			} else {
-				peGap = 2000;
-				peSupprotDistance4mIndex = 2000f;
-			}
-			
-			float gapRatio = ceGap>peGap?((float)peGap/(float)ceGap):((float)ceGap/(float)peGap);
-			fileLogTelegramWriter.write(" ceGap="+ceGap+" peGap="+peGap+" gapRatio="+gapRatio+" ceSupprotDistance4mIndex="+ceSupprotDistance4mIndex+" peSupprotDistance4mIndex="+peSupprotDistance4mIndex);
-			
-			if (ceGap>peGap) {
-				retVal = "CE";
-			} else if (ceGap<peGap) {
+			if (totalBullishPoint > totalBearishPoint) {
 				retVal = "PE";
 			} else {
-				if (top5CeCount>top5PeCount) retVal = "CE";
-				else retVal = "PE";
+				retVal = "CE";
 			}
-			if (top5CeCount >= this.topOIs-1) retVal = "CE";
-			else if (top5PeCount >= this.topOIs-1) retVal = "PE";
-			
-			logString = " ceCount="+ceCount+" peCount="+peCount+" top5CeCount="+top5CeCount+" top5PeCount="+top5PeCount 
-					+" totalCeOI="+totalCeOI+" totalPeOI="+totalPeOI+" CPRatio="+(totalCeOI/totalPeOI) + " totalCeOIWorth="+totalCeOIWorth+" totalPeOIWorth="+totalPeOIWorth;
-			fileLogTelegramWriter.write( logString +" topOptions="+top4Options+" retVal="+retVal);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
+		} catch(Exception ex) {
+			log.error("Error"+ex.getMessage(),ex);
+			ex.printStackTrace();
+		}finally {
 			try {
-				conn.close();
+				if (conn!=null) conn.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
-		}
+		}	
 		return retVal;
-	}	
-	
+	}
 	
 	public static void main(String[] args) {
 		
-		new G3OISupportStrengthSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
+		new G3TriangularisationSelectiveFuturesSpikeAversionAlgoThread(525L, "2025-03-06 09:50:00" );
 	
 	}
 }
