@@ -172,7 +172,7 @@ public class CloneAlgo {
 	}
 	
 	public static void main(String[] args) {
-		cloneAlgo(174L, false, 2L);
+		cloneAlgo(193L, false, 2L);
 		
 	}
 }

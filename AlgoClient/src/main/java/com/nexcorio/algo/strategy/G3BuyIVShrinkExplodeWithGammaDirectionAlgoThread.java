@@ -17,16 +17,17 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runnable{
+public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3BuyIVShrinkExplodeAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread.class);
 		
 	public float baseDelta = 0.5f;
+	public float greekDiffCutoffPercent = 5f;
 	
 	private String ceBuyOptionname = "";
 	private String peBuyOptionname = "";
 	
-	public G3BuyIVShrinkExplodeAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -90,7 +91,7 @@ public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runna
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				String currentTrend = getBuyerTrendByIVChange();
+				String currentTrend = getBuyerTrendByIVChangeAndGammaDirection();
 				
 				if (!currentTrend.equals(lastKnownTrend)) {
 					fileLogTelegramWriter.write("Trend changed to " + currentTrend +  ", Orders so far " + this.noOfOrders);
@@ -123,7 +124,7 @@ public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runna
 							if (this.placeActualOrder) {
 								placeRealOrder(ceDbId, ceBuyOptionname, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
-						} else { // PE
+						} else if (currentTrend.equals("PE")) { // PE
 							peBuyOptionname = entryStraddleOptionNames[1];
 							float pePrice = getPriceFromTicks(peBuyOptionname);
 							fileLogTelegramWriter.write( " Entering Long ="+peBuyOptionname +"@" +pePrice );
@@ -155,7 +156,6 @@ public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runna
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) {
-				
 				if (!ceBuyOptionname.equals("")) {
 					fileLogTelegramWriter.write( " Exiting Long ="+ceBuyOptionname );
 					placeRealOrder( ceDbId, ceBuyOptionname, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
@@ -179,6 +179,80 @@ public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runna
 		}
 	}
 	
+	private String getBuyerTrendByIVChangeAndGammaDirection() {
+		String ivChangeTrend = getBuyerTrendByIVChange();
+		String gammaDirection = getBuyerTrendByGamma();
+		fileLogTelegramWriter.write("ivChangeTrend="+ivChangeTrend+" gammaDirection="+gammaDirection);
+		
+		if (ivChangeTrend.equals(gammaDirection)) {
+			return ivChangeTrend;
+		} else {
+			return "Unknown";
+		}
+	}
+	
+	private String getBuyerTrendByGamma() {
+		String retVal = "";
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fieldname = "cegamma as ceGreek, pegamma as peGreek";
+			
+			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+					+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 1";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			
+			float ceGreek = 0f;
+			float peGreek = 0f;
+			while (rs.next()) {
+				ceGreek = rs.getFloat("ceGreek");
+				peGreek = rs.getFloat("peGreek");
+			}
+			rs.close();			
+			stmt.close();
+			
+			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
+			//if (ceGreek < peGreek) greekDiffPercent = -greekDiffPercent;
+			
+			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
+			
+			if (greekDiffPercent >= greekDiffCutoffPercent || greekDiffPercent <= -greekDiffCutoffPercent ) {
+				fileLogTelegramWriter.write("Cutoff breached");
+				if (greekDiffPercent > 0f) {
+					retVal = "CE";
+				} else {
+					retVal = "PE";
+				}
+			}
+			
+			if (retVal.equals("Unknown") ) {
+				if (greekDiffPercent > 0f) {
+					retVal = "CE";
+				} else {
+					retVal = "PE";
+				}
+			}
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			
+		return retVal;
+	}
 	private String getBuyerTrendByIVChange() {
 		String retVal = "";
 		
@@ -251,7 +325,7 @@ public class G3BuyIVShrinkExplodeAlgoThread extends G3BaseClass implements Runna
 	
 	public static void main(String[] args) {
 		
-		new G3BuyIVShrinkExplodeAlgoThread(174L, "2025-05-28 09:25:00" );
+		new G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread(174L, "2025-05-28 09:25:00" );
 	
 	}
 }

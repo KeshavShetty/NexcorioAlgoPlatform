@@ -57,7 +57,7 @@ public class KiteCache {
 			Connection conn = null;
 			Statement stmt = null;
 			try {
-				conn = HDataSource.getConnection();
+				conn = HDataSource.getReadOnlyConnection();
 				stmt = conn.createStatement();
 				
 				ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"

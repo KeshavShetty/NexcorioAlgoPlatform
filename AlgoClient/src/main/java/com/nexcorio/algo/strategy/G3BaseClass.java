@@ -68,7 +68,7 @@ public abstract class G3BaseClass extends BaseClass {
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 						
 			String opOIFetch = "select name, data_type, value from nexcorio_options_algo_strategy_parameters where f_strategy = " + this.napAlgoId + " order by name";			  
@@ -87,8 +87,6 @@ public abstract class G3BaseClass extends BaseClass {
 			}
 			rs.close();
 			stmt.close();
-			
-			
 					
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -153,7 +151,7 @@ public abstract class G3BaseClass extends BaseClass {
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 						
 			String opOIFetch = "select f_user, f_main_instrument, algoname, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders, hedge_distance, max_hedge_cost_per_leg, non_directional, "
@@ -511,7 +509,7 @@ public abstract class G3BaseClass extends BaseClass {
 		Connection conn = null;
 		try {
 			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			String fetchNextSeq = "select sum(sell_price-buy_price) as profitPerLot from nexcorio_option_algo_orders where short_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and f_strategy="+this.napAlgoId;
 			fileLogTelegramWriter.write("fetchNextSeq="+fetchNextSeq);
@@ -644,7 +642,7 @@ public abstract class G3BaseClass extends BaseClass {
 						+ "exit_profit=" + (profit) + ", best_profit=" + (maxProfit) + ", worst_profit=" + (worstProfit) + ", max_profit_reached_at='" + postgresLongDateFormat.format(maxProfitReachedAt) + "',"
 						+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
 						+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
-						+ (this.exitThread==true?(", exit_reason='" + this.exitReason+ "'"):"")
+						+ (this.exitThread==true?(", exit_reason='" + this.exitReason.trim()+ "'"):"")
 						+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
 						
 				int recUpdated = stmt.executeUpdate(updateSql);

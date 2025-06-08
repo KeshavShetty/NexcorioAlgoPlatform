@@ -106,7 +106,7 @@ public class BaseClass {
 		try {
 			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select quote_time, last_traded_price from nexcorio_tick_data where trading_symbol = '" + instrumentName +"'"
@@ -139,7 +139,7 @@ public class BaseClass {
 		OptionGreek retVal = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
@@ -170,7 +170,7 @@ public class BaseClass {
 		String retStr = "";
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-OPT";
@@ -210,7 +210,7 @@ public class BaseClass {
 		String retStr = "";
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-OPT";
@@ -250,7 +250,7 @@ public class BaseClass {
 		Date expiryDate = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-OPT";
@@ -357,7 +357,7 @@ public class BaseClass {
 		String[] retStr = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 	
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -437,7 +437,6 @@ public class BaseClass {
 					peGreek = rs.getFloat("greek");
 				}
 				rs.close();
-				stmt.close();
 			} else {
 				String fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
 						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
@@ -482,6 +481,8 @@ public class BaseClass {
 				}
 			}
 			
+			stmt.close();
+			
 			String localCeStraddleOptionName =  ceTradingSymbol;
 			String localPeStraddleOptionName =  peTradingSymbol;
 			
@@ -513,7 +514,7 @@ public class BaseClass {
 		String[] retStr = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select ceoptionname, peoptionname from nexcorio_option_atm_movement_data where f_main_instrument="+this.mainInstrument.getId()
@@ -566,7 +567,7 @@ public class BaseClass {
 			String[] retStr = null;
 			Connection conn = null;
 			try {
-				conn = HDataSource.getConnection();
+				conn = HDataSource.getReadOnlyConnection();
 				Statement stmt = conn.createStatement();
 		
 				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -648,7 +649,6 @@ public class BaseClass {
 						peDelta = rs.getFloat("delta");
 					}
 					rs.close();
-					stmt.close();
 				} else {
 					String fetchSql = "select trading_symbol, delta, abs(" + requiredDelta + "-abs(delta)) as deltaDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
 							+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
@@ -693,6 +693,8 @@ public class BaseClass {
 				
 				}
 				
+				stmt.close();
+				
 				String localCeStraddleOptionName =  ceTradingSymbol;
 				String localPeStraddleOptionName =  peTradingSymbol;
 				
@@ -725,7 +727,7 @@ public class BaseClass {
 		int basePrice = 0;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			int scripSpotPrice  = (int) getPriceFromTicks(this.mainInstrument.getShortName());
@@ -777,7 +779,7 @@ public class BaseClass {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fetchSql = "SELECT id, name, short_name, instrument_type, exchange,"
@@ -851,7 +853,7 @@ public class BaseClass {
 		Statement stmt = null;
 		
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fetchSql = "select id, zerodha_user_id, zerodha_api_key, zerodha_api_secret_key, zerodha_service_token, zerodha_access_token, zerodha_public_token FROM nexcorio_users WHERE id='" + userId + "'";
@@ -931,7 +933,7 @@ public class BaseClass {
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
@@ -986,11 +988,58 @@ public class BaseClass {
 		return avgeAtmPremium;
 	}
 	
+	protected Map<String, Float> getATMStraddleData() {
+		
+		Map<String, Float> retMap = new HashMap<>();
+		
+		float avgeAtmPremium = 0f;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select ceiv, peiv, cegamma, pegamma, celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
+					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			
+			if (this.backtestDate!=null) {
+				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
+			}
+			fetchSql = fetchSql + " order by record_time desc limit 1";
+			
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			while (rs.next()) {
+				retMap.put("ceiv", rs.getFloat("ceiv"));
+				retMap.put("peiv", rs.getFloat("peiv"));
+				retMap.put("cegamma", rs.getFloat("cegamma"));
+				retMap.put("pegamma", rs.getFloat("pegamma"));
+				retMap.put("atmPremium", rs.getFloat("atmPremium"));
+			}
+			rs.close();			
+			stmt.close();
+			
+			fileLogTelegramWriter.write("In getATMStraddleData returning ceiv="+retMap.get("ceiv")+ " peiv=" + retMap.get("peiv")+" cegamma="+retMap.get("cegamma")+" pegamma="+retMap.get("pegamma")+" atmPremium="+retMap.get("atmPremium"));
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			
+		return retMap;
+	}
+	
 	protected Map<String, Float> getCurrentATMIV() {
 		Map<String, Float> ivMap = new HashMap<>();
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
@@ -1124,7 +1173,7 @@ public class BaseClass {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-FUT";

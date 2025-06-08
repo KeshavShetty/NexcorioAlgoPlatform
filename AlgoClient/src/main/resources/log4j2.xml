@@ -23,7 +23,12 @@
 			<Policies>
 				<SizeBasedTriggeringPolicy size="1024MB"/>
 			</Policies>
-			<DefaultRolloverStrategy max="25"/>
+			<DefaultRolloverStrategy max="25">
+				<Delete basePath="${baseDir}" maxDepth="2">
+				    <IfFileName glob="${infoFileName}-*.*" />
+				    <IfLastModified age="P2D" />
+  				</Delete>
+			</DefaultRolloverStrategy>
 		</RollingFile>
                     
 		<Console name="Console" target="SYSTEM_OUT">

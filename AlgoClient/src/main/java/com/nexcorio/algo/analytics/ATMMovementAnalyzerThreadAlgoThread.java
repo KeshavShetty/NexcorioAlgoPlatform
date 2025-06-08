@@ -85,23 +85,24 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			Map<String, Float> totaGammas = getTotalGammas();
 			Map<String, Float> totaVegas = getTotalVegas();
 			
-			Map<String, OptionGreek> otmGreeksMap = processAndSaveRawStraddleData(0.4f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
-					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
-					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
-					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
-					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega"));
+//			Map<String, OptionGreek> otmGreeksMap = processAndSaveRawStraddleData(0.4f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+//					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
+//					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
+//					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
+//					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega"));
 			Map<String, OptionGreek> atmGreeksMap = processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
 					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
 					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
 					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
-					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega") );
-			Map<String, OptionGreek> itmGreeksMap = processAndSaveRawStraddleData(0.6f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
-					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
-					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
-					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
-					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega") );
+					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega"),
+					totaGammas.get("AvgCEGamma"), totaGammas.get("AvgPEGamma"));
+//			Map<String, OptionGreek> itmGreeksMap = processAndSaveRawStraddleData(0.6f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+//					totaOis.get("TotalCEOI"), totaOis.get("TotalPEOI"), 
+//					totaIVs.get("TotalCEIV"), totaIVs.get("TotalPEIV"),
+//					totaGammas.get("TotalCEGamma"), totaGammas.get("TotalPEGamma"), 
+//					totaVegas.get("TotalCEVega"), totaVegas.get("TotalPEVega") );
 			
-			saveAdjustedData(otmGreeksMap, atmGreeksMap, itmGreeksMap);
+			//saveAdjustedData(otmGreeksMap, atmGreeksMap, itmGreeksMap);
 		} catch (Exception e) {
 			log.error("Error"+e.getMessage(),e);
 			e.printStackTrace();
@@ -116,7 +117,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>();
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -163,7 +164,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>();
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -210,34 +211,40 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>();
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 			
-			String fetchSql = "select sum(gamma) as totalGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+			String fetchSql = "select sum(gamma) as totalGamma, avg(gamma) as avgGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
 			fileLogTelegramWriter.write(fetchSql);
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
 			float totalCEGamma = 0f;
+			float avgCEGamma = 0f;
 			while (rs.next()) {
 				totalCEGamma = rs.getFloat("totalGamma");
+				avgCEGamma = rs.getFloat("avgGamma");
 			}
 			rs.close();
 			retMap.put("TotalCEGamma", totalCEGamma);
+			retMap.put("AvgCEGamma", avgCEGamma);
 			
-			fetchSql = "select sum(gamma) as totalGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+			fetchSql = "select sum(gamma) as totalGamma, avg(gamma) as avgGamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
 			fileLogTelegramWriter.write(fetchSql);
 			
 			rs = stmt.executeQuery(fetchSql);
 			
 			float totalPEGamma = 0f;
+			float avgPEGamma = 0f;
 			while (rs.next()) {
 				totalPEGamma = rs.getFloat("totalGamma");
+				avgPEGamma = rs.getFloat("avgGamma");
 			}
 			rs.close();
 			retMap.put("TotalPEGamma", totalPEGamma);
+			retMap.put("AvgPEGamma", avgPEGamma);
 			
 			stmt.close();
 		} catch (Exception e) {
@@ -257,7 +264,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>();
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -301,7 +308,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
 			float totalCEGamma, float totalPEGamma,
-			float totalCEVega, float totalPEVega) {
+			float totalCEVega, float totalPEVega,
+			float avgCeGamma, float avgPeGamma) {
 		Map<String, OptionGreek> retMap = null;
 		
 		Connection conn = null;
@@ -340,6 +348,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", totalPEGamma"
 						+ ", totalCEVega"
 						+ ", totalPEVega"
+						
+						+ ", avgCEGamma"
+						+ ", avgPEGamma"
+
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp +"," + baseDelta +""
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -374,6 +386,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + totalPEGamma
 						+ " ," + totalCEVega
 						+ " ," + totalPEVega
+						+ " ," + avgCeGamma
+						+ " ," + avgPeGamma
 						+ ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
@@ -401,7 +415,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), this.mainInstrument.getExchange());
@@ -443,8 +457,39 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		return retMap; 
 	}
 	
+	/**
+	 * Refer: https://www.investopedia.com/terms/p/putcallparity.asp
+	 * 
+	 * @param mainInstrumentId
+	 * @param strikePrice
+	 * @param instrumentLtp
+	 * @return
+	 */
+	private static float getPutCallParity(Long mainInstrumentId, int strikePrice, float instrumentLtp) {
+		float retVal = 0f;
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			// ?????? What is the future value of weekly expiry
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retVal;
+	}
+	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-05-27 09:17:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-06 09:17:00");		
 	}
 
 }

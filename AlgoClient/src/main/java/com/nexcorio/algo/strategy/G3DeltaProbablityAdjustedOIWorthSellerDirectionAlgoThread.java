@@ -23,6 +23,9 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 	
 	public float baseDelta = 0.5f;
 	public boolean filterOptionWorth = false;
+	
+	public boolean useScaledDelta = false;
+	
 	public int topOis = 5;
 	
 	public G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread(Long napAlgoId, String backTestDateStr) {
@@ -241,9 +244,11 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 					top4Options = top4Options + tradingSymbol +" ";
 					
 					if (tradingSymbol.endsWith("CE")) {
-						ceOIWorth = ceOIWorth + worthInCr*delta;				
+						if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCr*(1f-delta);				
+						else ceOIWorth = ceOIWorth + worthInCr*delta;
 					} else {
-						peOIWorth = peOIWorth + worthInCr*-delta;
+						if (useScaledDelta) peOIWorth = peOIWorth + worthInCr*(1f+delta);
+						else peOIWorth = peOIWorth + worthInCr*-delta;
 					}
 				}
 				rs.close();
@@ -323,9 +328,11 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 				for(int i=0;i<tillLoop;i++) {
 					//fileLogTelegramWriter.write(i + ". " + symbols.get(i) + ", oi=" + ois.get(i) );
 					if (symbols.get(i).endsWith("CE")) {
-						ceOIWorth = ceOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
+						if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCrAll.get(i)*(1f-Math.abs(deltas.get(i)));
+						else ceOIWorth = ceOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
 					} else {
-						peOIWorth = peOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
+						if (useScaledDelta) peOIWorth = peOIWorth + worthInCrAll.get(i)*(1f-Math.abs(deltas.get(i)));
+						else peOIWorth = peOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
 					}
 				}				
 			}

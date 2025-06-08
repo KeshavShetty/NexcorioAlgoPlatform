@@ -96,7 +96,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fetchSql = "select id, zerodha_api_key, zerodha_api_secret_key, zerodha_service_token, zerodha_access_token, zerodha_public_token FROM nexcorio_users WHERE zerodha_user_id='" + zerodhaUserId + "'";
@@ -253,7 +253,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			ResultSet rs = stmt.executeQuery("SELECT short_name, id FROM nexcorio_main_instruments WHERE IS_ACTIVE=TRUE");
@@ -280,7 +280,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
@@ -326,7 +326,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
@@ -494,7 +494,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-OPT";
@@ -594,7 +594,7 @@ public class KiteHelper {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fnoExchange = "NFO-FUT";
@@ -670,6 +670,7 @@ public class KiteHelper {
 					try {
 						tickerProvider.disconnect();
 						System.out.println("Ended at " + (new Date()));
+						HDataSource.logHikariStats();
 					} catch (JSONException e) {
 						e.printStackTrace();
 					}

@@ -150,7 +150,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		Statement stmt = null;
 		
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fetchSql = "select id, zerodha_api_key, zerodha_api_secret_key, zerodha_service_token, zerodha_access_token, zerodha_public_token, zerodha_user_id FROM nexcorio_users WHERE id='" + this.userId + "'";
@@ -221,7 +221,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String opOIFetch = "select id, algo_order_id, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange from nexcorio_real_orders where f_user = " + this.userId + " and status='PENDING'";
@@ -255,7 +255,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		return retList;
 	}
 	
-	private String placeKiteOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal, String algoTag, String exchange) {
+	private String placeKiteOrder(Long id, String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal, String algoTag, String exchange) {
 		log.info("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal+" algoTag="+algoTag);
 		String orderId = null;
@@ -269,7 +269,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	        orderParameters.validity=Constants.VALIDITY_DAY;
 	        orderParameters.tradingsymbol=optionname;
 			orderParameters.transactionType=transactionType;
-			if (algoTag!=null) orderParameters.tag = algoTag;
+			if (algoTag!=null) orderParameters.tag = algoTag+"-"+id;
 			
 			orderParameters.product= Constants.PRODUCT_MIS;
 	        if (useNormal==true) orderParameters.product= Constants.PRODUCT_NRML;
@@ -354,7 +354,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		boolean retVal = false;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String opOIFetch = "select enableRealtimeOrder from nexcorio_users where id = " + this.userId ;
@@ -447,7 +447,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
 							changeOrderStatus(aOrder.getId(), "PROCESSING"); // Immediately change order status, so that it is no more available for next run cycle (To avoid repeated order placing in case of Kite fail)
 							
-							String placedKiteOrderId = placeKiteOrder(aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
+							String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
 									KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
 							
 							updateOrderStatus(aOrder.getId(), placedKiteOrderId);

@@ -107,7 +107,7 @@ public class G3NapAlgoTriggerThread implements Runnable {
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String opOIFetch = "select id, algo_class_name from nexcorio_options_algo_strategy where isactive=TRUE and entry_time > '" + prevHourMinuteSecondPart + "' and entry_time <='" + currentHourMinuteSecondPart+"'";

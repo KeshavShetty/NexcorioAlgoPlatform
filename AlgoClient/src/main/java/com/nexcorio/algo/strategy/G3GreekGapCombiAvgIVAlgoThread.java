@@ -14,15 +14,14 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
+public class G3GreekGapCombiAvgIVAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3GreekParityAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3GreekGapCombiAvgIVAlgoThread.class);
 	
 	public String greekname = "iv";
 	public float baseDelta = 0.5f;	
-	public float greekDiffCutoffPercent = 5f;
 	
-	public G3GreekParityAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3GreekGapCombiAvgIVAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -45,39 +44,10 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
+			String lastKnownTrendByGreekGap = "Unknown";
+			String lastKnownTrendByAvgIV = "Unknown";
 			
-			String lastKnownTrend = "Unknown";
-			
-			String currentTrend = getSellerDirectionByATMGreekParity(lastKnownTrend);
-			
-			if (currentTrend.equals("CE")) {
-				ceStraddleOptionName =  entryStraddleOptionNames[0];
-				ceHedgeOptionName =  entryStraddleOptionNames[2];
-				
-				float cePrice = getPriceFromTicks(ceStraddleOptionName);
-			
-				fileLogTelegramWriter.write( "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName);
-				ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-				if (this.placeActualOrder) { 
-					placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-					placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-				}
-			} else { // PE
-				peStraddleOptionName =  entryStraddleOptionNames[1];
-				peHedgeOptionName =  entryStraddleOptionNames[3];
-				
-				float pePrice = getPriceFromTicks(peStraddleOptionName);
-				
-				fileLogTelegramWriter.write( "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName);
-				peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-				if (this.placeActualOrder) { 
-					placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-					placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-				}
-			}
-			
-			lastKnownTrend = currentTrend;
+			String lastKnownMergedTrend = "Unknown";
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();
@@ -117,14 +87,16 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekParity(lastKnownTrend); // StatusQuo, CE, PE
+				String currentTrendByGreekGap = getSellerDirectionByATMGreekGap(lastKnownTrendByGreekGap); // CE, PE
+				String currentTrendByAvgIV = getSellerDirectionByATMAvgIV(lastKnownTrendByAvgIV);
 				
-				if (!currentTrend.equals(lastKnownTrend)) {
+				String mergedTrend = currentTrendByGreekGap.equals(currentTrendByAvgIV)?currentTrendByGreekGap:"Unknown";
 				
-					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
-					
-					if (currentTrend.equals("CE")) { // Exit PE, Enter CE
-						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
+				if (!lastKnownMergedTrend.equals(mergedTrend)) {
+					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+				
+					if (mergedTrend.equals("CE")) {
+						if (!peStraddleOptionName.equals("")) { // Exit PE, taking other Directional
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 							// Exit PE
 							if (this.placeActualOrder) {
@@ -132,15 +104,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 							}
 							peStraddleOptionName = "";
 						}
-						if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-							if (!ceStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-								// Exit CE
-								if (this.placeActualOrder) {
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								ceStraddleOptionName = "";
-							}
+						if (ceStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
@@ -157,11 +121,9 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
 						}
-					} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
+					} else if (mergedTrend.equals("PE")) {
+						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking other Directional
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
 							if (this.placeActualOrder) {
@@ -169,14 +131,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 							}
 							ceStraddleOptionName = "";
 						}
-						if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
-							if (!peStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-								if (this.placeActualOrder) {
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								peStraddleOptionName = "";
-							}
+						if (peStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
@@ -193,12 +148,32 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
+						}
+					} else { // Unknown
+						if (!ceStraddleOptionName.equals("")) { // Exit CE
+							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+							// Exit CE
+							if (this.placeActualOrder) {
+								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							ceStraddleOptionName = "";
+							if (this.noOfOrders >= maxAllowedNoOfOrders) prepareExit("Too many orders");
+						}
+						if (!peStraddleOptionName.equals("")) { // Exit PE
+							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+							// Exit PE
+							if (this.placeActualOrder) {
+								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							peStraddleOptionName = "";
+							if (this.noOfOrders >= maxAllowedNoOfOrders) prepareExit("Too many orders");
 						}
 					}
-					lastKnownTrend = currentTrend;
 				}
+				
+				currentTrendByGreekGap = lastKnownTrendByGreekGap;
+				currentTrendByAvgIV = lastKnownTrendByAvgIV;
+				lastKnownMergedTrend = mergedTrend;
 				
 				checkExitSignals();
 				
@@ -223,13 +198,70 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 		}
 	}
 	
-	private String getSellerDirectionByATMGreekParity( String lastKnownTrend) {
+	private String getSellerDirectionByATMAvgIV( String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select totalceiv, totalpeiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int gapCpunt = 0;
+			
+			while (rs.next()) {
+				float ceGreek = rs.getFloat("totalceiv");
+				float peGreek = rs.getFloat("totalpeiv");
+				if (ceGreek>peGreek) {
+					gapCpunt++;
+				}
+			}
+			rs.close();			
+			stmt.close();
+			
+			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
+			
+			if (gapCpunt == 0) {
+				retVal = "PE";
+			} else if (gapCpunt == 5) {
+				retVal = "CE";
+			}
+			
+			if (retVal.equals("Unknown") ) {
+				if (gapCpunt < 2 ) {
+					retVal = "PE";
+				} else if (gapCpunt > 3 ) {
+					retVal = "CE";
+				}
+			}
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}			
+		return retVal;
+	}
+	
+	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
+		String retVal = lastKnownTrend;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";
 			if (this.greekname.equalsIgnoreCase("ltp")) {
 				fieldname = "celtp as ceGreek, peltp as peGreek";
@@ -238,40 +270,38 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			} 
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " order by record_time desc limit 1";
+					+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
+			int gapCpunt = 0;
 			
-			float ceGreek = 0f;
-			float peGreek = 0f;
 			while (rs.next()) {
-				ceGreek = rs.getFloat("ceGreek");
-				peGreek = rs.getFloat("peGreek");
+				float ceGreek = rs.getFloat("ceGreek");
+				float peGreek = rs.getFloat("peGreek");
+				if (ceGreek>peGreek) {
+					gapCpunt++;
+				}
 			}
 			rs.close();			
 			stmt.close();
 			
-			float greekDiffPercent = getPercentDiff(ceGreek, peGreek);
-			//if (ceGreek < peGreek) greekDiffPercent = -greekDiffPercent;
+			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
 			
-			fileLogTelegramWriter.write("ceGreek="+ceGreek + " peGreek="+peGreek + " greekDiffPercent="+greekDiffPercent);
+			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
 			
-			if (greekDiffPercent >= greekDiffCutoffPercent || greekDiffPercent <= -greekDiffCutoffPercent ) {
-				fileLogTelegramWriter.write("Cutoff breached");
-				if (greekDiffPercent > 0f) {
-					retVal = "PE";
-				} else {
-					retVal = "CE";
-				}
+			if (gapCpunt == 0) {
+				retVal = "PE";
+			} else if (gapCpunt == 5) {
+				retVal = "CE";
 			}
 			
 			if (retVal.equals("Unknown") ) {
-				if (greekDiffPercent > 0f) {
+				if (gapCpunt < 2 ) {
 					retVal = "PE";
-				} else {
+				} else if (gapCpunt > 3 ) {
 					retVal = "CE";
 				}
 			}
@@ -291,9 +321,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 	}
 	
 	public static void main(String[] args) {
-		new G3GreekParityAlgoThread(353L, null);
+		new G3GreekGapCombiAvgIVAlgoThread(23L, null);
 	}
-
-	
 
 }

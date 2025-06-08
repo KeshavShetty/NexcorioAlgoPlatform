@@ -1,5 +1,9 @@
 package com.nexcorio.algo.strategy;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -8,8 +12,9 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass implements Runnable {
+public class G3StraddleToStrangleIVCrushAlgoThread extends G3BaseClass implements Runnable {
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 
@@ -19,7 +24,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 	public float premiumSpikePercent = 8f;
 	public boolean startFromBaseDelta = false;
 	
-	public G3StraddleToStrangleSpikeAversionAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3StraddleToStrangleIVCrushAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -50,8 +55,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 			
 			updateAlgoStatus("Running");
 			
-			float lowestATMStraddlePremium = getATMStraddlePremium();
-			float highestATMStraddlePremium = lowestATMStraddlePremium;
+			boolean lastKnowStatus = false;;
 			
 			float currentDelta = startingDelta + deltaUpgradeStep;
 			do {
@@ -84,17 +88,16 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" ****** currentProfit="+currentProfitPerUnit+" ****** maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				fileLogTelegramWriter.write("lowestATMStraddlePremium="+ lowestATMStraddlePremium+" highestATMStraddlePremium="+highestATMStraddlePremium+" Entry at "
-						+ (highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) + " Exit at " + ( lowestATMStraddlePremium*(100f + premiumSpikePercent)/100f) );  
+				boolean ivRangeSafeForSeller = isIvRangeSafeForSeller(lastKnowStatus);
 				
-				float currentATMStraddlePremium = getATMStraddlePremium();
+				fileLogTelegramWriter.write("ivRangeSafeForSeller="+ivRangeSafeForSeller );
 				
 				if (!ceStraddleOptionName.equals("")) { // Position exist, check for realignment
 					if ( Math.abs( ceOptionGreeks.getDelta()+peOptionGreeks.getDelta()) > 2*deltaUpgradeStep ) {
 						fileLogTelegramWriter.write( " Delta gap widens, Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
 						if (this.placeActualOrder) {
-							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
 						updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
 						updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
@@ -129,7 +132,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 				}
 				
 				if (ceStraddleOptionName.equals("")) { // No open position
-					if (currentATMStraddlePremium < highestATMStraddlePremium*(100f - premiumSpikePercent)/100f) {
+					if (ivRangeSafeForSeller) {
 						
 						currentDelta = currentDelta - deltaUpgradeStep;
 						if (startFromBaseDelta) {
@@ -154,7 +157,7 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 							if (ceHedgeOptionName.equals("")) {
 								ceHedgeOptionName =  entryStraddleOptionNames[2];
 								if (this.placeActualOrder) {
-									placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);	
+									placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY",  false, KiteUtil.USE_NORMAL_ORDER_FALSE);	
 								}
 							}
 							if (peHedgeOptionName.equals("")) {
@@ -168,16 +171,12 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
-							
-							highestATMStraddlePremium = currentATMStraddlePremium;
-							lowestATMStraddlePremium  = currentATMStraddlePremium;
 						} else {
 							prepareExit(" Reached lowerDelta level");
 						}
 					}
 				} else { // Already positions running, check for exit rule
-					if (currentATMStraddlePremium > lowestATMStraddlePremium*(100f + premiumSpikePercent)/100f
-							) { // && currentATMStraddlePremium > atmPremiumWhenStraddleFormed
+					if (!ivRangeSafeForSeller) { // && currentATMStraddlePremium > atmPremiumWhenStraddleFormed
 						fileLogTelegramWriter.write( " Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
 						if (this.placeActualOrder) {
 							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
@@ -188,17 +187,13 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 						ceStraddleOptionName = "";
 						peStraddleOptionName = "";
 						
-						highestATMStraddlePremium = currentATMStraddlePremium;
-						lowestATMStraddlePremium  = currentATMStraddlePremium;
-						
 						if (this.noOfOrders >= maxAllowedNoOfOrders) {
 							prepareExit("Too many orders");
 						}
 					}
 				}
 				
-				if (currentATMStraddlePremium > highestATMStraddlePremium) highestATMStraddlePremium = currentATMStraddlePremium;
-				if (currentATMStraddlePremium < lowestATMStraddlePremium)  lowestATMStraddlePremium  = currentATMStraddlePremium;
+				lastKnowStatus = ivRangeSafeForSeller;
 				
 				checkExitSignals();
 				
@@ -229,5 +224,99 @@ public class G3StraddleToStrangleSpikeAversionAlgoThread extends G3BaseClass imp
 		}
 	}
 	
+	private boolean isIvRangeSafeForSeller(boolean lastKnowStatus) {
+		boolean retVal = lastKnowStatus;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
+					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			
+			if (this.backtestDate!=null) {
+				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
+			}
+			fetchSql = fetchSql + " order by record_time desc limit 1";
+			
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float currentCeIv = 0f;
+			float currentPeIv = 0f;
+			while (rs.next()) {
+				currentCeIv = rs.getFloat("ceiv");
+				currentPeIv = rs.getFloat("peiv");
+			}
+			rs.close();
+			
+			fetchSql = "select min(ceiv) as minCeIv, max(ceiv) as maxCeIv, min(peiv) as minPeIv, max(peiv) as maxPeIv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
+					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			
+			if (this.backtestDate!=null) {
+				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
+			}
+			fetchSql = fetchSql + " and record_time >= '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'";
+			
+			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			float minCeIv = 0f;
+			float maxCeIv = 0f;
+			
+			float minPeIv = 0f;
+			float maxPeIv = 0f;
+			
+			while (rs.next()) {
+				minCeIv = rs.getFloat("minCeIv");
+				maxCeIv = rs.getFloat("maxCeIv");
+				
+				minPeIv = rs.getFloat("minPeIv");
+				maxPeIv = rs.getFloat("maxPeIv");
+			}
+			rs.close();
+			stmt.close();
+			
+			float midCe = (minCeIv + maxCeIv)/2f;
+			float midPe = (minPeIv + maxPeIv)/2f;
+			
+			float oneThirdCe = (maxCeIv - minCeIv)/3;
+			float oneThirdPe = (maxPeIv - minPeIv)/3;
+			
+			fileLogTelegramWriter.write("currentCeIv="+currentCeIv+" currentPeIv="+currentPeIv+" minCeIv="+minCeIv+" maxCeIv="+maxCeIv+" minPeIv="+minPeIv+" maxPeIv="+maxPeIv+" midCe="+midCe+" midPe="+midPe);
+			
+			if (maxCeIv-minCeIv < 0.5f && maxPeIv-minPeIv < 0.5f) {	
+				return retVal;
+			}
+			
+			
+			if (maxCeIv-minCeIv > 1f || maxPeIv-minPeIv > 1f) {				
+				if (currentCeIv <= midCe && currentPeIv <= midPe) {
+					retVal = true;
+				} else if (lastKnowStatus==true) {
+					if(currentCeIv < (minCeIv+2f*oneThirdCe) && currentPeIv < (minPeIv+2f*oneThirdPe) ) {
+						retVal = true;
+					} else {
+						retVal = false;
+					}
+				}
+			} else {
+				retVal = false;
+			}
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
 	
 }
