@@ -65,7 +65,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		float optionIV = guessTheIV(this.ltp, underlyingValue, strikePrice, optionType, optionInstrument.getExpiryDate()); 
 		if (optionIV!=0) {
 			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp);
-					
+			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
 		}
 		
 	}
@@ -150,6 +150,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		
 		retVal = new OptionGreek(optionName, (float)impliedVolatility, (float)delta, (float)vega, (float)theta, (float)gamma );
 		retVal.setUnderlyingValue((float)underlyingValue);
+		retVal.setLtp((float) lastPrice);
+		retVal.setOi(this.openIterest);
 		
 		Connection conn = null;
 		try {
@@ -164,18 +166,24 @@ public class OptionGreeksExtractorsThread implements Runnable {
 					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 			log.info(insertSql);
 			stmt.execute(insertSql);
-						
-			// Insert into snapshot, first check if exists			
-			String fetchSql = "select id from nexcorio_option_snapshot where trading_symbol='" + this.tradingSymbol + "' and record_date='" + postgresShortDateFormat.format(latestTickQuoteTime) + "'";
-			log.info(fetchSql);
-			
-			ResultSet rs = stmt.executeQuery(fetchSql);
 			
 			Long snapshotId = null;
-			while(rs.next()) {
-				snapshotId = rs.getLong("id");
-			}
-			rs.close();
+			// get from cache first
+			snapshotId = KiteCache.snapshotIdCache.getIfPresent(this.tradingSymbol);
+			if (snapshotId==null) {
+				// Insert into snapshot, first check if exists			
+				String fetchSql = "select id from nexcorio_option_snapshot where trading_symbol='" + this.tradingSymbol + "' and record_date='" + postgresShortDateFormat.format(latestTickQuoteTime) + "'";
+				log.info(fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				
+				while(rs.next()) {
+					snapshotId = rs.getLong("id");
+				}
+				rs.close();
+				if(snapshotId!=null) KiteCache.snapshotIdCache.put(this.tradingSymbol, snapshotId);
+			} 
 			
 			if (snapshotId!=null) { // Already exist
 				String updateSql = "UPDATE nexcorio_option_snapshot set last_updated_time='" + postgresLongDateFormat.format(latestTickQuoteTime) + "', ltp=" + lastPrice + ", oi=" + this.openIterest  
@@ -217,7 +225,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			Connection conn = null;
 			Statement stmt = null;
 			try {
-				conn = HDataSource.getConnection();
+				conn = HDataSource.getReadOnlyConnection();
 				stmt = conn.createStatement();
 				
 				String fetchSql = "SELECT id, trading_symbol, zerodha_instrument_token, f_main_instrument, exchange, strike, expiry_date from nexcorio_fno_instruments WHERE trading_symbol='"+tradingSymbol+"' ";
@@ -250,7 +258,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		Connection conn = null;
 		Statement stmt = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
 			String fetchSql = "SELECT last_traded_price from nexcorio_tick_data WHERE trading_symbol=(select short_name from nexcorio_main_instruments where id="+mainInstrumentId+") ORDER BY quote_time DESC LIMIT 1";

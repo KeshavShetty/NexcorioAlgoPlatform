@@ -238,7 +238,7 @@ public class G3TriangularisationFuturesTrendAlgoThread extends G3BaseClass imple
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;

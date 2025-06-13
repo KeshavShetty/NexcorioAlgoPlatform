@@ -282,7 +282,7 @@ public class G3SelfAndTriangularisationSelectiveFuturesTrendAlgoThread extends G
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), mainInstrument.getExchange());
@@ -336,7 +336,7 @@ public class G3SelfAndTriangularisationSelectiveFuturesTrendAlgoThread extends G
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;

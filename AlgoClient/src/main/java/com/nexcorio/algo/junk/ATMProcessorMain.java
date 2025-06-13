@@ -16,10 +16,10 @@ public class ATMProcessorMain {
 		
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select trading_symbol from nexcorio_option_snapshot where trading_symbol LIKE 'NIFTY25MAY%E' AND record_date = '2025-05-23'";
+			String fetchSql = "select trading_symbol from nexcorio_option_snapshot where trading_symbol LIKE 'NIFTY25612%E' AND record_date = '2025-06-06'";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retList.add(rs.getString("trading_symbol"));
@@ -44,10 +44,10 @@ public class ATMProcessorMain {
 		
 		Connection conn = null;
 		try {			
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select id from nexcorio_option_atm_movement_data where f_main_instrument=2 AND record_time >= '2025-05-23 09:15:00' AND record_time <= '2025-05-23 15:30:00' order by id";
+			String fetchSql = "select id from nexcorio_option_atm_movement_data where f_main_instrument=2 AND record_time >= '2025-06-06 09:15:00' AND record_time <= '2025-06-06 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				Long aId = rs.getLong("id");
@@ -71,6 +71,7 @@ public class ATMProcessorMain {
 	public static void main(String[] args) {
 		
 		List<String> optionnames = getOptionnames();
+		System.out.println(optionnames.size());
 		//Long atmId = 1218756L;
 		processAtm(optionnames);
 		

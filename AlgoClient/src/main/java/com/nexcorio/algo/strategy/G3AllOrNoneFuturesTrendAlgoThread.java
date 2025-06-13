@@ -180,7 +180,7 @@ public class G3AllOrNoneFuturesTrendAlgoThread extends G3BaseClass implements Ru
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;

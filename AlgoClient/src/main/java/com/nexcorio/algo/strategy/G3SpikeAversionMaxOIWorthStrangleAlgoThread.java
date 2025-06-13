@@ -236,7 +236,7 @@ public class G3SpikeAversionMaxOIWorthStrangleAlgoThread extends G3BaseClass imp
 			
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 				
 			String ceTradingSymbolWithMaxOiWorth = "";

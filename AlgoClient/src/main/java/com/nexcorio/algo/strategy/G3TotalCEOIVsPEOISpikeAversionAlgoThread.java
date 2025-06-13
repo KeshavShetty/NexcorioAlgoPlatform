@@ -298,7 +298,7 @@ public class G3TotalCEOIVsPEOISpikeAversionAlgoThread extends G3BaseClass implem
 		String top4Options ="";
 		String logString = "";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 						
 			String opOIFetch = "select totalceoi, totalpeoi from nexcorio_option_atm_movement_data"

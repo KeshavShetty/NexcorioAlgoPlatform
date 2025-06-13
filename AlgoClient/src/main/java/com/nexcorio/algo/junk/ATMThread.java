@@ -41,8 +41,8 @@ public class ATMThread implements Runnable {
 			}
 		}
 		
-		float avgCeIV = 0f;
-		float avgPeIV = 0f;
+		float avgCeGamma = 0f;
+		float avgPeGamma = 0f;
 		
 		float totalCEGamma = 0f;
 		float totalPEGamma = 0f;
@@ -51,39 +51,32 @@ public class ATMThread implements Runnable {
 		float totalPEVega = 0f;
 		
 		for(OptionGreek aGreek: ceOptionGreeks) {
-			avgCeIV = avgCeIV + aGreek.getIv();
+			avgCeGamma = avgCeGamma + aGreek.getGamma();
 			totalCEGamma =  totalCEGamma + aGreek.getGamma();
 			totalCEVega =  totalCEVega + aGreek.getVega();
 		}
 		
 		for(OptionGreek aGreek: peOptionGreeks) {
-			avgPeIV = avgPeIV + aGreek.getIv();
+			avgPeGamma = avgPeGamma + aGreek.getGamma();
 			totalPEGamma =  totalPEGamma + aGreek.getGamma();
 			totalPEVega =  totalPEVega + aGreek.getVega();
 		}
 		
-		avgCeIV = avgCeIV/(float)ceOptionGreeks.size();
-		avgPeIV = avgPeIV/(float)peOptionGreeks.size();
+		avgCeGamma = avgCeGamma/(float)ceOptionGreeks.size();
+		avgPeGamma = avgPeGamma/(float)peOptionGreeks.size();
 		//System.out.println("avgCeIV="+avgCeIV+" avgPeIV="+avgPeIV+" totalCEGamma="+totalCEGamma+" totalPEGamma="+totalPEGamma+" totalCEVega="+totalCEVega+" totalPEVega="+totalPEVega);
 		
-		saveGreek(avgCeIV, avgPeIV, totalCEGamma, totalPEGamma, totalCEVega, totalPEVega);
+		saveGreek(avgCeGamma, avgPeGamma, totalCEGamma, totalPEGamma, totalCEVega, totalPEVega);
 	}
 
-	private void saveGreek(float avgCeIV, float avgPeIV, float totalCEGamma, float totalPEGamma, float totalCEVega, float totalPEVega) {
+	private void saveGreek(float avgCeGamma, float avgPeGamma, float totalCEGamma, float totalPEGamma, float totalCEVega, float totalPEVega) {
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
 			String updateSql = "UPDATE nexcorio_option_atm_movement_data "
-					+ "set totalceiv=" + avgCeIV
-					+ ", totalpeiv=" + avgPeIV
-					
-					+ ", totalcegamma=" +totalCEGamma
-					+ ", totalpegamma=" +totalPEGamma
-					
-					+ ", totalcevega=" +totalCEVega
-					+ ", totalpevega=" +totalPEVega
+					+ "set avgcegamma=" +avgCeGamma + ", avgpegamma=" +avgPeGamma
 					+ " where id="+atmId;
 			System.out.println(updateSql);
 			
@@ -108,7 +101,7 @@ public class ATMThread implements Runnable {
 		OptionGreek retVal = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"

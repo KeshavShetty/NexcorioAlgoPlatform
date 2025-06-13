@@ -195,7 +195,7 @@ public class G3BiasdStrangleTriangularisationFuturesTrendAlgoThread extends G3Ba
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;

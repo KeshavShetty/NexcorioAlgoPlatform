@@ -229,7 +229,7 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek"; // IV
@@ -294,7 +294,7 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), mainInstrument.getExchange());

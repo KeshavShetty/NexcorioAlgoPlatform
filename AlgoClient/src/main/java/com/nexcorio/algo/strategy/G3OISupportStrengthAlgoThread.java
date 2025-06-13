@@ -189,7 +189,7 @@ public class G3OISupportStrengthAlgoThread extends G3BaseClass implements Runnab
 		String top4Options ="";
 		String logString = "";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			boolean filterOptionWorth = true;
 			

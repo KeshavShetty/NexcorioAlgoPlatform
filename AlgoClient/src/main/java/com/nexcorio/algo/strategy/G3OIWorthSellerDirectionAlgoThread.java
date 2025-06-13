@@ -219,7 +219,7 @@ public class G3OIWorthSellerDirectionAlgoThread extends G3BaseClass implements R
 		Connection conn = null;
 		String top4Options ="";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();

@@ -261,7 +261,7 @@ public class G3TriangularisationIVTrendAlgoThread extends G3BaseClass implements
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";

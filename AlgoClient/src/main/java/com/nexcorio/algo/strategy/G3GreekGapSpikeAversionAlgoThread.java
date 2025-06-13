@@ -299,7 +299,7 @@ public class G3GreekGapSpikeAversionAlgoThread extends G3BaseClass implements Ru
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";

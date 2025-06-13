@@ -20,6 +20,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	
 	public String greekname = "iv";
 	public float baseDelta = 0.5f;	
+	public boolean inverse = false;
 	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -231,7 +232,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";
@@ -239,6 +240,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "celtp as ceGreek, peltp as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("gamma")) {
 				fieldname = "cegamma as ceGreek, pegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("avggamma")) {
+				fieldname = "avgcegamma as ceGreek, avgpegamma as peGreek";
 			} 
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
@@ -248,36 +251,39 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
-			int gapCpunt = 0;
+			int gapCount = 0;
 			
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
 				if (ceGreek>peGreek) {
-					gapCpunt++;
+					gapCount++;
 				}
 			}
 			rs.close();			
 			stmt.close();
 			
-			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
+			fileLogTelegramWriter.write("gapCpunt="+gapCount);
 			
-			if (this.greekname.equalsIgnoreCase("gamma")) gapCpunt = 5-gapCpunt;
+			if (this.greekname.equalsIgnoreCase("gamma") || this.greekname.equalsIgnoreCase("avggamma")) gapCount = 5-gapCount;
 			
-			if (gapCpunt == 0) {
+			if(this.inverse) {
+				gapCount = 5-gapCount;
+			}
+			
+			if (gapCount == 0) {
 				retVal = "PE";
-			} else if (gapCpunt == 5) {
+			} else if (gapCount == 5) {
 				retVal = "CE";
 			}
 			
 			if (retVal.equals("Unknown") ) {
-				if (gapCpunt < 2 ) {
+				if (gapCount < 2 ) {
 					retVal = "PE";
-				} else if (gapCpunt > 3 ) {
+				} else if (gapCount > 3 ) {
 					retVal = "CE";
 				}
 			}
-			
 		} catch(Exception ex) {
 			ex.printStackTrace();
 		}finally {

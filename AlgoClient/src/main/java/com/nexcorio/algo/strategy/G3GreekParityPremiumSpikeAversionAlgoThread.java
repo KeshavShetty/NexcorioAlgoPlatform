@@ -297,7 +297,7 @@ public class G3GreekParityPremiumSpikeAversionAlgoThread extends G3BaseClass imp
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";

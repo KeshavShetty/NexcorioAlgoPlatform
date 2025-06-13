@@ -228,7 +228,7 @@ public class G3BuySpikeFollowGammaDirectionAlgoThread extends G3BaseClass implem
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "cegamma as ceGreek, pegamma as peGreek";

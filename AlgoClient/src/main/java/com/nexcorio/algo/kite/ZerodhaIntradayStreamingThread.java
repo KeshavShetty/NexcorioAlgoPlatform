@@ -97,6 +97,11 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			
 			stmt.execute(insertSql);
 			
+			// Save to cache
+			//System.out.println("Saving to Caffiene Cache"+tradingSymbol);
+			KiteCache.tickPriceCache.put(tradingSymbol, (float) aTick.getLastTradedPrice());
+			//System.out.println("Veriying Cache " + KiteCache.tickPriceCache.getIfPresent(tradingSymbol) );
+			
 			// Todo: What to do with Market Depth
 			Map<String, ArrayList<Depth>> marketDepth = aTick.getMarketDepth();
 			

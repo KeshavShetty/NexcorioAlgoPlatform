@@ -665,12 +665,14 @@ public class KiteHelper {
             		log.info("Ticks recieved");
             		new ZerodhaIntradayStreamingThread(ticks);
             	}
-				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 29, 45))) {
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 0))) {
 					log.info("End of the daym disconnect and logout");
 					try {
 						tickerProvider.disconnect();
 						System.out.println("Ended at " + (new Date()));
 						HDataSource.logHikariStats();
+						System.out.println("Caffeine hitCount" + KiteCache.tickPriceCache.stats().hitCount());
+						System.out.println("Caffeine missCount" + KiteCache.tickPriceCache.stats().missCount());
 					} catch (JSONException e) {
 						e.printStackTrace();
 					}

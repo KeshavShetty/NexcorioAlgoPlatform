@@ -177,7 +177,7 @@ public class G3ExtendedAutoIndexFollowerRollingGreekAlgoThread extends G3BaseCla
 					}
 				}	
 				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
-				saveObject(this);
+				//saveObject(this);
 			} while(!exitThread);
 			updateAlgoStatus("Terminated");
 			logString = "Exiting Strddle ceStraddleOptionName="+ceStraddleOptionName + " peStraddleOptionName="+peStraddleOptionName; 

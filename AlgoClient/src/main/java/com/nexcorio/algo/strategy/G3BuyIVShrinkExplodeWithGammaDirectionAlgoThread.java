@@ -196,7 +196,7 @@ public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClas
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "cegamma as ceGreek, pegamma as peGreek";
@@ -258,7 +258,7 @@ public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClas
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select totalceiv, totalpeiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""

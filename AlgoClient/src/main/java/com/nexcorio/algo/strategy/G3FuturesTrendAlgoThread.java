@@ -301,7 +301,7 @@ public class G3FuturesTrendAlgoThread extends G3BaseClass implements Runnable{
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), mainInstrument.getExchange());

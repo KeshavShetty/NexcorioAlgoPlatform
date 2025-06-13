@@ -222,7 +222,7 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 		Connection conn = null;
 		String top4Options ="";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();

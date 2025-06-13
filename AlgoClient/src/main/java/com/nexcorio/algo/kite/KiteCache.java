@@ -6,12 +6,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionFnOInstrument;
+import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.db.HDataSource;
 
 /**
@@ -28,7 +32,23 @@ public class KiteCache {
 	private static Map<String, String> tradingSymbolExchangeCache= new HashMap<String, String>();
 	
 	private static Map<String, OptionFnOInstrument> tradingSymbolToOptionInstrument = new HashMap<String, OptionFnOInstrument>();
+	
+	public static Cache<String, Float> tickPriceCache = Caffeine.newBuilder()
+			  .expireAfterWrite(1, TimeUnit.MINUTES)
+			  .maximumSize(10000)
+			  .build();
+	
+	public static Cache<String, OptionGreek> optionGreekCache = Caffeine.newBuilder()
+			  .expireAfterWrite(5, TimeUnit.MINUTES)
+			  .maximumSize(10000)
+			  .build();
 
+	public static Cache<String, Long> snapshotIdCache = Caffeine.newBuilder()
+			  .expireAfterAccess(2, TimeUnit.MINUTES)
+			  .maximumSize(10000)
+			  .build();
+
+	
 	public static void putInstrumentTokenToTradingSymbolCache(Long keyVal, String value) {
 		instrumentTokenToTradingSymbolCache.put(keyVal, value);
 	}

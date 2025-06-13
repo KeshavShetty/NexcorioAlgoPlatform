@@ -259,7 +259,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 		Connection conn = null;
 		String top4Options ="";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -397,7 +397,7 @@ public class G3DualIVParityAndOIWorthStraddleAlgoThread extends G3BaseClass impl
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select ceiv as ceGreek, peiv as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""

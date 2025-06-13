@@ -226,7 +226,7 @@ public class G3DirectionByATMPriceChangeAlgoThread extends G3BaseClass implement
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select celtp as ceGreek, peltp as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""

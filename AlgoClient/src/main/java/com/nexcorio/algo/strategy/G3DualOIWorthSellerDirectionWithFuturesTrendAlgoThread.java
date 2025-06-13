@@ -236,7 +236,7 @@ public class G3DualOIWorthSellerDirectionWithFuturesTrendAlgoThread extends G3Ba
 		Connection conn = null;
 		String top4Options ="";
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
@@ -374,7 +374,7 @@ public class G3DualOIWorthSellerDirectionWithFuturesTrendAlgoThread extends G3Ba
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), mainInstrument.getExchange());

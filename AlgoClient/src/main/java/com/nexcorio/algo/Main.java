@@ -56,7 +56,7 @@ public class Main {
 			}
 			
 			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
-			new G3NapAlgoTriggerThread();
+			//new G3NapAlgoTriggerThread();
 			
 		} catch (Exception | KiteException e) {
 			e.printStackTrace();

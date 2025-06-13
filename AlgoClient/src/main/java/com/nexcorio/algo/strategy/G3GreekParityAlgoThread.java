@@ -228,7 +228,7 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";
 			if (this.greekname.equalsIgnoreCase("ltp")) {

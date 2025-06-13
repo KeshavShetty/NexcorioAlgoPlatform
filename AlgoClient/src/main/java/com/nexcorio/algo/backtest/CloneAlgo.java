@@ -16,7 +16,7 @@ public class CloneAlgo {
 		Map<Long, String> retMap = null;
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "SELECT id, algo_class_name FROM nexcorio_options_algo_strategy WHERE f_parent="+napAlgoId + " and algoname like 'Test%'";
@@ -172,7 +172,7 @@ public class CloneAlgo {
 	}
 	
 	public static void main(String[] args) {
-		cloneAlgo(193L, false, 2L);
+		cloneAlgo(197L, false, 2L);
 		
 	}
 }

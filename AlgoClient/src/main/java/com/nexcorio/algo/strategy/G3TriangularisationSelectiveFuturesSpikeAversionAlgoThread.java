@@ -313,7 +313,7 @@ public class G3TriangularisationSelectiveFuturesSpikeAversionAlgoThread extends 
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;

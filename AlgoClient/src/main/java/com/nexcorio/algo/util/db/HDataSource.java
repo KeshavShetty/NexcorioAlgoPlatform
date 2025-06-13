@@ -19,9 +19,11 @@ import com.zaxxer.hikari.HikariPoolMXBean;
  */
 public class HDataSource {
 	 
+	private static volatile int reqCount = 0;
     private static HikariConfig config = new HikariConfig();
     private static HikariDataSource ds;
     
+    private static volatile int readOnlyreqCount = 0;
     private static HikariConfig readOnlyConfig = new HikariConfig();
     private static HikariDataSource readOnlyDs;
     
@@ -39,7 +41,7 @@ public class HDataSource {
         config.setMinimumIdle(5);
         config.setConnectionTimeout(120000 );
         config.setIdleTimeout(60000);
-        config.setMaximumPoolSize(75);
+        config.setMaximumPoolSize(200);
         
         config.setLeakDetectionThreshold(120000);
         ds = new HikariDataSource( config );
@@ -55,7 +57,7 @@ public class HDataSource {
         readOnlyConfig.setMinimumIdle(5);
         readOnlyConfig.setConnectionTimeout(120000 );
         readOnlyConfig.setIdleTimeout(60000);
-        readOnlyConfig.setMaximumPoolSize(125);
+        readOnlyConfig.setMaximumPoolSize(75);
         
         readOnlyConfig.setAutoCommit(false);
         readOnlyConfig.setReadOnly(true); // <- Extra
@@ -68,11 +70,13 @@ public class HDataSource {
     private HDataSource() {}
  
     public static Connection getConnection() throws SQLException {
+    	reqCount++;
         return ds.getConnection();
     }
     
     public static Connection getReadOnlyConnection() throws SQLException {
-        return readOnlyDs.getConnection();
+    	readOnlyreqCount++;
+    	return ds.getConnection();
     }
     
     private static void printHikariStats(HikariDataSource dsRef) {
@@ -83,7 +87,9 @@ public class HDataSource {
         int threadsAwaitingConnection = poolMXBean.getThreadsAwaitingConnection();
         String stats = "Total[" + totalConnections + "],Active[" + activeConnections + "],Idle[" + idleConnections + "],Waiting[" + threadsAwaitingConnection + "]";
         System.out.println("=== Hikari Stats=== " + stats);
+        System.out.println("Total Request="+reqCount);
         log.info("=== Hikari Stats=== " + stats);
+        System.out.println("Total RO Request="+readOnlyreqCount);
     }
     
     public static void logHikariStats() {

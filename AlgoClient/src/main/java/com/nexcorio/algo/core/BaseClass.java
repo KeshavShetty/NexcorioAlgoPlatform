@@ -102,6 +102,14 @@ public class BaseClass {
 	public float getPriceFromTicks(String instrumentName) {
 		float retVal = 0f;
 		
+		if(backtestDate == null) { // Live data check in cache
+			Float priceFromCache = KiteCache.tickPriceCache.getIfPresent(instrumentName);
+			if ( priceFromCache != null ) {
+				fileLogTelegramWriter.write("Found in cache");
+				return priceFromCache;
+			}
+		}
+		
 		Connection conn = null;
 		try {
 			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -135,6 +143,14 @@ public class BaseClass {
 	protected OptionGreek getOptionGreeks(String optionName) {
 		
 		if (optionName==null || optionName.equals("")) return null;
+		
+		if(backtestDate == null) { // Live data check in cache
+			OptionGreek optionGreekFromCache = KiteCache.optionGreekCache.getIfPresent(optionName);
+			if ( optionGreekFromCache != null ) {
+				fileLogTelegramWriter.write("Greek Found in cache");
+				return optionGreekFromCache;
+			}
+		}
 		
 		OptionGreek retVal = null;
 		Connection conn = null;

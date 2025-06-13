@@ -249,7 +249,7 @@ public class G3TriangularisationSelectiveFuturesTrendAlgoThread extends G3BaseCl
 		
 		Connection conn = null;
 		try {
-			conn = HDataSource.getConnection();
+			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
 			float totalBullishPoint = 0f;
