@@ -406,7 +406,7 @@ public class G3DualOIWorthSellerDirectionWithFuturesTrendAlgoThread extends G3Ba
 			
 			if (bullishPoint > 0.52f ) {				
 					retVal = "PE";
-			} else if (bearishEntry > 0.52f ) {
+			} else if (bearishPoint > 0.52f ) {
 					retVal = "CE";
 			}
 		} catch(Exception ex) {

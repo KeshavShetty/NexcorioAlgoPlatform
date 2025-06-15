@@ -333,7 +333,7 @@ public class G3FuturesTrendAlgoThread extends G3BaseClass implements Runnable{
 			
 			if (bullishPoint > 0.52f ) {				
 					retVal = "PE";
-			} else if (bearishEntry > 0.52f ) {
+			} else if (bearishPoint > 0.52f ) {
 					retVal = "CE";
 			}
 		} catch(Exception ex) {

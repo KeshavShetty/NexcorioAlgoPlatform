@@ -314,7 +314,7 @@ public class G3SelfAndTriangularisationSelectiveFuturesTrendAlgoThread extends G
 			
 			if (bullishPoint > 0.5f ) {				
 					retVal = "PE";
-			} else if (bearishEntry > 0.5f ) {
+			} else if (bearishPoint > 0.5f ) {
 					retVal = "CE";
 			}
 		} catch(Exception ex) {

@@ -14,14 +14,14 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implements Runnable{
+public class G3GreekGapCombiFuturesAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3DualGreekGapWithFuturesTrendAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3GreekGapCombiFuturesAlgoThread.class);
 	
-	public String greekname = "gamma";
-	public float baseDelta = 0.5f;
+	public String greekname = "iv";
+	public float baseDelta = 0.5f;	
 	
-	public G3DualGreekGapWithFuturesTrendAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3GreekGapCombiFuturesAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -29,15 +29,13 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 		Thread t = new Thread(this, this.mainInstrument.getShortName()+this.algoname);
 		t.setPriority(Thread.MAX_PRIORITY);
 		t.start();
+		printFields(this);
 	}
 	
 	@Override
 	public void run() {
 		try {
-			
 			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
-			
-			printFields(this);
 			
 			long ceDbId = -1;
 			long peDbId = -1;
@@ -46,8 +44,9 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String lastKnownTrendbyGreekgap = "Unknown";
-			String lastKnownTrendbyFutures = "Unknown";
+			String lastKnownTrendByGreekGap = "Unknown";
+			String lastKnownTrendByFutures = "Unknown";
+			
 			String lastKnownMergedTrend = "Unknown";
 			
 			float maxProfitReached = 0f;
@@ -72,7 +71,7 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 				
 				if (!ceStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(ceStraddleOptionName, ceDbId, runningCePrice);
 				if (!peStraddleOptionName.equals("")) updateCurrentOrderBuyPrice(peStraddleOptionName, peDbId, runningPePrice);
-				
+								
 				currentProfitPerUnit = getProfitFromDB();
 				if (currentProfitPerUnit>maxProfitReached) {
 					maxProfitReached=currentProfitPerUnit;
@@ -86,40 +85,26 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 				if (trailingProfit<maxTrailingProfit) {
 					maxTrailingProfit = trailingProfit;
 				}
-				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" ******* currentProfit="+currentProfitPerUnit+" ******* ");
+				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				String currentTrendByGreekgap = getSellerDirectionByGreekgap(lastKnownTrendbyGreekgap);
-				String currentTrendByFutures = getSellerDirectionFutures(lastKnownTrendbyFutures);
+				String currentTrendByGreekGap = getSellerDirectionByATMGreekGap(lastKnownTrendByGreekGap); // CE, PE
+				String currentTrendByFutures = getSellerDirectionByFutures(lastKnownTrendByFutures);
 				
-				String mergedTrend = "Ambiguity";
+				String mergedTrend = currentTrendByGreekGap.equals(currentTrendByFutures)?currentTrendByGreekGap:"Unknown";
 				
-				if (currentTrendByGreekgap.equals("CE") && currentTrendByFutures.equals("CE")) mergedTrend = "CE";
-				else if (currentTrendByGreekgap.equals("PE") && currentTrendByFutures.equals("PE")) mergedTrend = "PE";
+				if (!lastKnownMergedTrend.equals(mergedTrend)) {
+					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 				
-				fileLogTelegramWriter.write( " currentTrendByIV="+currentTrendByGreekgap+" currentTrendByOIWorth=" + currentTrendByFutures + " mergedTrend="+mergedTrend);
-				
-				if (!mergedTrend.equals(lastKnownMergedTrend)) {
-				
-					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.hedgeDistance);
-					
-					if (mergedTrend.equals("CE")) { // Exit PE, Enter CE
-						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
+					if (mergedTrend.equals("CE")) {
+						if (!peStraddleOptionName.equals("")) { // Exit PE, taking other Directional
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 							// Exit PE
 							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							peStraddleOptionName = "";
 						}
-						if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-							if (!ceStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-								// Exit CE
-								if (this.placeActualOrder) {
-									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								ceStraddleOptionName = "";
-							}
+						if (ceStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								float cePrice = getPriceFromTicks(ceStraddleOptionName);
@@ -136,26 +121,17 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
 						}
-					} else if (mergedTrend.equals("PE")) { // Exit CE, Enter PE
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
+					} else if (mergedTrend.equals("PE")) {
+						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking other Directional
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
 							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							ceStraddleOptionName = "";
 						}
-						if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
-							if (!peStraddleOptionName.equals("")) { // Exit and re enter
-								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-								if (this.placeActualOrder) {
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								peStraddleOptionName = "";
-							}
+						if (peStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								float pePrice = getPriceFromTicks(peStraddleOptionName);
@@ -165,41 +141,39 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 								if (this.placeActualOrder) {
 									if (peHedgeOptionName.equals("")) {
 										peHedgeOptionName =  entryStraddleOptionNames[3];
-										placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
-									placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
 							} else {
 								prepareExit("Too many orders");
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 						}
-					} else { // Ambiguity - Exit both CE & PE
-						fileLogTelegramWriter.write( " Ambiquity exiting all open positions");
-						
-						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-							// Exit PE
-							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							peStraddleOptionName = "";
-						}
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
+					} else { // Unknown
+						if (!ceStraddleOptionName.equals("")) { // Exit CE
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
 							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							ceStraddleOptionName = "";
-						}	
+							if (this.noOfOrders >= maxAllowedNoOfOrders) prepareExit("Too many orders");
+						}
+						if (!peStraddleOptionName.equals("")) { // Exit PE
+							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+							// Exit PE
+							if (this.placeActualOrder) {
+								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							peStraddleOptionName = "";
+							if (this.noOfOrders >= maxAllowedNoOfOrders) prepareExit("Too many orders");
+						}
 					}
 				}
 				
+				currentTrendByGreekGap = lastKnownTrendByGreekGap;
+				currentTrendByFutures = lastKnownTrendByFutures;
 				lastKnownMergedTrend = mergedTrend;
-				lastKnownTrendbyGreekgap = currentTrendByGreekgap;
-				lastKnownTrendbyFutures = currentTrendByFutures;
 				
 				checkExitSignals();
 				
@@ -224,7 +198,7 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 		}
 	}
 	
-	private String getSellerDirectionByGreekgap(String lastKnownTrend) {
+	private String getSellerDirectionByFutures( String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
 		Connection conn = null;
@@ -232,11 +206,63 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fieldname = "ceiv as ceGreek, peiv as peGreek"; // IV
+			String fetchSql = "select totalfuturepoints, bullishfuturepoints from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " order by record_time desc limit 1";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int totalfuturepoints = 0;
+			int bullishfuturepoints = 0;
+			
+			while (rs.next()) {
+				totalfuturepoints = rs.getInt("totalfuturepoints");
+				bullishfuturepoints = rs.getInt("bullishfuturepoints");
+			}
+			rs.close();			
+			stmt.close();
+			
+			if (totalfuturepoints!=0) {
+				float bullishPoint = (float)bullishfuturepoints/(float)totalfuturepoints;
+				float bearishPoint = 1f - bullishPoint; 
+			
+				fileLogTelegramWriter.write("totalfuturepoints="+totalfuturepoints+" bullishfuturepoints="+bullishfuturepoints+" bullishPoint="+bullishPoint+" bearishPoint="+bearishPoint);
+				
+				if (bullishPoint > 0.52f ) {				
+					retVal = "PE";
+				} else if (bearishPoint > 0.52f ) {
+						retVal = "CE";
+				}
+			} else {
+				fileLogTelegramWriter.write("Returning last known trend");
+			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}			
+		return retVal;
+	}
+	
+	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
+		String retVal = lastKnownTrend;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fieldname = "ceiv as ceGreek, peiv as peGreek";
 			if (this.greekname.equalsIgnoreCase("ltp")) {
-				fieldname = "celtp as ceGreek, peltp as peGreek";  // LTP
+				fieldname = "celtp as ceGreek, peltp as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("gamma")) {
-				fieldname = "cegamma as ceGreek, pegamma as peGreek"; // Gamma
+				fieldname = "cegamma as ceGreek, pegamma as peGreek";
 			} 
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
@@ -285,67 +311,13 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}	
-		return retVal;
-	}
-	
-	private String getSellerDirectionFutures( String lastKnownTrend) {
-		String retVal = lastKnownTrend;
-		
-		Connection conn = null;
-		try {
-			conn = HDataSource.getReadOnlyConnection();
-			Statement stmt = conn.createStatement();
+		}
 			
-			String futurePrefix = getNextNFUTUREExpiryDatePrefix(this.mainInstrument.getId(), mainInstrument.getExchange());
-			
-			String fetchSql = "select count(*) as total, COUNT(DISTINCT CASE WHEN total_buy_qty > total_sell_qty THEN id END) as bullishCount,	COUNT(DISTINCT CASE WHEN total_buy_qty < total_sell_qty THEN id END) as bearishCount"
-					+ " from nexcorio_tick_data"
-					+ " where quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "' AND  quote_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "' AND trading_symbol='" + futurePrefix + "'";
-			
-			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			
-			int totalEntry = 0;
-			int bullishEntry = 0;
-			int bearishEntry = 0;
-			
-			while (rs.next()) {
-				totalEntry = rs.getInt("total");
-				bullishEntry = rs.getInt("bullishCount");
-				bearishEntry = rs.getInt("bearishCount");
-			}
-			rs.close();			
-			stmt.close();
-			
-			
-			float bullishPoint = (float)bullishEntry/(float)totalEntry;
-			float bearishPoint = (float)bearishEntry/(float)totalEntry;
-			
-			fileLogTelegramWriter.write("totalEntry="+totalEntry + " bullishEntry="+bullishEntry + " bearishEntry="+bearishEntry+" bullishPoint="+bullishPoint+" bearishPoint="+bearishPoint);
-			
-			if (bullishPoint > 0.52f ) {				
-					retVal = "PE";
-			} else if (bearishPoint > 0.52f ) {
-					retVal = "CE";
-			}
-		} catch(Exception ex) {
-			log.error("Error"+ex.getMessage(),ex);
-			ex.printStackTrace();
-		}finally {
-			try {
-				if (conn!=null) conn.close();
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-		}	
 		return retVal;
 	}
 	
 	public static void main(String[] args) {
-		new G3DualGreekGapWithFuturesTrendAlgoThread(353L, null);
+		new G3GreekGapCombiFuturesAlgoThread(23L, null);
 	}
-
-	
 
 }
