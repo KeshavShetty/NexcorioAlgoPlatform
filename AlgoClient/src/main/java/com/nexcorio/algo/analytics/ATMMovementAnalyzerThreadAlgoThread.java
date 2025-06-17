@@ -423,7 +423,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			String fetchSql = "SELECT count(*) as total, COUNT(DISTINCT CASE WHEN total_buy_qty > total_sell_qty THEN id END) as bullishCount,"
 					+ " COUNT(DISTINCT CASE WHEN total_buy_qty < total_sell_qty THEN id END) as bearishCount"
 					+ " FROM nexcorio_tick_data"
-					+ " WHERE quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " WHERE f_main_instrument=" + this.mainInstrument.getId()
+					+ " AND quote_time <='" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " AND  quote_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'"
 					+ " AND trading_symbol='" + futurePrefix + "'";
 			
