@@ -20,4 +20,9 @@ alter table nexcorio_option_atm_movement_data
 add column avgcegamma real default 0,
 add column avgpegamma real default 0;
 
+alter table nexcorio_option_atm_movement_data
+add column selectiveStrike_AvgCeGamma real default 0,
+add column selectiveStrike_AvgPeGamma real default 0,
+add column futures_Ltp real default 0;
+
 INSERT INTO db_versions VALUES('0018', now(), 'Keshav', 'Additional columns for ATM','Data' );

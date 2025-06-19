@@ -42,8 +42,16 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 		processTicks();
 
 		Long endTime = System.currentTimeMillis();
-		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + (endTime-beginTime));
-		log.info("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ (endTime-beginTime));
+		
+		Long timeTaken = endTime-beginTime;
+		
+		//HDataSource.logHikariStats();
+		
+		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + timeTaken);
+		log.info("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ timeTaken);
+//		if (timeTaken > 1000) {
+//			HDataSource.logHikariStats();
+//		}
 	}
 	
 	private void processTicks() {				
@@ -96,6 +104,9 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			//log.info(insertSql);
 			
 			stmt.execute(insertSql);
+			stmt.close();
+			conn.close();
+			conn = null;
 			
 			// Save to cache
 			//System.out.println("Saving to Caffiene Cache"+tradingSymbol);
@@ -114,13 +125,11 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 					}
 				}
 			}
-			
 		} catch(Exception ex) {
 			ex.printStackTrace();
 			log.error(ex);
 		} finally {
 			try {
-				if (stmt!=null) stmt.close();
 				if (conn!=null) conn.close();
 			} catch (Exception ex) {
 				ex.printStackTrace();

@@ -242,6 +242,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "cegamma as ceGreek, pegamma as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("avggamma")) {
 				fieldname = "avgcegamma as ceGreek, avgpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("selectiveavggamma")) {
+				fieldname = "selectivestrike_avgcegamma as ceGreek, selectivestrike_avgpegamma as peGreek";
 			} 
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
