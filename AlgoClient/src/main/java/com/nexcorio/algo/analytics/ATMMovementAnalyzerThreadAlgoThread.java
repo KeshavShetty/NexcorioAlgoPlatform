@@ -472,7 +472,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			OptionGreek peOptionGreek = getOptionGreeks(entryStraddleOptionNames[1]);
 			
 			if (ceOptionGreek!=null && peOptionGreek!=null) {
-				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, base_delta, record_time, ceOptionname, peOptionname"
+				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, record_time, ceOptionname, peOptionname"
 						+ ", ceDelta"
 						+ ", peDelta"
 						+ ", ceGamma"
@@ -506,7 +506,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", futures_Ltp"
 
 						+ ")" 
-						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp +"," + baseDelta +""
+						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 						+ ",'" + entryStraddleOptionNames[0] + "'"
 						+ ",'" + entryStraddleOptionNames[1] + "'"
@@ -644,7 +644,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-18 09:17:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-19 09:17:00");		
 	}
 
 }

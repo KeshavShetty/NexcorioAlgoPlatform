@@ -232,8 +232,7 @@ public class G3StraddleToStrangleIVCrushAlgoThread extends G3BaseClass implement
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
-					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId();
 			
 			if (this.backtestDate!=null) {
 				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
@@ -251,8 +250,7 @@ public class G3StraddleToStrangleIVCrushAlgoThread extends G3BaseClass implement
 			}
 			rs.close();
 			
-			fetchSql = "select min(ceiv) as minCeIv, max(ceiv) as maxCeIv, min(peiv) as minPeIv, max(peiv) as maxPeIv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
-					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			fetchSql = "select min(ceiv) as minCeIv, max(ceiv) as maxCeIv, min(peiv) as minPeIv, max(peiv) as maxPeIv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId();
 			
 			if (this.backtestDate!=null) {
 				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";

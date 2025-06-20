@@ -22,6 +22,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	public float baseDelta = 0.5f;	
 	public boolean inverse = false;
 	
+	public Integer dependentInstrumentId = null;
+	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -246,9 +248,13 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "selectivestrike_avgcegamma as ceGreek, selectivestrike_avgpegamma as peGreek";
 			} 
 			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);

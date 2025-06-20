@@ -534,7 +534,6 @@ public class BaseClass {
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select ceoptionname, peoptionname from nexcorio_option_atm_movement_data where f_main_instrument="+this.mainInstrument.getId()
-					+ " and base_delta > " + (requiredDelta-0.01f) + " and base_delta < " + (requiredDelta+0.01f)		
 					+ " and record_time <=  '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc LIMIT 1"; 
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
@@ -952,8 +951,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
-					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			String fetchSql = "select celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId();
 			
 			if (this.backtestDate!=null) {
 				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
@@ -1015,8 +1013,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select ceiv, peiv, cegamma, pegamma, celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
-					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			String fetchSql = "select ceiv, peiv, cegamma, pegamma, celtp+peltp as atmPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId();
 			
 			if (this.backtestDate!=null) {
 				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";
@@ -1058,8 +1055,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() +""
-					+ " and base_delta > 0.49 and base_delta < 0.51 ";
+			String fetchSql = "select ceiv, peiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId();
 			
 			if (this.backtestDate!=null) {
 				fetchSql = fetchSql + " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'";

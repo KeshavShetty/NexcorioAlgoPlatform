@@ -241,7 +241,6 @@ public class G3DualGreekGapWithFuturesTrendAlgoThread extends G3BaseClass implem
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);

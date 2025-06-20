@@ -238,7 +238,6 @@ public class G3GreekParityAlgoThread extends G3BaseClass implements Runnable{
 			} 
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 1";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);

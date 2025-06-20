@@ -202,7 +202,6 @@ public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClas
 			String fieldname = "cegamma as ceGreek, pegamma as peGreek";
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 1";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
@@ -262,7 +261,6 @@ public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClas
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select totalceiv, totalpeiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 1";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
@@ -278,7 +276,6 @@ public class G3BuyIVShrinkExplodeWithGammaDirectionAlgoThread extends G3BaseClas
 			rs.close();
 			
 			fetchSql = "select totalceiv, totalpeiv from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
-					+ " and base_delta > 0.49 and base_delta < 0.51"
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'"
 					+ " order by record_time desc limit 1";
 			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);

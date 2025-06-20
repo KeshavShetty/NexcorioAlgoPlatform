@@ -302,7 +302,7 @@ public class G3TotalCEOIVsPEOISpikeAversionAlgoThread extends G3BaseClass implem
 			Statement stmt = conn.createStatement();
 						
 			String opOIFetch = "select totalceoi, totalpeoi from nexcorio_option_atm_movement_data"
-					+ " where f_main_instrument =" + this.mainInstrument.getId()+ " and base_delta > 0.49 and base_delta < 0.51"
+					+ " where f_main_instrument =" + this.mainInstrument.getId()
 					+ (this.backtestDate != null ? (" and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) +"' "):"")
 					+ " order by record_time desc limit 1";
 			
