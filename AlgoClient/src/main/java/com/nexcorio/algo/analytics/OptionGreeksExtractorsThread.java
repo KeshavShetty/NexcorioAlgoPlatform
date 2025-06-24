@@ -12,9 +12,11 @@ import java.util.Date;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionFnOInstrument;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.KiteHelper;
 import com.nexcorio.algo.util.BSOption;
 import com.nexcorio.algo.util.db.HDataSource;
 
@@ -54,20 +56,39 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	
 	@Override
 	public void run() {
-
+		Long beginTime = System.currentTimeMillis();
+		StringBuffer logStr = new StringBuffer();
+		Long startTime = System.currentTimeMillis();
+		
 		OptionFnOInstrument optionInstrument= getOptionInstrument(tradingSymbol); 
 		String optionType = tradingSymbol.endsWith("CE")?"CE":"PE";
 		
 		int strikePrice = optionInstrument.getStrike().intValue();
-		
 		float underlyingValue = getPriceFromTicks(optionInstrument.getfMainInstrument());
 		
+		Long elapsedTime1 = System.currentTimeMillis();
+		logStr.append(", Time taken for getPriceFromTicks=" +(elapsedTime1-startTime));
+		startTime = elapsedTime1;
+		
 		float optionIV = guessTheIV(this.ltp, underlyingValue, strikePrice, optionType, optionInstrument.getExpiryDate()); 
+		elapsedTime1 = System.currentTimeMillis();
+		logStr.append(", Time taken for guessTheIV=" +(elapsedTime1-startTime));
+		startTime = elapsedTime1;
+		
 		if (optionIV!=0) {
 			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp);
 			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
 		}
+		elapsedTime1 = System.currentTimeMillis();
+		logStr.append(", Time taken for calculateAndSaveOptionGreeks=" +(elapsedTime1-startTime));
+		startTime = elapsedTime1;
 		
+		Long endTime = System.currentTimeMillis();
+		Long timeTaken = endTime-beginTime;
+		if (timeTaken>200) {
+			log.error("Delay in calculateAndSaveOptionGreeks for " + tradingSymbol+" timeTaken="+timeTaken+ logStr.toString());
+		}
+		//System.out.println(logStr.toString());
 	}
 	
 	public float guessTheIV(double optionPrice, double underlyingValue, double strikePrice, String optionType, Date expDate) {
@@ -255,22 +276,78 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	
 	public float getPriceFromTicks(Long mainInstrumentId) {
 		float retVal = 0f;
+		
+		MainInstruments mainInstrument = KiteCache.mainInstrumentsByIdCache.getIfPresent(mainInstrumentId);
+		
+		if (mainInstrument==null) {
+			mainInstrument = getMainInstrumentDtoById(mainInstrumentId);
+			KiteCache.mainInstrumentsByIdCache.put(mainInstrumentId, mainInstrument);
+		}
+		Float priceFromCache = KiteCache.tickPriceCache.getIfPresent(mainInstrument.getShortName());
+		if ( priceFromCache != null ) {	
+			//System.out.println("Greek Extracor, price found in cache"+priceFromCache);
+			return priceFromCache;
+		} else {
+			Connection conn = null;
+			Statement stmt = null;
+			try {
+				conn = HDataSource.getReadOnlyConnection();
+				stmt = conn.createStatement();
+				
+				String fetchSql = "SELECT last_traded_price from nexcorio_tick_data WHERE trading_symbol=(select short_name from nexcorio_main_instruments where id="+mainInstrumentId+") ORDER BY quote_time DESC LIMIT 1";
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while(rs.next()) {
+					retVal = rs.getFloat("last_traded_price");
+				} 
+				rs.close();
+				stmt.close();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+				log.error("Error"+ex.getMessage(),ex);
+			} finally {
+				try {
+					if (conn!=null) conn.close();
+				} catch (SQLException e) {
+					log.error(e);
+				}
+			}
+			return retVal;
+		}
+	}
+	
+	public MainInstruments getMainInstrumentDtoById(Long id) {
+		MainInstruments mainInstrument = null;
 		Connection conn = null;
 		Statement stmt = null;
 		try {
 			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
-			String fetchSql = "SELECT last_traded_price from nexcorio_tick_data WHERE trading_symbol=(select short_name from nexcorio_main_instruments where id="+mainInstrumentId+") ORDER BY quote_time DESC LIMIT 1";
-			ResultSet rs = stmt.executeQuery(fetchSql);
+			ResultSet rs = stmt.executeQuery("SELECT id, name, short_name, instrument_type, exchange,"
+					+ " zerodha_instrument_token, expiry_day, gap_between_strikes, order_freezing_quantity,"
+					+ " no_of_future_expiry_data, no_of_options_expiry_data, no_of_options_strike_points, straddle_margin"
+					+ " FROM nexcorio_main_instruments WHERE id="+id);
 			while(rs.next()) {
-				retVal = rs.getFloat("last_traded_price");
-			} 
+				mainInstrument = new MainInstruments();
+				mainInstrument.setId(rs.getLong("id"));
+				mainInstrument.setName(rs.getString("name"));
+				mainInstrument.setShortName(rs.getString("short_name"));
+				mainInstrument.setInstrumentType(rs.getString("instrument_type"));
+				mainInstrument.setExchange(rs.getString("exchange"));
+				mainInstrument.setZerodhaInstrumentToken(rs.getLong("zerodha_instrument_token"));
+				mainInstrument.setExpiryDay(rs.getInt("expiry_day"));
+				mainInstrument.setNoOfFutureExpiryData(rs.getInt("no_of_future_expiry_data"));
+				mainInstrument.setNoOfOptionsExpiryData(rs.getInt("no_of_options_expiry_data")); 
+				mainInstrument.setNoOfOptionsStrikePoints(rs.getInt("no_of_options_strike_points"));
+				mainInstrument.setGapBetweenStrikes(rs.getInt("gap_between_strikes"));
+				mainInstrument.setOrderFreezingQuantity(rs.getInt("order_freezing_quantity"));
+				mainInstrument.setStraddleMargin(rs.getFloat("straddle_margin"));
+			}
 			rs.close();
+			
 			stmt.close();
 		} catch (Exception ex) {
 			ex.printStackTrace();
-			log.error("Error"+ex.getMessage(),ex);
 		} finally {
 			try {
 				if (conn!=null) conn.close();
@@ -278,6 +355,6 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				log.error(e);
 			}
 		}
-		return retVal;
+		return mainInstrument;
 	}
 }

@@ -47,6 +47,11 @@ public class KiteCache {
 			  .expireAfterAccess(2, TimeUnit.MINUTES)
 			  .maximumSize(10000)
 			  .build();
+	
+	public static Cache<Long, MainInstruments> mainInstrumentsByIdCache = Caffeine.newBuilder()
+			  .expireAfterAccess(30, TimeUnit.MINUTES)
+			  .maximumSize(10000)
+			  .build();
 
 	
 	public static void putInstrumentTokenToTradingSymbolCache(Long keyVal, String value) {

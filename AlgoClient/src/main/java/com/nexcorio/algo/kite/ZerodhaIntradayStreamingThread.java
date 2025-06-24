@@ -49,9 +49,9 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 		
 		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + timeTaken);
 		log.info("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ timeTaken);
-//		if (timeTaken > 1000) {
-//			HDataSource.logHikariStats();
-//		}
+		if (timeTaken > 1000) {
+			HDataSource.logHikariStats();
+		}
 	}
 	
 	private void processTicks() {				
@@ -70,6 +70,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 	}
 	
 	private void saveTick(Tick aTick) {
+		Long beginTime = System.currentTimeMillis();
 		Connection conn = null;
 		Statement stmt = null;
 		try {
@@ -124,6 +125,11 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 						new OptionGreeksExtractorsThread(fStreamingId, tradingSymbol, (float) aTick.getLastTradedPrice(), (float) aTick.getOi(), aTick.getTickTimestamp());
 					}
 				}
+			}
+			Long endTime = System.currentTimeMillis();
+			Long timeTaken = endTime-beginTime;
+			if (timeTaken>100) {
+				log.error("Delay in insert tick for " + tradingSymbol);
 			}
 		} catch(Exception ex) {
 			ex.printStackTrace();
