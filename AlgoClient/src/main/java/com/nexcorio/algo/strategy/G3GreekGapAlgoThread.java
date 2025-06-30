@@ -246,8 +246,10 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "avgcegamma as ceGreek, avgpegamma as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("selectiveavggamma")) {
 				fieldname = "selectivestrike_avgcegamma as ceGreek, selectivestrike_avgpegamma as peGreek";
-			}  else if (this.greekname.equalsIgnoreCase("avgiv")) {
+			} else if (this.greekname.equalsIgnoreCase("avgiv")) {
 				fieldname = "totalceiv as ceGreek, totalpeiv as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("deltaRangeAvgIV")) {
+				fieldname = "deltarangeceavgiv as ceGreek, deltarangepeavgiv as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();

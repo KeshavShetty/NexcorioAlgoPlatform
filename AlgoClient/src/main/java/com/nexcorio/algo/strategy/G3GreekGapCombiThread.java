@@ -217,7 +217,24 @@ public class G3GreekGapCombiThread extends G3BaseClass implements Runnable{
 				fieldname = "selectivestrike_avgceiv as ceGreek, selectivestrike_avgpeiv as peGreek";
 			} else if (greekname.equalsIgnoreCase("selectiveavggamma")) {
 				fieldname = "selectivestrike_avgcegamma as ceGreek, selectivestrike_avgpegamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("avgIV")) {
+				fieldname = "totalceiv as ceGreek, totalpeiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("avgGamma")) {
+				fieldname = "totalcegamma as ceGreek, totalpegamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel5StrikeAvgIV")) {
+				fieldname = "selectivestrike_avgceiv as ceGreek, selectivestrike_avgpeiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel5StrikeAvgGamma")) {
+				fieldname = "selectivestrike_avgcegamma as ceGreek, selectivestrike_avgpegamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel10StrikeAvgIV")) {
+				fieldname = "selective10strike_avgceiv as ceGreek, selective10strike_avgceiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel10StrikeAvgGamma")) {
+				fieldname = "selective10strike_avgcegamma as ceGreek, selective10strike_avgcegamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel20StrikeAvgIV")) {
+				fieldname = "selective20strike_avgceiv as ceGreek, selective20strike_avgceiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("sel20StrikeAvgGamma")) {
+				fieldname = "selective20strike_avgcegamma as ceGreek, selective20strike_avgcegamma as peGreek";
 			}
+			
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"

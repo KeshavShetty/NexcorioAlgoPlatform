@@ -19,7 +19,11 @@ public class ATMProcessorMain {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select trading_symbol from nexcorio_option_snapshot where trading_symbol LIKE 'NIFTY25612%E' AND record_date = '2025-06-06'";
+			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+					+ " where trading_symbol like 'NIFTY%' "
+					+ " and quote_time > '2025-06-18 09:15:00'"
+					+ " and quote_time < '2025-06-18 15:15:00'";
+			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retList.add(rs.getString("trading_symbol"));
@@ -36,7 +40,7 @@ public class ATMProcessorMain {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Optionname zise" + retList.size());
+		System.out.println("Optionname " + retList.size());
 		return retList;
 	}
 	
@@ -47,12 +51,17 @@ public class ATMProcessorMain {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select id from nexcorio_option_atm_movement_data where f_main_instrument=2 AND record_time >= '2025-06-06 09:15:00' AND record_time <= '2025-06-06 15:30:00' order by id";
+			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=2 AND record_time >= '2025-06-18 09:15:00' AND record_time <= '2025-06-18 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				Long aId = rs.getLong("id");
 				System.out.println("Processing "+aId);
-				ATMThread aThread = new ATMThread(aId, optionnames);
+				ATMThread aThread = new ATMThread(aId, rs.getFloat("instrumentltp"), optionnames, rs.getTimestamp("record_time"));
+				
+				while (Thread.activeCount()>=150) {
+					System.out.println("Sleeping, thread count "+Thread.activeCount());
+					Thread.sleep(60000);
+				}
 			}
 			rs.close();
 			

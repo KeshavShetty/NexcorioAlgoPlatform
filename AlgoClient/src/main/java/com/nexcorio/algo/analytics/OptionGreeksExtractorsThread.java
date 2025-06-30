@@ -85,7 +85,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		
 		Long endTime = System.currentTimeMillis();
 		Long timeTaken = endTime-beginTime;
-		if (timeTaken>200) {
+		if (timeTaken>500) {
 			log.error("Delay in calculateAndSaveOptionGreeks for " + tradingSymbol+" timeTaken="+timeTaken+ logStr.toString());
 		}
 		//System.out.println(logStr.toString());

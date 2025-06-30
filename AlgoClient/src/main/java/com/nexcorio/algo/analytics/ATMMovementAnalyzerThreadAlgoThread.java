@@ -73,7 +73,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				if (timeout(15, 29, 0)) {
 					prepareExit(" Exiting: Timeout");
 				}
-				
+				//this.exitThread = true;
 				
 			} while(!this.exitThread);
 			
@@ -104,20 +104,35 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			logStr.append(", Time taken for getAggregateGreeksDetails=" +(elapsedTime1-startTime));
 			startTime = elapsedTime1;
 			
-			Map<String, Float> selectiveStrikeAggregateGreeks = getSelectiveGreeksDetails(5);
+			Map<String, Float> selective5StrikeAggregateGreeks = getSelectiveGreeksDetails(5);
+			Map<String, Float> selective10StrikeAggregateGreeks = getSelectiveGreeksDetails(10);
+			Map<String, Float> selective20StrikeAggregateGreeks = getSelectiveGreeksDetails(20);
 			elapsedTime1 = System.currentTimeMillis();
 			logStr.append(", Time taken for getSelectiveAvgGamma=" +(elapsedTime1-startTime));
 			startTime = elapsedTime1;
-
+			
+			Map<String, Float> deltaRangeGreeksDetails = getDeltaRangeGreeksDetails();
+			elapsedTime1 = System.currentTimeMillis();
+			logStr.append(", Time taken for getDeltaRangeGreeksDetails=" +(elapsedTime1-startTime));
+			startTime = elapsedTime1;
+			
 			Map<String, OptionGreek> atmGreeksMap = processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
 					aggregateGreeks.get("TotalCEOI"), aggregateGreeks.get("TotalPEOI"), 
 					aggregateGreeks.get("TotalCEIV"), aggregateGreeks.get("TotalPEIV"),
 					aggregateGreeks.get("TotalCEGamma"), aggregateGreeks.get("TotalPEGamma"), 
 					aggregateGreeks.get("TotalCEVega"), aggregateGreeks.get("TotalPEVega"),
 					aggregateGreeks.get("AvgCEGamma"), aggregateGreeks.get("AvgPEGamma"),
-					selectiveStrikeAggregateGreeks.get("AvgCEGamma"), selectiveStrikeAggregateGreeks.get("AvgPEGamma"),
-					selectiveStrikeAggregateGreeks.get("AvgCEIv"), selectiveStrikeAggregateGreeks.get("AvgPEIv"),
-					futuresLtp
+					selective5StrikeAggregateGreeks.get("AvgCEGamma"), selective5StrikeAggregateGreeks.get("AvgPEGamma"),
+					selective5StrikeAggregateGreeks.get("AvgCEIv"), selective5StrikeAggregateGreeks.get("AvgPEIv"),
+					
+					selective10StrikeAggregateGreeks.get("AvgCEGamma"), selective10StrikeAggregateGreeks.get("AvgPEGamma"),
+					selective10StrikeAggregateGreeks.get("AvgCEIv"), selective10StrikeAggregateGreeks.get("AvgPEIv"),
+					
+					selective20StrikeAggregateGreeks.get("AvgCEGamma"), selective20StrikeAggregateGreeks.get("AvgPEGamma"),
+					selective20StrikeAggregateGreeks.get("AvgCEIv"), selective20StrikeAggregateGreeks.get("AvgPEIv"),
+					
+					futuresLtp, deltaRangeGreeksDetails
+					
 					);
 			elapsedTime1 = System.currentTimeMillis();
 			logStr.append(", Time taken for processAndSaveRawStraddleData=" +(elapsedTime1-startTime));
@@ -273,13 +288,144 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		return retMap;
 	}
 	
+	private Map<String, Float> getDeltaRangeGreeksDetails() {
+		Map<String, Float> retMap = new HashMap<>(); 
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			float lowerDelta = 0.1f;
+			float upperDelta = 0.9f;
+			
+			String 
+			fetchSql = "select ltp, oi, iv, delta, vega, gamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
+					+ " AND trading_symbol LIKE '" + optionnamePrefix + "%CE'"
+					+ " AND delta >= " + lowerDelta
+					+ " AND delta <= " + upperDelta
+					+ " ORDER BY iv";
+			fileLogTelegramWriter.write(fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float lastIvRead = 0f;
+			int recCount = 0;
+			float deltaRangeCEAvgLtp = 0f;
+			float deltaRangeCEAvgIv = 0f;
+			float deltaRangeCEAvgDelta = 0f;
+			float deltaRangeCEAvgGamma = 0f;
+			float deltaRangeCEAvgVega = 0f;
+			
+			while (rs.next()) {	
+				float curIv = rs.getFloat("iv");
+				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
+					//System.out.println("Include "+curIv);
+					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + rs.getFloat("ltp");
+					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
+					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + Math.abs(rs.getFloat("delta"));
+					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + rs.getFloat("gamma");
+					deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
+					
+					lastIvRead = curIv; 
+					recCount++;
+				} 
+			}
+			rs.close();
+			System.out.println("CE recCount "+recCount);
+			
+			deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
+			deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
+			deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
+			deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
+			deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
+			
+			retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
+			retMap.put("deltaRangeCEAvgIv", deltaRangeCEAvgIv);
+			retMap.put("deltaRangeCEAvgDelta", deltaRangeCEAvgDelta);
+			retMap.put("deltaRangeCEAvgGamma", deltaRangeCEAvgGamma);
+			retMap.put("deltaRangeCEAvgVega", deltaRangeCEAvgVega);
+			
+			lowerDelta = -0.9f;
+			upperDelta = -0.1f;
+			
+			fetchSql = "select ltp, oi, iv, delta, vega, gamma from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
+					+ " AND trading_symbol LIKE '" + optionnamePrefix + "%PE'"
+					+ " AND delta >= " + lowerDelta
+					+ " AND delta <= " + upperDelta
+					+ " ORDER BY iv";
+			
+			fileLogTelegramWriter.write(fetchSql);
+			
+			rs = stmt.executeQuery(fetchSql);
+			
+			lastIvRead = 0f;
+			recCount = 0;
+			float deltaRangePEAvgLtp = 0f;
+			float deltaRangePEAvgIv = 0f;
+			float deltaRangePEAvgDelta = 0f;
+			float deltaRangePEAvgGamma = 0f;
+			float deltaRangePEAvgVega = 0f;
+			
+			while (rs.next()) {	
+				float curIv = rs.getFloat("iv");
+				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
+					//System.out.println("Include "+curIv);
+					deltaRangePEAvgLtp = deltaRangePEAvgLtp + rs.getFloat("ltp");
+					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
+					deltaRangePEAvgDelta = deltaRangePEAvgDelta + Math.abs(rs.getFloat("delta"));
+					deltaRangePEAvgGamma = deltaRangePEAvgGamma + rs.getFloat("gamma");
+					deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
+					
+					lastIvRead = curIv; 
+					recCount++;
+				}
+			}
+			rs.close();
+			System.out.println("PE recCount "+recCount);
+			
+			deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
+			deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
+			deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
+			deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
+			deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
+			
+			retMap.put("deltaRangePEAvgLtp", deltaRangePEAvgLtp);
+			retMap.put("deltaRangePEAvgIv", deltaRangePEAvgIv);
+			retMap.put("deltaRangePEAvgDelta", deltaRangePEAvgDelta);
+			retMap.put("deltaRangePEAvgGamma", deltaRangePEAvgGamma);
+			retMap.put("deltaRangePEAvgVega", deltaRangePEAvgVega);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retMap;
+	}
+	
 	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
 			float totalCEGamma, float totalPEGamma,
 			float totalCEVega, float totalPEVega,
 			float avgCeGamma, float avgPeGamma,
 			float selectiveStrikeAvgCeGamma, float selectiveStrikeAvgPeGamma,
 			float selectiveStrikeAvgCeIv, float selectiveStrikeAvgPeIv,
-			float futuresLtp) {
+			
+			float selective10StrikeAvgCeGamma, float selective10StrikeAvgPeGamma,
+			float selective10StrikeAvgCeIv, float selective10StrikeAvgPeIv,
+			
+			float selective20StrikeAvgCeGamma, float selective20StrikeAvgPeGamma,
+			float selective20StrikeAvgCeIv, float selective20StrikeAvgPeIv,
+			
+			float futuresLtp,
+			Map<String, Float> deltaRangeGreeksDetails) {
 		Map<String, OptionGreek> retMap = null;
 		
 		Connection conn = null;
@@ -323,11 +469,32 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", avgPEGamma"
 
 						+ ", selectiveStrike_AvgCeGamma"
-						+ ", selectiveStrike_AvgPeGamma"
-						
+						+ ", selectiveStrike_AvgPeGamma"						
 						+ ", selectiveStrike_AvgCeIv"
 						+ ", selectiveStrike_AvgPeIv"
+						
+						+ ", selective10Strike_AvgCeGamma"
+						+ ", selective10Strike_AvgPeGamma"						
+						+ ", selective10Strike_AvgCeIv"
+						+ ", selective10Strike_AvgPeIv"
+						
+						+ ", selective20Strike_AvgCeGamma"
+						+ ", selective20Strike_AvgPeGamma"						
+						+ ", selective20Strike_AvgCeIv"
+						+ ", selective20Strike_AvgPeIv"
+
 						+ ", futures_Ltp"
+						
+						+ ", deltaRangeCEAvgLtp" 
+						+ ", deltaRangeCEAvgIv" 
+						+ ", deltaRangeCEAvgDelta" 
+						+ ", deltaRangeCEAvgGamma" 
+						+ ", deltaRangeCEAvgVega"
+						+ ", deltaRangePEAvgLtp"
+						+ ", deltaRangePEAvgIv"
+						+ ", deltaRangePEAvgDelta" 
+						+ ", deltaRangePEAvgGamma" 
+						+ ", deltaRangePEAvgVega"
 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -366,11 +533,33 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + avgCeGamma
 						+ " ," + avgPeGamma
 						+ " ," + selectiveStrikeAvgCeGamma 
-						+ " ," + selectiveStrikeAvgPeGamma
-						
+						+ " ," + selectiveStrikeAvgPeGamma						
 						+ " ," + selectiveStrikeAvgCeIv
 						+ " ," + selectiveStrikeAvgPeIv
+						
+						+ " ," + selective10StrikeAvgCeGamma 
+						+ " ," + selective10StrikeAvgPeGamma						
+						+ " ," + selective10StrikeAvgCeIv
+						+ " ," + selective10StrikeAvgPeIv
+						
+						+ " ," + selective20StrikeAvgCeGamma 
+						+ " ," + selective20StrikeAvgPeGamma						
+						+ " ," + selective20StrikeAvgCeIv
+						+ " ," + selective20StrikeAvgPeIv
+						
 						+ " ," + futuresLtp
+						
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEAvgLtp") 
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEAvgDelta") 
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEAvgGamma") 
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEAvgVega")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgLtp")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgDelta")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgGamma") 
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgVega")
+						
 						+ ")";
 				log.info(insertSql);
 				stmt.execute(insertSql);
@@ -471,7 +660,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-23 09:17:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-27 09:17:00");		
 	}
 
 }
