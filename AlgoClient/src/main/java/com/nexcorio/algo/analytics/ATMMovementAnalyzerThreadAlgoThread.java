@@ -408,6 +408,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				log.error(e);
 			}
 		}
+		
 		return retMap;
 	}
 	
