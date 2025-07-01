@@ -250,6 +250,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "totalceiv as ceGreek, totalpeiv as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("deltaRangeAvgIV")) {
 				fieldname = "deltarangeceavgiv as ceGreek, deltarangepeavgiv as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("deltaRangeAvgGamma")) {
+				fieldname = "deltarangeceavggamma as ceGreek, deltarangepeavggamma as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -277,7 +279,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write("gapCpunt="+gapCount);
 			
-			if (this.greekname.equalsIgnoreCase("gamma") || this.greekname.equalsIgnoreCase("avggamma")) gapCount = 5-gapCount;
+			if (this.greekname.equalsIgnoreCase("gamma") || this.greekname.equalsIgnoreCase("avggamma") || this.greekname.equalsIgnoreCase("deltaRangeAvgGamma")) gapCount = 5-gapCount;
 			
 			if(this.inverse) {
 				gapCount = 5-gapCount;

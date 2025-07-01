@@ -17,8 +17,7 @@ import com.nexcorio.algo.util.db.HDataSource;
 
 class SortbyIV implements Comparator<OptionGreek> 
 { 
-    // Used for sorting in ascending order of 
-    // roll number 
+    // Comparator 
     public int compare(OptionGreek a, OptionGreek b) 
     { 
     	if (a.getIv() < b.getIv()) return -1;
