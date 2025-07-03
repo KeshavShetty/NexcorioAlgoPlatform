@@ -1,5 +1,6 @@
 package com.nexcorio.algo.analytics;
 
+import java.io.FileWriter;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -317,35 +318,43 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			float deltaRangeCEAvgDelta = 0f;
 			float deltaRangeCEAvgGamma = 0f;
 			float deltaRangeCEAvgVega = 0f;
-			
+			float deltaRangeCEWorth = 0f;
+			StringBuffer logBuffer = new StringBuffer();
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
 				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
 					//System.out.println("Include "+curIv);
-					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + rs.getFloat("ltp");
+					logBuffer.append( " " + curIv);
+					float ltp = rs.getFloat("ltp");
+					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
 					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
 					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + Math.abs(rs.getFloat("delta"));
 					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + rs.getFloat("gamma");
 					deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
-					
+					deltaRangeCEWorth = deltaRangeCEWorth + rs.getFloat("oi")*ltp;
 					lastIvRead = curIv; 
 					recCount++;
-				} 
+				} else {
+					logBuffer.append( " [" + curIv+"] ");
+				}
 			}
 			rs.close();
-			System.out.println("CE recCount "+recCount);
+			//System.out.println("CE recCount "+recCount);
+			fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
 			
 			deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
 			deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
 			deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
 			deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 			deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
+			deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores
 			
 			retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
 			retMap.put("deltaRangeCEAvgIv", deltaRangeCEAvgIv);
 			retMap.put("deltaRangeCEAvgDelta", deltaRangeCEAvgDelta);
 			retMap.put("deltaRangeCEAvgGamma", deltaRangeCEAvgGamma);
 			retMap.put("deltaRangeCEAvgVega", deltaRangeCEAvgVega);
+			retMap.put("deltaRangeCEWorth", deltaRangeCEWorth);
 			
 			lowerDelta = -0.9f;
 			upperDelta = -0.1f;
@@ -367,36 +376,45 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			float deltaRangePEAvgDelta = 0f;
 			float deltaRangePEAvgGamma = 0f;
 			float deltaRangePEAvgVega = 0f;
+			float deltaRangePEWorth = 0f;
 			
+			StringBuffer logBuffer2 = new StringBuffer();
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
 				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
 					//System.out.println("Include "+curIv);
-					deltaRangePEAvgLtp = deltaRangePEAvgLtp + rs.getFloat("ltp");
+					logBuffer2.append( " " + curIv);
+					float ltp = rs.getFloat("ltp");
+					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
 					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
 					deltaRangePEAvgDelta = deltaRangePEAvgDelta + Math.abs(rs.getFloat("delta"));
 					deltaRangePEAvgGamma = deltaRangePEAvgGamma + rs.getFloat("gamma");
 					deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
+					deltaRangePEWorth = deltaRangePEWorth + rs.getFloat("oi")*ltp;
 					
 					lastIvRead = curIv; 
 					recCount++;
+				} else {
+					logBuffer2.append( " [" + curIv+"] ");
 				}
 			}
 			rs.close();
-			System.out.println("PE recCount "+recCount);
+			//System.out.println("PE recCount "+recCount);
+			fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
 			
 			deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
 			deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
 			deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
 			deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
 			deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
+			deltaRangePEWorth = deltaRangePEWorth/10000000f; // in Crores
 			
 			retMap.put("deltaRangePEAvgLtp", deltaRangePEAvgLtp);
 			retMap.put("deltaRangePEAvgIv", deltaRangePEAvgIv);
 			retMap.put("deltaRangePEAvgDelta", deltaRangePEAvgDelta);
 			retMap.put("deltaRangePEAvgGamma", deltaRangePEAvgGamma);
 			retMap.put("deltaRangePEAvgVega", deltaRangePEAvgVega);
-			
+			retMap.put("deltaRangePEWorth", deltaRangePEWorth);
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -496,6 +514,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", deltaRangePEAvgDelta" 
 						+ ", deltaRangePEAvgGamma" 
 						+ ", deltaRangePEAvgVega"
+						+ ", deltaRangeCEWorth"
+						+ ", deltaRangePEWorth"
 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -561,8 +581,11 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgGamma") 
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEAvgVega")
 						
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEWorth")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEWorth")
+						
 						+ ")";
-				log.info(insertSql);
+				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
 				
 				retMap = new HashMap<>();
@@ -661,7 +684,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-06-27 09:17:00");		
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-03 09:17:00");		
 	}
 
 }
