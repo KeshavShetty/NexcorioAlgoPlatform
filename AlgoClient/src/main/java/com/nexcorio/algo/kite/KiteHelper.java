@@ -70,11 +70,11 @@ public class KiteHelper {
             kiteConnect.setAccessToken(userModel.accessToken);
             kiteConnect.setPublicToken(userModel.publicToken);
             
-            log.info("kiteconnect kiteLoginURL={"+kiteLoginURL+"}");
-            log.info("kiteconnect AccessToken={"+kiteConnect.getAccessToken()+"}");
-            log.info("kiteconnect ApiKey={"+kiteConnect.getApiKey()+"}");
-            log.info("kiteconnect PublicToken={"+kiteConnect.getPublicToken()+"}");
-            log.info("kiteconnect UserId={"+kiteConnect.getUserId()+"}");
+            log.debug("kiteconnect kiteLoginURL={"+kiteLoginURL+"}");
+            log.debug("kiteconnect AccessToken={"+kiteConnect.getAccessToken()+"}");
+            log.debug("kiteconnect ApiKey={"+kiteConnect.getApiKey()+"}");
+            log.debug("kiteconnect PublicToken={"+kiteConnect.getPublicToken()+"}");
+            log.debug("kiteconnect UserId={"+kiteConnect.getUserId()+"}");
             
             saveKiteAccessCodes(USER_ID, requestToken, kiteConnect.getAccessToken(), kiteConnect.getPublicToken()); // For future when decide multi user system
             // Set session expiry callback.
@@ -365,7 +365,7 @@ public class KiteHelper {
 	}
 	
 	private void saveExpiryDate(Long mainInstrumentId, String expiry, String segment, String fnoPrefix) {
-		//log.info("In saveExpiryDate mainInstrumentId="+mainInstrumentId+ " expiry="+expiry+" segment="+segment+" fnoPrefix="+fnoPrefix);
+		//log.debug("In saveExpiryDate mainInstrumentId="+mainInstrumentId+ " expiry="+expiry+" segment="+segment+" fnoPrefix="+fnoPrefix);
 		
 		Connection conn = null;
 		Statement stmt = null;
@@ -374,7 +374,7 @@ public class KiteHelper {
 			stmt = conn.createStatement();
 			
 			String fetchSql = "SELECT id from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+" AND expiry_date='"+expiry+"' AND fno_segment='"+segment+"' AND fno_prefix='"+fnoPrefix+"'";
-			log.info(fetchSql);
+			log.debug(fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			boolean recordExist = false;
 			while(rs.next()) {
@@ -383,11 +383,11 @@ public class KiteHelper {
 			rs.close();
 			
 			if (!recordExist) {
-				log.info("Inserting");
+				log.debug("Inserting");
 				stmt.executeUpdate("INSERT INTO nexcorio_fno_expiry_dates (id, f_main_instrument, expiry_date, fno_segment, fno_prefix) "
 						+ "VALUES (nextval('nexcorio_fno_expiry_dates_id_seq'),"+mainInstrumentId+",'"+expiry+"','"+segment+"','"+fnoPrefix+"')");
 			} else {
-				//log.info("Record already exist");
+				//log.debug("Record already exist");
 			}
 			stmt.close();
 			
@@ -405,7 +405,7 @@ public class KiteHelper {
 	}
 	
 	private int saveFnOInstruments(Long mainInstrumentId, String tradingsymbol, String instrument_token, String exchange, int strike, String expiryDateStr) {
-		//log.info("In saveFnOInstruments " + mainInstrumentId + "," + tradingsymbol + "," + instrument_token + "," + exchange);
+		//log.debug("In saveFnOInstruments " + mainInstrumentId + "," + tradingsymbol + "," + instrument_token + "," + exchange);
 		int retVal = 0;
 		Connection conn = null;
 		Statement stmt = null;
@@ -422,12 +422,12 @@ public class KiteHelper {
 			rs.close();
 			
 			if (!recordExist) {
-				log.info("Inserting");
+				log.debug("Inserting");
 				stmt.executeUpdate("INSERT INTO nexcorio_fno_instruments (id, f_main_instrument, trading_symbol, zerodha_instrument_token, exchange, strike, expiry_date) "
 						+ "VALUES (nextval('nexcorio_fno_instruments_id_seq'),"+mainInstrumentId+ ",'" + tradingsymbol + "',"+instrument_token+",'"+exchange+"',"+strike+",'"+expiryDateStr+"')");
 				retVal=1;
 			} else {
-				//log.info("Record already exist");
+				//log.debug("Record already exist");
 			}
 			stmt.close();
 			
@@ -516,13 +516,13 @@ public class KiteHelper {
 			if (mainInstrument.getInstrumentType().equalsIgnoreCase("INDEX")) {
 				scripnameForQuote = mainInstrument.getExchange() + ":" + mainInstrument.getName();
 			}
-			//log.info("scripnameForQuote="+scripnameForQuote);
+			//log.debug("scripnameForQuote="+scripnameForQuote);
 			
 			String[] instruments = {scripnameForQuote}; 
 			Map<String, LTPQuote> scripLtp = kiteConnect.getLTP(instruments);
 			
 			int scripSpotPrice  = (int) scripLtp.get(instruments[0]).lastPrice;
-			//log.info("scripSpotPrice="+scripSpotPrice);
+			//log.debug("scripSpotPrice="+scripSpotPrice);
 			
 			// make last decimal zero
 			scripSpotPrice = scripSpotPrice - (scripSpotPrice%10);
@@ -535,7 +535,7 @@ public class KiteHelper {
 				
 				fetchSql = "select trading_symbol, zerodha_instrument_token from nexcorio_fno_instruments"
 						+ " where trading_symbol in ('" + checkCEUpStr+ "','"+checkCEDownStr+"')";
-				//log.info("fetchSql="+fetchSql);
+				//log.debug("fetchSql="+fetchSql);
 				
 				rs = stmt.executeQuery(fetchSql);
 				String foundInDB = null;
@@ -550,12 +550,12 @@ public class KiteHelper {
 					break;
 				}
 			}
-			//log.info("basePrice="+basePrice);
+			//log.debug("basePrice="+basePrice);
 			
 			for(int spotPointDiff=0;
 					spotPointDiff<noOfOptionsStrikePoints;
 					spotPointDiff=spotPointDiff+mainInstrument.getGapBetweenStrikes()) {
-				//log.info("spotPointDiff="+spotPointDiff);
+				//log.debug("spotPointDiff="+spotPointDiff);
 				for(int i=0;i<fnoPrefixes.size();i++) {
 					
 					fetchSql = "select trading_symbol, zerodha_instrument_token, exchange from nexcorio_fno_instruments"
@@ -565,7 +565,7 @@ public class KiteHelper {
 							+ ", '" + fnoPrefixes.get(i) + (basePrice - spotPointDiff) + "CE'"
 							+ ", '" + fnoPrefixes.get(i) + (basePrice - spotPointDiff) + "PE')";
 					
-					//log.info("fetchSql="+fetchSql);
+					//log.debug("fetchSql="+fetchSql);
 					
 					rs = stmt.executeQuery(fetchSql);
 					while(rs.next()) {
@@ -638,7 +638,7 @@ public class KiteHelper {
 	public void tickerUsage(ArrayList<Long> zerodhaTokens) throws IOException, WebSocketException, KiteException {
         /** To get live price use com.rainmatter.ticker websocket connection. It is recommended to use only one websocket connection at any point of time and make sure you stop connection, once user goes out of app.*/
         
-        log.info("tokens size="+zerodhaTokens.size());
+        log.debug("tokens size="+zerodhaTokens.size());
         KiteTicker tickerProvider = new KiteTicker(kiteConnect.getAccessToken(), kiteConnect.getApiKey());
         
         tickerProvider.setOnConnectedListener(new OnConnect() {
@@ -662,11 +662,11 @@ public class KiteHelper {
 			@Override
 			public void onTicks(ArrayList<Tick> ticks) {
 				if (ticks.size()>0) {
-            		log.info("Ticks recieved");
+            		log.debug("Ticks recieved");
             		new ZerodhaIntradayStreamingThread(ticks);
             	}
 				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 0))) {
-					log.info("End of the daym disconnect and logout");
+					log.debug("End of the daym disconnect and logout");
 					try {
 						tickerProvider.disconnect();
 						System.out.println("Ended at " + (new Date()));

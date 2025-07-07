@@ -912,7 +912,7 @@ public class BaseClass {
 			}
 		} catch (Exception | KiteException e) {			
 			e.printStackTrace();
-			log.info("Error in checkDailyMarginUsed"+e.getMessage(), e);
+			log.error("Error in checkDailyMarginUsed"+e.getMessage(), e);
 		}
 		return retVal;
 	}
@@ -1118,7 +1118,7 @@ public class BaseClass {
 	    	while(optionKeys.hasNext()) {
 	    		String aOptionKey = optionKeys.next();
 	    		float currentOptionPrice = (float) (optionLtp.get(aOptionKey).lastPrice);
-	    		log.info("Key="+ aOptionKey+" " + currentOptionPrice);
+	    		log.debug("Key="+ aOptionKey+" " + currentOptionPrice);
 	    	}
 	    	
 	    	float hedgeTargetPrice = dailyMaxHedgeCostPerLeg*getWorkingDaysTillNextExpiry(new Date(),  getOptionCurrentWeekExpiryDate());

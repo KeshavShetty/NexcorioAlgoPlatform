@@ -47,7 +47,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		this.openIterest = openIterest;
 		this.tickTimestamp = tickTimestamp;
 		
-		log.info("OptionGreeksExtractorsThread fStreamingId="+fStreamingId+" tradingSymbol="+tradingSymbol+" ltp="+ltp+" openIterest="+openIterest+" tickTimestamp="+tickTimestamp);
+		log.debug("OptionGreeksExtractorsThread fStreamingId="+fStreamingId+" tradingSymbol="+tradingSymbol+" ltp="+ltp+" openIterest="+openIterest+" tickTimestamp="+tickTimestamp);
 		
 		Thread t = new Thread(this, "FnoAnalyticsExtractors"+fStreamingId);
 		t.setPriority(Thread.MAX_PRIORITY);
@@ -94,7 +94,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	public float guessTheIV(double optionPrice, double underlyingValue, double strikePrice, String optionType, Date expDate) {
 		float retVal = 0f;
 		try {
-			log.info("fStreamingId="+this.fStreamingId+" for  " + this.tradingSymbol + " guessTheIV optionPrice="+optionPrice+" underlyingValue="+underlyingValue+" strikePrice="+strikePrice+" optionType="+optionType+" expDate="+expDate);
+			log.debug("fStreamingId="+this.fStreamingId+" for  " + this.tradingSymbol + " guessTheIV optionPrice="+optionPrice+" underlyingValue="+underlyingValue+" strikePrice="+strikePrice+" optionType="+optionType+" expDate="+expDate);
 			
 			Calendar cal = Calendar.getInstance();
 			cal.setTime(expDate);
@@ -185,7 +185,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			String insertSql = "INSERT INTO nexcorio_option_greeks (id, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"
 					+ " VALUES (" + this.fStreamingId + ",'" + this.tradingSymbol+ "','" + postgresLongDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest  +"," + underlyingValue 
 					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
-			log.info(insertSql);
+			log.debug(insertSql);
 			stmt.execute(insertSql);
 			
 			Long snapshotId = null;
@@ -194,7 +194,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			if (snapshotId==null) {
 				// Insert into snapshot, first check if exists			
 				String fetchSql = "select id from nexcorio_option_snapshot where trading_symbol='" + this.tradingSymbol + "' and record_date='" + postgresShortDateFormat.format(latestTickQuoteTime) + "'";
-				log.info(fetchSql);
+				log.debug(fetchSql);
 				
 				ResultSet rs = stmt.executeQuery(fetchSql);
 				
@@ -209,7 +209,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			if (snapshotId!=null) { // Already exist
 				String updateSql = "UPDATE nexcorio_option_snapshot set last_updated_time='" + postgresLongDateFormat.format(latestTickQuoteTime) + "', ltp=" + lastPrice + ", oi=" + this.openIterest  
 						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + " where id=" + snapshotId;
-				log.info(updateSql);
+				log.debug(updateSql);
 				stmt.execute(updateSql);
 				
 			} else { // insert
@@ -217,7 +217,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 						+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + this.tradingSymbol+ "'," + strikePrice 
 						+ ",'" + postgresLongDateFormat.format(latestTickQuoteTime) + "','" + postgresShortDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest     
 						+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
-				log.info(insertSql);
+				log.debug(insertSql);
 				stmt.execute(insertSql);
 			}
 			

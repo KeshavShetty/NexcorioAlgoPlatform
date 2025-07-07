@@ -221,7 +221,7 @@ public abstract class G3BaseClass extends BaseClass {
 		if (fileLogTelegramWriter!=null) {
 			fileLogTelegramWriter.write(" requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated+" finally lot set="+this.noOfLots);
 		} else {
-			log.info(" requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
+			log.debug(" requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
 		}
 	}
 	
@@ -238,7 +238,7 @@ public abstract class G3BaseClass extends BaseClass {
 		if (fileLogTelegramWriter!=null) {
 			fileLogTelegramWriter.write("Half straddle requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
 		} else {
-			log.info("Half straddle requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
+			log.debug("Half straddle requiredMargin per lot="+requiredMargin +" availableMargin="+availableMargin+" maxPossibleLots="+maxPossibleLots+" maxFundAllocated="+maxFundAllocated);
 		}
 		
 		if (this.noOfLots > maxPossibleLots) this.noOfLots = maxPossibleLots;
@@ -303,7 +303,7 @@ public abstract class G3BaseClass extends BaseClass {
 				Statement stmt = conn.createStatement();
 											
 				String updateSql = "UPDATE nexcorio_option_algo_orders set status='" + status+"', exit_time='" + postgresLongDateFormat.format(getCurrentTime()) +"' WHERE id=" + orderDbId ;
-				//log.info(updateSql);
+				//log.debug(updateSql);
 				stmt.execute(updateSql);
 				
 				stmt.close();
@@ -565,7 +565,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	public void placeRealOrder(Long dbOrderId, String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal) {
-		log.info("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
+		log.debug("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		
 		Connection conn = null;
 		try {
@@ -579,7 +579,7 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, algo_order_id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange) VALUES "
 					+ " (nextval('nexcorio_real_orders_id_seq')," +dbOrderId + ", " + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'"+algoTag + "','" + derivativeExchange+"')"; 
-			  log.info(sql2Execute);
+			  log.debug(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
 		} catch (Exception e) {
@@ -596,7 +596,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	public void placeRealOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal) {
-		log.info("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
+		log.debug("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		
 		Connection conn = null;
 		try {
@@ -610,7 +610,7 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			String sql2Execute = "INSERT INTO nexcorio_real_orders (id, f_user, option_name, quantity, transaction_type, waitforpositionfill, algo_tag, exchange) VALUES "
 					+ " (nextval('nexcorio_real_orders_id_seq')," + this.userId + ",'" + optionname + "', " + quantity+ ",'" +transactionType+ "', " + waitForPositionFill +",'" + algoTag+"','" + derivativeExchange+ "' )"; 
-			  log.info(sql2Execute);
+			  log.debug(sql2Execute);
 			stmt.executeUpdate(sql2Execute);			
 			stmt.close();
 		} catch (Exception e) {
@@ -650,7 +650,7 @@ public abstract class G3BaseClass extends BaseClass {
 				if (recUpdated==0) {
 					String insertSql = "INSERT INTO nexcorio_option_algo_orders_daily_summary (id, f_strategy, exit_profit, best_profit, worst_profit, max_profit_reached_at, worst_profit_reached_at, maxTrailingProfit, noOfOrders, short_date) "
 							+ " VALUES (nextval('nexcorio_option_algo_orders_daily_summary_id_seq')," + this.napAlgoId + "," + profit + "," + maxProfit + "," + worstProfit + ",'" + postgresLongDateFormat.format(maxProfitReachedAt) + "','" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "'," + maxTrailingProfit + "," + this.noOfOrders + ",'" + postgresShortDateFormat.format(shortDateToUse) + "')";
-					log.info(insertSql);
+					log.debug(insertSql);
 					stmt.execute(insertSql);
 				}
 				
@@ -778,7 +778,7 @@ public abstract class G3BaseClass extends BaseClass {
 			retVal = ((float) marginData.initialMargin.total + (float) marginData.finalMargin.total)/2f;			
 		} catch (Exception | KiteException e) {			
 			e.printStackTrace();
-			log.info("Error in checkDailyMarginUsed"+e.getMessage(), e);
+			log.error("Error in checkDailyMarginUsed"+e.getMessage(), e);
 		}
 		return retVal;
 	}

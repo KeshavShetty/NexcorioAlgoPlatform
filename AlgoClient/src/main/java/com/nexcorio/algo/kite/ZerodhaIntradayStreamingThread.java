@@ -48,7 +48,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 		//HDataSource.logHikariStats();
 		
 		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + timeTaken);
-		log.info("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ timeTaken);
+		log.debug("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ timeTaken);
 		if (timeTaken > 1000) {
 			HDataSource.logHikariStats();
 		}
@@ -89,12 +89,12 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			String tradingSymbol = KiteCache.getInstrumentTokenToTradingSymbolCache(aTick.getInstrumentToken());
 			MainInstruments mainInstrument = KiteCache.getTradingSymbolMainInstrumentCache(tradingSymbol);
 			
-			//log.info(tradingSymbol + " ltp="+aTick.getLastTradedPrice() + " oi="+aTick.getOi() );
+			//log.debug(tradingSymbol + " ltp="+aTick.getLastTradedPrice() + " oi="+aTick.getOi() );
 			
-			log.info("aTick.getTickTimestamp()="+aTick.getTickTimestamp());
+			log.debug("aTick.getTickTimestamp()="+aTick.getTickTimestamp());
 			LocalDateTime dateTime = aTick.getTickTimestamp().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
 			String formattedDateTime = dateTime.format(postgresLongDateFormat); 
-			log.info("formattedDateTime="+formattedDateTime);
+			log.debug("formattedDateTime="+formattedDateTime);
 			
 			String insertSql = "INSERT INTO nexcorio_tick_data (id, f_main_instrument, trading_symbol, quote_time"
 					+ ", last_traded_price, last_traded_qty, open_interest, total_buy_qty, total_sell_qty, volume_traded_today, avg_traded_price)"
@@ -102,7 +102,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 					+ ",'"+formattedDateTime+"'"
 					+ ", " + aTick.getLastTradedPrice() + "," + aTick.getLastTradedQuantity() + "," + aTick.getOi() + "," + aTick.getTotalBuyQuantity() 
 					+ "," + aTick.getTotalSellQuantity() + "," + aTick.getVolumeTradedToday() + "," + aTick.getAverageTradePrice() + ")";
-			//log.info(insertSql);
+			//log.debug(insertSql);
 			
 			stmt.execute(insertSql);
 			stmt.close();
