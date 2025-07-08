@@ -356,16 +356,16 @@ public abstract class G3BaseClass extends BaseClass {
 			prepareExit("Timeout");
 		}
 		if (this.target != 0 && this.currentProfitPerUnit > this.target) { 
-			prepareExit("Day target acheived");
+			prepareExit("Target acheived");
 		}
 		if (this.stoploss != 0 && this.currentProfitPerUnit < this.stoploss) { 
 			prepareExit("SL Hit");
 		}
 		if (this.trailingStoploss != 0 && this.trailingProfit < this.trailingStoploss) { 
-			prepareExit("Traling Profit SL Hit");
+			prepareExit("Traling SL Hit");
 		}
 		if(manualExitEnabled()==true) {
-			prepareExit(" Exiting: Manual exit triggered");
+			prepareExit(" Manual exit triggered");
 		}
 	}
 	

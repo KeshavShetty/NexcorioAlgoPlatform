@@ -110,7 +110,7 @@ public class G3TotalCEOIVsPEOISpikeAversionAlgoThread extends G3BaseClass implem
 							float cePrice = getPriceFromTicks(ceStraddleOptionName);
 							
 							String logString = "Taking CE directional ceStraddleOptionName="+ceStraddleOptionName + "(@" + cePrice +") ceHedgeOptionName="+ceHedgeOptionName; 
-							log.info(logString);
+							log.debug(logString);
 							fileLogTelegramWriter.write( " "+logString);
 							ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
 							
@@ -128,7 +128,7 @@ public class G3TotalCEOIVsPEOISpikeAversionAlgoThread extends G3BaseClass implem
 														
 							float pePrice = getPriceFromTicks(peStraddleOptionName);
 							String logString = "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName; 
-							log.info(logString);
+							log.debug(logString);
 							fileLogTelegramWriter.write( " "+logString);
 							peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 							

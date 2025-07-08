@@ -49,9 +49,9 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 		
 		System.out.println("Recieved ticks size="+ticks.size() + " time taken(ms) " + timeTaken);
 		log.debug("Time taken="+(endTime-beginTime)+ " Active thread count=" +Thread.activeCount() + " Time consumes="+ timeTaken);
-		if (timeTaken > 1000) {
-			HDataSource.logHikariStats();
-		}
+//		if (timeTaken > 1000) {
+//			HDataSource.logHikariStats();
+//		}
 	}
 	
 	private void processTicks() {				
