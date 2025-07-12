@@ -468,9 +468,20 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			Statement stmt = conn.createStatement();
 			
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, 0); // Hedge distance 0
+			String ceOptionName = entryStraddleOptionNames[0];
+			String peOptionName = entryStraddleOptionNames[1];
 			
-			OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
-			OptionGreek peOptionGreek = getOptionGreeks(entryStraddleOptionNames[1]);
+			OptionGreek ceOptionGreek = getOptionGreeks(ceOptionName);
+			OptionGreek peOptionGreek = getOptionGreeks(peOptionName);
+			
+			if (!ceOptionName.substring(0,ceOptionName.length()-2).equals(peOptionName.substring(0,peOptionName.length()-2))) {
+				String optionPrefix = ceOptionName.substring(0, ceOptionName.length()-7);
+				int optionStrike = Integer.parseInt(ceOptionName.substring(ceOptionName.length()-7,ceOptionName.length()-2));
+				
+				ceOptionName = optionPrefix + optionStrike + "CE";
+				peOptionName = optionPrefix + optionStrike + "PE";
+				peOptionGreek = getOptionGreeks(peOptionName);
+			}
 			
 			if (ceOptionGreek!=null && peOptionGreek!=null) {
 				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, record_time, ceOptionname, peOptionname"
@@ -539,8 +550,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-						+ ",'" + entryStraddleOptionNames[0] + "'"
-						+ ",'" + entryStraddleOptionNames[1] + "'"
+						+ ",'" + ceOptionName + "'"
+						+ ",'" + peOptionName + "'"
 						+ " ," + ceOptionGreek.getDelta() 
 						+ " ," + peOptionGreek.getDelta()
 						
@@ -709,7 +720,20 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-04 09:17:00");		
+		//new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-04 09:17:00");
+		
+		String ceOptionName = "NIFTY2571026000CE";
+		String peOptionName = "NIFTY2571026000PE";
+		
+		if (!ceOptionName.substring(0,ceOptionName.length()-2).equals(peOptionName.substring(0,peOptionName.length()-2))) {
+			String optionPrefix = ceOptionName.substring(0, ceOptionName.length()-7);
+			int optionStrike = Integer.parseInt(ceOptionName.substring(ceOptionName.length()-7,ceOptionName.length()-2));
+			
+			ceOptionName = optionPrefix + optionStrike + "CE";
+			peOptionName = optionPrefix + optionStrike + "PE";
+			System.out.println(peOptionName);
+		}
+		System.out.println("Done");
 	}
 
 }
