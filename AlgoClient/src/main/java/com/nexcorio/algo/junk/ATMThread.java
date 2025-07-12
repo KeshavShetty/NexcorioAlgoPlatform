@@ -103,7 +103,7 @@ public class ATMThread implements Runnable {
 		float deltaRangeCEAvgVega = 0f;
 		float lastIvRead = 0f;
 		int recCount = 0;
-		
+		float deltaRangeCEDeltaOI = 0f;
 		for(OptionGreek aGreek: ceOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -133,6 +133,8 @@ public class ATMThread implements Runnable {
 					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + Math.abs(aGreek.getDelta());
 					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + aGreek.getGamma();
 					deltaRangeCEAvgVega = deltaRangeCEAvgVega + aGreek.getVega();
+					
+					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
 					
 					lastIvRead = aGreek.getIv(); 
 					recCount++;
@@ -164,7 +166,7 @@ public class ATMThread implements Runnable {
 		float deltaRangePEAvgVega = 0f;
 		lastIvRead = 0f;
 		recCount = 0;
-		
+		float deltaRangePEDeltaOI = 0f;
 		for(OptionGreek aGreek: peOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -194,7 +196,7 @@ public class ATMThread implements Runnable {
 					deltaRangePEAvgDelta = deltaRangePEAvgDelta + Math.abs(aGreek.getDelta());
 					deltaRangePEAvgGamma = deltaRangePEAvgGamma + aGreek.getGamma();
 					deltaRangePEAvgVega = deltaRangePEAvgVega + aGreek.getVega();
-					
+					deltaRangePEDeltaOI = deltaRangePEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
 					lastIvRead = aGreek.getIv();
 					recCount++;
 				}  else {
@@ -223,13 +225,14 @@ public class ATMThread implements Runnable {
 		saveGreek(selective5CeGamma, selective5CeIV, selective10CeGamma, selective10CeIV, selective20CeGamma, selective20CeIV,
 				selective5PeGamma, selective5PeIV, selective10PeGamma, selective10PeIV, selective20PeGamma, selective20PeIV,
 				deltaRangeCEAvgLtp, deltaRangeCEAvgIv, deltaRangeCEAvgDelta, deltaRangeCEAvgGamma, deltaRangeCEAvgVega,
-				deltaRangePEAvgLtp, deltaRangePEAvgIv, deltaRangePEAvgDelta, deltaRangePEAvgGamma, deltaRangePEAvgVega);
+				deltaRangePEAvgLtp, deltaRangePEAvgIv, deltaRangePEAvgDelta, deltaRangePEAvgGamma, deltaRangePEAvgVega, deltaRangeCEDeltaOI, deltaRangePEDeltaOI);
 	}
 
 	private void saveGreek(float selective5CeGamma, float selective5CeIV, float selective10CeGamma, float selective10CeIV, float selective20CeGamma, float selective20CeIV,
 			float selective5PeGamma, float selective5PeIV, float selective10PeGamma, float selective10PeIV, float selective20PeGamma, float selective20PeIV,
 			float deltaRangeCEAvgLtp, float deltaRangeCEAvgIv, float deltaRangeCEAvgDelta, float deltaRangeCEAvgGamma, float deltaRangeCEAvgVega,
-			float deltaRangePEAvgLtp, float deltaRangePEAvgIv, float deltaRangePEAvgDelta, float deltaRangePEAvgGamma, float deltaRangePEAvgVega) {
+			float deltaRangePEAvgLtp, float deltaRangePEAvgIv, float deltaRangePEAvgDelta, float deltaRangePEAvgGamma, float deltaRangePEAvgVega,
+			float deltaRangeCEDeltaOI, float deltaRangePEDeltaOI) {
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
@@ -237,24 +240,26 @@ public class ATMThread implements Runnable {
 			
 			String updateSql = "UPDATE nexcorio_option_atm_movement_data set "
 					
-					+ "  selective10strike_avgcegamma=" + selective10CeGamma 
-					+ ", selective10strike_avgpegamma=" + selective10PeGamma
-					+ ", selective10strike_avgceiv=" + selective10CeIV
-					+ ", selective10strike_avgpeiv=" + selective10PeIV
-					+ ", selective20strike_avgcegamma=" + selective20CeGamma
-					+ ", selective20strike_avgpegamma=" + selective20PeGamma
-					+ ", selective20strike_avgceiv=" + selective20CeIV
-					+ ", selective20strike_avgpeiv=" + selective20PeIV
-					+ ", deltaRangeCEAvgLtp=" + deltaRangeCEAvgLtp
-					+ ", deltaRangeCEAvgIv=" + deltaRangeCEAvgIv
-					+ ", deltaRangeCEAvgDelta=" + deltaRangeCEAvgDelta
-					+ ", deltaRangeCEAvgGamma=" + deltaRangeCEAvgGamma
-					+ ", deltaRangeCEAvgVega=" + deltaRangeCEAvgVega
-					+ ", deltaRangePEAvgLtp=" + deltaRangePEAvgLtp
-					+ ", deltaRangePEAvgIv=" + deltaRangePEAvgIv
-					+ ", deltaRangePEAvgDelta=" + deltaRangePEAvgDelta
-					+ ", deltaRangePEAvgGamma=" + deltaRangePEAvgGamma
-					+ ", deltaRangePEAvgVega=" +deltaRangePEAvgVega
+//					+ "  selective10strike_avgcegamma=" + selective10CeGamma 
+//					+ ", selective10strike_avgpegamma=" + selective10PeGamma
+//					+ ", selective10strike_avgceiv=" + selective10CeIV
+//					+ ", selective10strike_avgpeiv=" + selective10PeIV
+//					+ ", selective20strike_avgcegamma=" + selective20CeGamma
+//					+ ", selective20strike_avgpegamma=" + selective20PeGamma
+//					+ ", selective20strike_avgceiv=" + selective20CeIV
+//					+ ", selective20strike_avgpeiv=" + selective20PeIV
+//					+ ", deltaRangeCEAvgLtp=" + deltaRangeCEAvgLtp
+//					+ ", deltaRangeCEAvgIv=" + deltaRangeCEAvgIv
+//					+ ", deltaRangeCEAvgDelta=" + deltaRangeCEAvgDelta
+//					+ ", deltaRangeCEAvgGamma=" + deltaRangeCEAvgGamma
+//					+ ", deltaRangeCEAvgVega=" + deltaRangeCEAvgVega
+//					+ ", deltaRangePEAvgLtp=" + deltaRangePEAvgLtp
+//					+ ", deltaRangePEAvgIv=" + deltaRangePEAvgIv
+//					+ ", deltaRangePEAvgDelta=" + deltaRangePEAvgDelta
+//					+ ", deltaRangePEAvgGamma=" + deltaRangePEAvgGamma
+//					+ ", deltaRangePEAvgVega=" +deltaRangePEAvgVega
+					+ " deltaRangeCEDeltaOI=" +deltaRangeCEDeltaOI/10000000f
+					+ ", deltaRangePEDeltaOI=" +deltaRangePEDeltaOI/10000000f
 					+ " where id="+atmId;
 			System.out.println(updateSql);
 			
