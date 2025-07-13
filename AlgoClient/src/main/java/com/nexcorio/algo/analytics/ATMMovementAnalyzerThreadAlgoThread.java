@@ -321,6 +321,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			float deltaRangeCEWorth = 0f;
 			float deltaRangeCEOI = 0f;
 			float deltaRangeCEDeltaOI = 0f;
+			float deltaRangeCEFullDeltaOI = 0f;
+			float deltaRangeCEGammaOI = 0f;
 			StringBuffer logBuffer = new StringBuffer();
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
@@ -330,19 +332,22 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					float ltp = rs.getFloat("ltp");
 					float oi = rs.getFloat("oi");
 					float delta = Math.abs(rs.getFloat("delta"));
+					float gamma = rs.getFloat("gamma");
 					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
 					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
 					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
-					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + rs.getFloat("gamma");
+					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
 					deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
 					deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
 					deltaRangeCEOI = deltaRangeCEOI + oi;
 					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
+					deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
 					logBuffer.append( " [" + curIv+"] ");
 				}
+				deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
 			}
 			rs.close();
 			//System.out.println("CE recCount "+recCount);
@@ -363,7 +368,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeCEWorth", deltaRangeCEWorth);
 			retMap.put("deltaRangeCEOI", deltaRangeCEOI/10000000f);
 			retMap.put("deltaRangeCEDeltaOI", deltaRangeCEDeltaOI/10000000f);
-			
+			retMap.put("deltaRangeCEFullDeltaOI", deltaRangeCEFullDeltaOI/10000000f);
+			retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
 			lowerDelta = -0.9f;
 			upperDelta = -0.1f;
 			
@@ -387,7 +393,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			float deltaRangePEWorth = 0f;
 			float deltaRangePEOI = 0f;
 			float deltaRangePEDeltaOI = 0f;
-			
+			float deltaRangePEGammaOI = 0f;
+			float deltaRangePEFullDeltaOI = 0f;
 			StringBuffer logBuffer2 = new StringBuffer();
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
@@ -397,19 +404,22 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					float ltp = rs.getFloat("ltp");
 					float oi = rs.getFloat("oi");
 					float delta = Math.abs(rs.getFloat("delta"));
+					float gamma = rs.getFloat("gamma");
 					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
 					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
 					deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
-					deltaRangePEAvgGamma = deltaRangePEAvgGamma + rs.getFloat("gamma");
+					deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
 					deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
 					deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
 					deltaRangePEOI = deltaRangePEOI + oi;
 					deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
+					deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
 					logBuffer2.append( " [" + curIv+"] ");
 				}
+				deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
 			}
 			rs.close();
 			//System.out.println("PE recCount "+recCount);
@@ -430,6 +440,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangePEWorth", deltaRangePEWorth);
 			retMap.put("deltaRangePEOI", deltaRangePEOI/10000000f);
 			retMap.put("deltaRangePEDeltaOI", deltaRangePEDeltaOI/10000000f);
+			retMap.put("deltaRangePEFullDeltaOI", deltaRangePEFullDeltaOI/10000000f);
+			retMap.put("deltaRangePEGammaOI", deltaRangePEGammaOI);
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -546,7 +558,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", deltaRangePEOI"
 						+ ", deltaRangeCEDeltaOI"
 						+ ", deltaRangePEDeltaOI"
-
+						
+						+ ", deltaRangeCEFullDeltaOI"
+						+ ", deltaRangePEFullDeltaOI"
+						
+						+ ", deltaRangeCEGammaOI"
+						+ ", deltaRangePEGammaOI"
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -619,6 +636,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEDeltaOI")
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEDeltaOI")
+						
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEFullDeltaOI")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEFullDeltaOI")
+						
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEGammaOI")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEGammaOI")
 						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
@@ -720,20 +743,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		//new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-04 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-11 09:17:00");
 		
-		String ceOptionName = "NIFTY2571026000CE";
-		String peOptionName = "NIFTY2571026000PE";
 		
-		if (!ceOptionName.substring(0,ceOptionName.length()-2).equals(peOptionName.substring(0,peOptionName.length()-2))) {
-			String optionPrefix = ceOptionName.substring(0, ceOptionName.length()-7);
-			int optionStrike = Integer.parseInt(ceOptionName.substring(ceOptionName.length()-7,ceOptionName.length()-2));
-			
-			ceOptionName = optionPrefix + optionStrike + "CE";
-			peOptionName = optionPrefix + optionStrike + "PE";
-			System.out.println(peOptionName);
-		}
-		System.out.println("Done");
 	}
 
 }
