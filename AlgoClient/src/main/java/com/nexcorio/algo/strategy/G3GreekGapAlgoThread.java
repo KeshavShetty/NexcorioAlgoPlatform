@@ -228,13 +228,17 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 									}
 									ceStraddleOptionName =  entryStraddleOptionNames[0];
 									float cePrice = getPriceFromTicks(ceStraddleOptionName);
-									fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-									// Place order
-									ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-									if (this.placeActualOrder) {
-										placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									if (cePrice>=10f) {
+										fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
+										// Place order
+										ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+										if (this.placeActualOrder) {
+											placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										}
+										soldPrice = cePrice;
+									} else {
+										prepareExit("Low premium");
 									}
-									soldPrice = cePrice;
 								} else { // PE exist
 									fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 									if (this.placeActualOrder) {
@@ -242,13 +246,17 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 									}
 									peStraddleOptionName =  entryStraddleOptionNames[1];
 									float pePrice = getPriceFromTicks(peStraddleOptionName);
-									fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-									// Place order
-									peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-									if (this.placeActualOrder) {
-										placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									if (pePrice>=10f) {
+										fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
+										// Place order
+										peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+										if (this.placeActualOrder) {
+											placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										}
+										soldPrice = pePrice;
+									} else {
+										prepareExit("Low premium");
 									}
-									soldPrice = pePrice;
 								}
 							}
 						}
@@ -307,6 +315,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "deltarangecedeltaoi as ceGreek, deltarangepedeltaoi as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("deltaRangeGammaOI")) {
 				fieldname = "deltarangecegammaoi as ceGreek, deltarangepegammaoi as peGreek";
+			} else if (greekname.equalsIgnoreCase("drFullAvgIV")) {
+				fieldname = "deltaRangeCEFullAvgIv as ceGreek, deltaRangePEFullAvgIv as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
