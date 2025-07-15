@@ -326,13 +326,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			StringBuffer logBuffer = new StringBuffer();
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
+				float delta = Math.abs(rs.getFloat("delta"));
+				float ltp = rs.getFloat("ltp");
+				float oi = rs.getFloat("oi");
+				float gamma = rs.getFloat("gamma");
+				
 				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
 					//System.out.println("Include "+curIv);
-					logBuffer.append( " " + curIv);
-					float ltp = rs.getFloat("ltp");
-					float oi = rs.getFloat("oi");
-					float delta = Math.abs(rs.getFloat("delta"));
-					float gamma = rs.getFloat("gamma");
+					logBuffer.append( " {" + curIv+ " D " + delta +" Worth " + (oi*ltp/10000000f) +"} ");
 					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
 					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
 					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
@@ -345,7 +346,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
-					logBuffer.append( " [" + curIv+"] ");
+					logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
 				}
 				fullcount++;
 				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
@@ -354,6 +355,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			rs.close();
 			//System.out.println("CE recCount "+recCount);
 			fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
+			
+			float deltaRangeHybridCEAvgIv = 0f;
+			if ((float)recCount/(float)fullcount < 0.65f) {
+				deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
+			} else {
+				deltaRangeHybridCEAvgIv = deltaRangeCEAvgIv/(float)recCount;
+			}
 			
 			deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
 			deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
@@ -375,6 +383,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeCEFullDeltaOI", deltaRangeCEFullDeltaOI/10000000f);
 			retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
 			retMap.put("deltaRangeCEFullAvgIv", deltaRangeCEFullAvgIv);
+			retMap.put("deltaRangeHybridCEAvgIv",deltaRangeHybridCEAvgIv);
+			
 			lowerDelta = -0.9f;
 			upperDelta = -0.1f;
 			
@@ -409,13 +419,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
 				float delta = Math.abs(rs.getFloat("delta"));
+				float ltp = rs.getFloat("ltp");
+				float oi = rs.getFloat("oi");				
+				float gamma = rs.getFloat("gamma");
+				
 				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
 					//System.out.println("Include "+curIv);
-					logBuffer2.append( " " + curIv);
-					float ltp = rs.getFloat("ltp");
-					float oi = rs.getFloat("oi");
+					logBuffer2.append( " {" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f)+"} ");
 					
-					float gamma = rs.getFloat("gamma");
 					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
 					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
 					deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
@@ -428,7 +439,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
-					logBuffer2.append( " [" + curIv+"] ");
+					logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
 				}
 				fullcount++;
 				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
@@ -437,6 +448,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			rs.close();
 			//System.out.println("PE recCount "+recCount);
 			fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
+			
+			float deltaRangeHybridPEAvgIv = 0f;
+			if ((float)recCount/(float)fullcount < 0.65f) {
+				deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
+			} else {
+				deltaRangeHybridPEAvgIv = deltaRangePEAvgIv/(float)recCount;
+			}
 			
 			deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
 			deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
@@ -457,6 +475,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangePEFullDeltaOI", deltaRangePEFullDeltaOI/10000000f);
 			retMap.put("deltaRangePEGammaOI", deltaRangePEGammaOI);
 			retMap.put("deltaRangePEFullAvgIv", deltaRangePEFullAvgIv);
+			retMap.put("deltaRangeHybridPEAvgIv", deltaRangeHybridPEAvgIv);
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -582,6 +601,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ ", deltaRangeCEFullAvgIv"
 						+ ", deltaRangePEFullAvgIv"
+						
+						+ ", deltaRangeHybridCEAvgIv"
+						+ ", deltaRangeHybridPEAvgIv"
+						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -664,6 +687,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEFullAvgIv")
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEFullAvgIv")
 						
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridPEAvgIv")
 						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
@@ -765,7 +790,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-14 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-15 09:17:00");
 		
 		
 	}
