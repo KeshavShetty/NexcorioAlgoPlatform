@@ -122,7 +122,7 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			if (exchange!=null) { // Null means main instruent
 				if (exchange.equalsIgnoreCase("NFO") || exchange.equalsIgnoreCase("BFO")) {
 					if (tradingSymbol.endsWith("CE") || tradingSymbol.endsWith("PE")) { // Option Greeks
-						new OptionGreeksExtractorsThread(fStreamingId, tradingSymbol, (float) aTick.getLastTradedPrice(), (float) aTick.getOi(), aTick.getTickTimestamp());
+						new OptionGreeksExtractorsThread(fStreamingId, tradingSymbol, (float) aTick.getLastTradedPrice(), (float) aTick.getOi(), aTick.getTickTimestamp(), aTick.getVolumeTradedToday());
 					}
 				}
 			}

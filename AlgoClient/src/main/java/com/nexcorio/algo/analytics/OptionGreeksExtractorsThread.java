@@ -38,14 +38,16 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	float ltp;
 	float openIterest;
 	Date tickTimestamp;
+	long volumeTradedToday = 0;
 	
-	public OptionGreeksExtractorsThread(Long fStreamingId, String tradingSymbol, float ltp, float openIterest, Date tickTimestamp) {
+	public OptionGreeksExtractorsThread(Long fStreamingId, String tradingSymbol, float ltp, float openIterest, Date tickTimestamp, Long volumeTradedToday) {
 		super();
 		this.fStreamingId = fStreamingId;
 		this.tradingSymbol = tradingSymbol;
 		this.ltp = ltp;
 		this.openIterest = openIterest;
 		this.tickTimestamp = tickTimestamp;
+		this.volumeTradedToday = volumeTradedToday;
 		
 		log.debug("OptionGreeksExtractorsThread fStreamingId="+fStreamingId+" tradingSymbol="+tradingSymbol+" ltp="+ltp+" openIterest="+openIterest+" tickTimestamp="+tickTimestamp);
 		
@@ -174,6 +176,10 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		retVal.setLtp((float) lastPrice);
 		retVal.setOi(this.openIterest);
 		
+		long tradedVolume1minBack = getVolumeTradedMinBack(latestTickQuoteTime);
+		
+		long volume1min = this.volumeTradedToday - tradedVolume1minBack;
+		
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
@@ -208,7 +214,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			
 			if (snapshotId!=null) { // Already exist
 				String updateSql = "UPDATE nexcorio_option_snapshot set last_updated_time='" + postgresLongDateFormat.format(latestTickQuoteTime) + "', ltp=" + lastPrice + ", oi=" + this.openIterest  
-						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + " where id=" + snapshotId;
+						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + ", volume1min=" + volume1min + " where id=" + snapshotId;
 				log.debug(updateSql);
 				stmt.execute(updateSql);
 				
@@ -236,6 +242,40 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		return retVal;
 	}
 	
+	private long getVolumeTradedMinBack(Date currntTime) {
+		long retVal = 0;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(currntTime);
+			cal.add(Calendar.MINUTE, -1);
+			
+			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			
+			String fetchSql = "SELECT volume_traded_today from nexcorio_tick_data where trading_symbol='" + this.tradingSymbol + "' and quote_time <= '" + postgresLongDateFormat.format(cal.getTime())+ "' order by quote_time desc limit 1";
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while(rs.next()) {
+				retVal = (long) rs.getFloat("volume_traded_today");
+			}
+			rs.close();
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(), e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
 	public OptionFnOInstrument getOptionInstrument(String tradingSymbol) {
 		OptionFnOInstrument optionFnOInstrument= null;
 		
