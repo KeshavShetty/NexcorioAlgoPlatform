@@ -4,6 +4,26 @@ CREATE SERVER nexcorio_foreign_server FOREIGN DATA WRAPPER postgres_fdw OPTIONS 
 
 CREATE USER MAPPING FOR postgres SERVER nexcorio_foreign_server OPTIONS (USER 'postgres' , password 'jijikos');
 
+DROP FOREIGN TABLE IF EXISTS fdw_nexcorio_option_algo_orders_daily_summary;
+
+CREATE FOREIGN TABLE fdw_nexcorio_option_algo_orders_daily_summary (
+    id BIGINT,
+    f_strategy BIGINT,
+    short_name CHARACTER VARYING (25),
+    algoname CHARACTER VARYING (125),
+    short_date DATE,
+    exit_profit REAL,
+    best_profit REAL,
+    worst_profit REAL,
+    maxtrailingprofit REAL,
+    max_profit_reached_at TIMESTAMP WITHOUT TIME ZONE,
+    worst_profit_reached_at TIMESTAMP WITHOUT TIME ZONE,
+    nooforders INTEGER,
+    exit_time TIMESTAMP WITHOUT TIME ZONE,
+    exit_reason CHARACTER VARYING (100)
+) SERVER nexcorio_foreign_server OPTIONS (SCHEMA_NAME'public', TABLE_NAME'nexcorio_option_algo_orders_daily_summary');
+
+
 DROP FOREIGN TABLE IF EXISTS fdw_nexcorio_option_atm_movement_data;
 
 CREATE FOREIGN TABLE  fdw_nexcorio_option_atm_movement_data
