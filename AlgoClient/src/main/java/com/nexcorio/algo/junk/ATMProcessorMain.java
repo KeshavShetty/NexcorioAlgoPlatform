@@ -11,6 +11,8 @@ import com.nexcorio.algo.util.db.HDataSource;
 
 public class ATMProcessorMain {
 
+	private static String forDate = "2025-07-21";
+	
 	private static List<String> getOptionnames() {
 		List<String> retList = new ArrayList<>();
 		
@@ -21,8 +23,8 @@ public class ATMProcessorMain {
 			
 			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
 					+ " where trading_symbol like 'NIFTY%' "
-					+ " and quote_time > '2025-06-26 09:15:00'"
-					+ " and quote_time < '2025-06-26 15:15:00'";
+					+ " and quote_time > '" + forDate + " 09:15:00'"
+					+ " and quote_time < '" + forDate + " 15:15:00'";
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
@@ -51,7 +53,8 @@ public class ATMProcessorMain {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=2 AND record_time >= '2025-06-26 09:15:00' AND record_time <= '2025-06-26 15:30:00' order by id";
+			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=2"
+					+ " AND record_time >= '" + forDate + " 09:15:00' AND record_time <= '" + forDate + " 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				Long aId = rs.getLong("id");

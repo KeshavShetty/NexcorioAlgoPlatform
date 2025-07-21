@@ -100,3 +100,9 @@ CREATE FOREIGN TABLE  fdw_nexcorio_option_atm_movement_data
     deltarangecevolume1min real DEFAULT 0,
     deltarangepevolume1min real DEFAULT 0
 ) SERVER nexcorio_foreign_server OPTIONS (schema_name 'public' , table_name 'nexcorio_option_atm_movement_data');
+
+ALTER FOREIGN TABLE fdw_nexcorio_option_atm_movement_data 
+ADD COLUMN deltaRangeHybridCEAvgGamma REAL DEFAULT 0,
+ADD COLUMN deltaRangeHybridPEAvgGamma REAL DEFAULT 0,
+ADD COLUMN deltaRangeCEOutlierRatio REAL DEFAULT 0,
+ADD COLUMN deltaRangePEOutlierRatio REAL DEFAULT 0;

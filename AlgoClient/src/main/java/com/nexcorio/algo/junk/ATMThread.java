@@ -104,6 +104,12 @@ public class ATMThread implements Runnable {
 		float lastIvRead = 0f;
 		int recCount = 0;
 		float deltaRangeCEDeltaOI = 0f;
+		float deltaRangeFullCEDeltaOI = 0f;
+		float deltaRangeCEGammaOI = 0f;
+		
+		float deltaRangeCEFullAvgIv = 0f;
+		float deltaRangeCEFullGamma = 0f;
+		int fullCount = 0;
 		for(OptionGreek aGreek: ceOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -134,20 +140,39 @@ public class ATMThread implements Runnable {
 					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + aGreek.getGamma();
 					deltaRangeCEAvgVega = deltaRangeCEAvgVega + aGreek.getVega();
 					
-					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
+					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());		
+					
+					deltaRangeCEGammaOI = deltaRangeCEGammaOI + aGreek.getOi()*Math.abs(aGreek.getGamma());
 					
 					lastIvRead = aGreek.getIv(); 
 					recCount++;
 				} else {
 					//System.out.println("Skip "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
 				}
+				fullCount++;
+				deltaRangeCEFullGamma = deltaRangeCEFullGamma + aGreek.getGamma();
+				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + aGreek.getIv();
+				deltaRangeFullCEDeltaOI = deltaRangeFullCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
 			}
 		}
+		
+		float deltaRangeHybridCEAvgIv = 0f;
+		float deltaRangeHybridCEAvgGamma = 0f;
+		if ((float)recCount/(float)fullCount < 0.65f) {
+			deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullCount;
+			deltaRangeHybridCEAvgGamma = deltaRangeCEFullGamma/(float)fullCount;
+		} else {
+			deltaRangeHybridCEAvgIv = deltaRangeCEAvgIv/(float)recCount;
+			deltaRangeHybridCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
+		}
+		float deltaRangeCEOutlierRatio = (float)fullCount/(float)recCount;
+		
 		deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
 		deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
 		deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
 		deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 		deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
+		deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullCount;
 		
 		selective5CeGamma = selective5CECount!=0?selective5CeGamma/selective5CECount:0;
 		selective5CeIV = selective5CECount!=0?selective5CeIV/selective5CECount:0;
@@ -167,6 +192,11 @@ public class ATMThread implements Runnable {
 		lastIvRead = 0f;
 		recCount = 0;
 		float deltaRangePEDeltaOI = 0f;
+		float deltaRangeFullPEDeltaOI = 0f;
+		float deltaRangePEGammaOI = 0f;
+		float deltaRangePEFullAvgIv=0f;
+		float deltaRangePEFullGamma = 0f;
+		fullCount = 0;
 		for(OptionGreek aGreek: peOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -197,19 +227,40 @@ public class ATMThread implements Runnable {
 					deltaRangePEAvgGamma = deltaRangePEAvgGamma + aGreek.getGamma();
 					deltaRangePEAvgVega = deltaRangePEAvgVega + aGreek.getVega();
 					deltaRangePEDeltaOI = deltaRangePEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
+					
+					deltaRangePEGammaOI = deltaRangePEGammaOI + aGreek.getOi()*Math.abs(aGreek.getGamma());
+					
 					lastIvRead = aGreek.getIv();
 					recCount++;
 				}  else {
 					//System.out.println("Skip "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
 				}
+				fullCount++;
+				deltaRangePEFullGamma = deltaRangePEFullGamma + aGreek.getGamma();
+				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + aGreek.getIv();
+				deltaRangeFullPEDeltaOI = deltaRangeFullPEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
 			}
 			
 		}
+		
+		float deltaRangeHybridPEAvgIv = 0f;
+		float deltaRangeHybridPEAvgGamma = 0f;
+		if ((float)recCount/(float)fullCount < 0.65f) {
+			deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullCount;
+			deltaRangeHybridPEAvgGamma = deltaRangePEFullGamma/(float)fullCount;
+		} else {
+			deltaRangeHybridPEAvgIv = deltaRangePEAvgIv/(float)recCount;
+			deltaRangeHybridPEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
+		}
+		float deltaRangePEOutlierRatio = (float)fullCount/(float)recCount;
+		
+		
 		deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
 		deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
 		deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
 		deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
 		deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
+		deltaRangePEFullAvgIv = deltaRangePEFullAvgIv/(float)fullCount;
 		
 		selective5PeGamma = selective5PECount!=0?selective5PeGamma/selective5PECount:0;
 		selective5PeIV = selective5PECount!=0?selective5PeIV/selective5PECount:0;
@@ -225,14 +276,19 @@ public class ATMThread implements Runnable {
 		saveGreek(selective5CeGamma, selective5CeIV, selective10CeGamma, selective10CeIV, selective20CeGamma, selective20CeIV,
 				selective5PeGamma, selective5PeIV, selective10PeGamma, selective10PeIV, selective20PeGamma, selective20PeIV,
 				deltaRangeCEAvgLtp, deltaRangeCEAvgIv, deltaRangeCEAvgDelta, deltaRangeCEAvgGamma, deltaRangeCEAvgVega,
-				deltaRangePEAvgLtp, deltaRangePEAvgIv, deltaRangePEAvgDelta, deltaRangePEAvgGamma, deltaRangePEAvgVega, deltaRangeCEDeltaOI, deltaRangePEDeltaOI);
+				deltaRangePEAvgLtp, deltaRangePEAvgIv, deltaRangePEAvgDelta, deltaRangePEAvgGamma, deltaRangePEAvgVega, deltaRangeCEDeltaOI, deltaRangePEDeltaOI,deltaRangeFullCEDeltaOI, deltaRangeFullPEDeltaOI,
+				deltaRangeCEGammaOI, deltaRangePEGammaOI, deltaRangeCEFullAvgIv, deltaRangePEFullAvgIv, deltaRangeHybridCEAvgIv, deltaRangeHybridPEAvgIv,
+				deltaRangeHybridCEAvgGamma, deltaRangeHybridPEAvgGamma, deltaRangeCEOutlierRatio, deltaRangePEOutlierRatio);
 	}
 
 	private void saveGreek(float selective5CeGamma, float selective5CeIV, float selective10CeGamma, float selective10CeIV, float selective20CeGamma, float selective20CeIV,
 			float selective5PeGamma, float selective5PeIV, float selective10PeGamma, float selective10PeIV, float selective20PeGamma, float selective20PeIV,
 			float deltaRangeCEAvgLtp, float deltaRangeCEAvgIv, float deltaRangeCEAvgDelta, float deltaRangeCEAvgGamma, float deltaRangeCEAvgVega,
 			float deltaRangePEAvgLtp, float deltaRangePEAvgIv, float deltaRangePEAvgDelta, float deltaRangePEAvgGamma, float deltaRangePEAvgVega,
-			float deltaRangeCEDeltaOI, float deltaRangePEDeltaOI) {
+			float deltaRangeCEDeltaOI, float deltaRangePEDeltaOI, float deltaRangeFullCEDeltaOI, float deltaRangeFullPEDeltaOI, float deltaRangeCEGammaOI, float deltaRangePEGammaOI,
+			float deltaRangeCEFullAvgIv, float deltaRangePEFullAvgIv, float deltaRangeHybridCEAvgIv, float deltaRangeHybridPEAvgIv,
+			float deltaRangeHybridCEAvgGamma, float deltaRangeHybridPEAvgGamma,
+			float deltaRangeCEOutlierRatio, float deltaRangePEOutlierRatio) {
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
@@ -258,8 +314,13 @@ public class ATMThread implements Runnable {
 //					+ ", deltaRangePEAvgDelta=" + deltaRangePEAvgDelta
 //					+ ", deltaRangePEAvgGamma=" + deltaRangePEAvgGamma
 //					+ ", deltaRangePEAvgVega=" +deltaRangePEAvgVega
-					+ " deltaRangeCEDeltaOI=" +deltaRangeCEDeltaOI/10000000f
-					+ ", deltaRangePEDeltaOI=" +deltaRangePEDeltaOI/10000000f
+					+ "  deltaRangeHybridCEAvgGamma=" +deltaRangeHybridCEAvgGamma
+					+ ", deltaRangeHybridPEAvgGamma=" +deltaRangeHybridPEAvgGamma
+					+ ", deltaRangeCEOutlierRatio=" +deltaRangeCEOutlierRatio
+					+ ", deltaRangePEOutlierRatio=" +deltaRangePEOutlierRatio
+					
+					
+					
 					+ " where id="+atmId;
 			System.out.println(updateSql);
 			
