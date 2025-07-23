@@ -236,7 +236,24 @@ public class G3GreekGapCombiThread extends G3BaseClass implements Runnable{
 			} else if (greekname.equalsIgnoreCase("avgIV")) {
 				fieldname = "totalceiv as ceGreek, totalpeiv as peGreek";
 			} else if (greekname.equalsIgnoreCase("deltaRangeAvgIV")) {
+				
 				fieldname = "deltarangeceavgiv as ceGreek, deltarangepeavgiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("deltaRangeAvgGamma")) {
+				fieldname = "deltarangeceavggamma as ceGreek, deltarangepeavggamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("deltaRangeAvgLtp")) {
+				fieldname = "deltarangeceavgltp as ceGreek, deltarangepeavgltp as peGreek";
+			} else if (greekname.equalsIgnoreCase("deltaRangeDeltaOI")) {
+				fieldname = "deltarangecedeltaoi as ceGreek, deltarangepedeltaoi as peGreek";
+			} else if (greekname.equalsIgnoreCase("deltaRangeGammaOI")) {
+				fieldname = "deltarangecegammaoi as ceGreek, deltarangepegammaoi as peGreek";
+			} else if (greekname.equalsIgnoreCase("drFullAvgIV")) {
+				fieldname = "deltaRangeCEFullAvgIv as ceGreek, deltaRangePEFullAvgIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("drHybridAvgIV")) {
+				fieldname = "deltaRangeHybridCEAvgIv as ceGreek, deltaRangeHybridPEAvgIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("drHybridAvgGamma")) {
+				fieldname = "deltaRangeHybridCEAvgGamma as ceGreek, deltaRangeHybridPEAvgGamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("drOutlierRatio")) {
+				fieldname = "deltarangeceoutlierratio as ceGreek, deltarangepeoutlierratio as peGreek";
 			}
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
@@ -259,7 +276,7 @@ public class G3GreekGapCombiThread extends G3BaseClass implements Runnable{
 			
 			fileLogTelegramWriter.write("gapCpunt="+gapCpunt);
 			
-			if (greekname.contains("gamma")) gapCpunt = 5-gapCpunt;
+			if (greekname.contains("gamma") || greekname.contains("Gamma")) gapCpunt = 5-gapCpunt;
 			
 			if (gapCpunt == 0) {
 				retVal = "PE";

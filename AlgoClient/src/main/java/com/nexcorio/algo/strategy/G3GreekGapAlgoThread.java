@@ -310,10 +310,10 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			} else if (this.greekname.equalsIgnoreCase("deltaRangeAvgGamma")) {
 				fieldname = "deltarangeceavggamma as ceGreek, deltarangepeavggamma as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("deltaRangeAvgLtp")) {
-				fieldname = "deltarangeceavgltp as ceGreek, deltarangepeavgltp as peGreek";
+				fieldname = "deltarangepeavgltp as ceGreek, deltarangeceavgltp as peGreek"; // For ltp peltp as cegreek (similar to gamma reverse)
 			} else if (this.greekname.equalsIgnoreCase("deltaRangeDeltaOI")) {
 				fieldname = "deltarangecedeltaoi as ceGreek, deltarangepedeltaoi as peGreek";
-			} else if (this.greekname.equalsIgnoreCase("deltaRangeGammaOI")) {
+			} else if (this.greekname.equalsIgnoreCase("deltaRangeGmaOI")) { // Gamma name removed as it will inverse with word gamma
 				fieldname = "deltarangecegammaoi as ceGreek, deltarangepegammaoi as peGreek";
 			} else if (greekname.equalsIgnoreCase("drFullAvgIV")) {
 				fieldname = "deltaRangeCEFullAvgIv as ceGreek, deltaRangePEFullAvgIv as peGreek";
