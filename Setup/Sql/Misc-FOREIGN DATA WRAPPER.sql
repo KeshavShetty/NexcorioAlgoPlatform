@@ -106,3 +106,8 @@ ADD COLUMN deltaRangeHybridCEAvgGamma REAL DEFAULT 0,
 ADD COLUMN deltaRangeHybridPEAvgGamma REAL DEFAULT 0,
 ADD COLUMN deltaRangeCEOutlierRatio REAL DEFAULT 0,
 ADD COLUMN deltaRangePEOutlierRatio REAL DEFAULT 0;
+
+
+alter table fdw_nexcorio_option_atm_movement_data
+ADD COLUMN dr4_9CEAvgIv REAL DEFAULT 0,
+ADD COLUMN dr4_9PEAvgIv REAL DEFAULT 0;
