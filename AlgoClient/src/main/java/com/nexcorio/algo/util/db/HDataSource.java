@@ -23,10 +23,6 @@ public class HDataSource {
     private static HikariConfig config = new HikariConfig();
     private static HikariDataSource ds;
     
-    private static volatile int readOnlyreqCount = 0;
-    private static HikariConfig readOnlyConfig = new HikariConfig();
-    private static HikariDataSource readOnlyDs;
-    
     private static final Logger log = LogManager.getLogger(Main.class);
  
     static {
@@ -45,26 +41,6 @@ public class HDataSource {
         
         config.setLeakDetectionThreshold(120000);
         ds = new HikariDataSource( config );
-        
-        readOnlyConfig.setJdbcUrl( ApplicationConfig.getProperty("nexcorio.database.url") );
-        readOnlyConfig.setUsername( ApplicationConfig.getProperty("nexcorio.database.user") );
-        readOnlyConfig.setPassword( ApplicationConfig.getProperty("nexcorio.database.password") );
-        readOnlyConfig.addDataSourceProperty( "cachePrepStmts" , "true" );
-        readOnlyConfig.addDataSourceProperty( "prepStmtCacheSize" , "250" );
-        readOnlyConfig.addDataSourceProperty( "prepStmtCacheSqlLimit" , "2048" );
-        readOnlyConfig.addDataSourceProperty( "socketTimeout" , "120" );
-        readOnlyConfig.setMaxLifetime(120000 );
-        readOnlyConfig.setMinimumIdle(5);
-        readOnlyConfig.setConnectionTimeout(120000 );
-        readOnlyConfig.setIdleTimeout(60000);
-        readOnlyConfig.setMaximumPoolSize(75);
-        
-        readOnlyConfig.setAutoCommit(false);
-        readOnlyConfig.setReadOnly(true); // <- Extra
-        
-        readOnlyConfig.setLeakDetectionThreshold(120000);
-        readOnlyDs = new HikariDataSource( readOnlyConfig );
-        
     }
  
     private HDataSource() {}
@@ -75,7 +51,7 @@ public class HDataSource {
     }
     
     public static Connection getReadOnlyConnection() throws SQLException {
-    	readOnlyreqCount++;
+    	reqCount++;
     	return ds.getConnection();
     }
     
@@ -88,14 +64,10 @@ public class HDataSource {
         String stats = "Total[" + totalConnections + "],Active[" + activeConnections + "],Idle[" + idleConnections + "],Waiting[" + threadsAwaitingConnection + "]";
         System.out.println("=== Hikari Stats=== " + stats);
         System.out.println("Total Request="+reqCount);
-        log.info("=== Hikari Stats=== " + stats);
-        System.out.println("Total RO Request="+readOnlyreqCount);
     }
     
     public static void logHikariStats() {
     	System.out.println("---------Ds---------");
     	printHikariStats(ds);
-    	System.out.println("---------readOnlyDs---------");
-    	printHikariStats(readOnlyDs);
     }
 }

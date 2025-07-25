@@ -128,8 +128,8 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			}
 			Long endTime = System.currentTimeMillis();
 			Long timeTaken = endTime-beginTime;
-			if (timeTaken>100) {
-				log.error("Delay in insert tick for " + tradingSymbol);
+			if (timeTaken>250) {
+				log.error("Delay in insert tick for " + tradingSymbol+" timeTaken(ms)="+timeTaken);
 			}
 		} catch(Exception ex) {
 			ex.printStackTrace();
