@@ -18,10 +18,10 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 
 	private static final Logger log = LogManager.getLogger(G3GreekGapCocktailAlgoThread.class);
 	
-	public String greekname = "iv";
-	public float baseDelta = 0.5f;	
-	public boolean inverse = false;
-	public float adjustGap = 0.0f;
+	public String firstGreek  = "dr4-9AvgIv";
+	public String secondGreek = "avgiv";
+	
+	public float baseDelta = 0.5f;
 	public boolean adjustPosition = false; // Adjust position after steep fall
 	
 	public Integer dependentInstrumentId = null;
@@ -309,7 +309,7 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
-				if (Math.abs(ceGreek-peGreek)>7) {
+				if (Math.abs(ceGreek-peGreek)>6) {
 					gapCount++;
 				}
 			}
@@ -317,10 +317,10 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			stmt.close();
 			
 			if (gapCount == 5 || gapCount == 0) {
-				retVal = getSellerDirectionByATMGreekGap("dr4-9AvgIv", lastKnownTrend);
+				retVal = getSellerDirectionByATMGreekGap(this.firstGreek, lastKnownTrend);
 			} else {
-				retVal = getSellerDirectionByATMGreekGap("deltaRangeAvgIV", lastKnownTrend);
-				//retVal = getSellerDirectionByATMGreekGap("avgiv", lastKnownTrend);
+				//retVal = getSellerDirectionByATMGreekGap("deltaRangeAvgIV", lastKnownTrend);
+				retVal = getSellerDirectionByATMGreekGap(this.secondGreek, lastKnownTrend);
 			}
 			
 		} catch(Exception ex) {
@@ -394,7 +394,7 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
-				if (ceGreek+adjustGap>peGreek) {
+				if (ceGreek > peGreek) {
 					gapCount++;
 				}
 			}
@@ -404,10 +404,6 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			fileLogTelegramWriter.write("gapCpunt="+gapCount);
 			
 			if (greekname.contains("gamma") || greekname.contains("Gamma")) gapCount = 5-gapCount;
-			
-			if(this.inverse) {
-				gapCount = 5-gapCount;
-			}
 			
 			if (gapCount == 0) {
 				retVal = "PE";
