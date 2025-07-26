@@ -368,6 +368,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			//System.out.println("CE recCount "+recCount);
 			fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
 			
+			int countCETotal = fullcount;
+			int countCEOutlier = fullcount - recCount;
+			
 			float deltaRangeHybridCEAvgIv = 0f;
 			float deltaRangeHybridCEAvgGamma = 0f;
 			if ((float)recCount/(float)fullcount < 0.65f) {				
@@ -405,6 +408,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
 			
 			retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
+			
+			retMap.put("countCETotal",(float) countCETotal);
+			retMap.put("countCEOutlier",(float) countCEOutlier);
 			
 			lowerDelta = -0.9f;
 			upperDelta = -0.1f;
@@ -480,6 +486,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			//System.out.println("PE recCount "+recCount);
 			fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
 			
+			int countPETotal = fullcount;
+			int countPEOutlier = fullcount - recCount;
+			
 			float deltaRangeHybridPEAvgIv = 0f;
 			float deltaRangeHybridPEAvgGamma = 0f;
 			if ((float)recCount/(float)fullcount < 0.65f) {
@@ -514,6 +523,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeHybridPEAvgGamma",deltaRangeHybridPEAvgGamma);
 			retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
 			retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
+			
+			retMap.put("countPETotal",(float) countPETotal);
+			retMap.put("countPEOutlier",(float) countPEOutlier);
+			
 			stmt.close();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -654,6 +667,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", dr4_9CEAvgIv"
 						+ ", dr4_9PEAvgIv"
 						
+						+ ", countCETotal"
+						+ ", countCEOutlier"
+						
+						+ ", countPETotal"
+						+ ", countPEOutlier"
+
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -750,7 +769,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("dr49CEAvgIV")
 						+ " ," + deltaRangeGreeksDetails.get("dr49PEAvgIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("countCETotal").intValue()
+						+ " ," + deltaRangeGreeksDetails.get("countCEOutlier").intValue()
 				
+						+ " ," + deltaRangeGreeksDetails.get("countPETotal").intValue()
+						+ " ," + deltaRangeGreeksDetails.get("countPEOutlier").intValue()
+						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -851,7 +876,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-24 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-25 09:17:00");
 		
 		
 	}

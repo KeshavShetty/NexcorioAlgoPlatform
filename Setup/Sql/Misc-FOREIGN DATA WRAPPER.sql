@@ -111,3 +111,9 @@ ADD COLUMN deltaRangePEOutlierRatio REAL DEFAULT 0;
 alter table fdw_nexcorio_option_atm_movement_data
 ADD COLUMN dr4_9CEAvgIv REAL DEFAULT 0,
 ADD COLUMN dr4_9PEAvgIv REAL DEFAULT 0;
+
+ALTER TABLE fdw_nexcorio_option_atm_movement_data 
+ADD COLUMN countCETotal INTEGER DEFAULT 0,
+ADD COLUMN countCEOutlier INTEGER DEFAULT 0,
+ADD COLUMN countPETotal INTEGER DEFAULT 0,
+ADD COLUMN countPEOutlier INTEGER DEFAULT 0;
