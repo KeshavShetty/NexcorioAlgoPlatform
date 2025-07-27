@@ -316,9 +316,11 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			rs.close();			
 			stmt.close();
 			
-			if (gapCount == 5 || gapCount == 0) {
+			if (gapCount == 5 ) {
+				fileLogTelegramWriter.write("gapCount="+gapCount+" using " + this.firstGreek);
 				retVal = getSellerDirectionByATMGreekGap(this.firstGreek, lastKnownTrend);
 			} else {
+				fileLogTelegramWriter.write("gapCount="+gapCount+" using " + this.secondGreek);
 				//retVal = getSellerDirectionByATMGreekGap("deltaRangeAvgIV", lastKnownTrend);
 				retVal = getSellerDirectionByATMGreekGap(this.secondGreek, lastKnownTrend);
 			}

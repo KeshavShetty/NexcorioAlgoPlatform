@@ -328,6 +328,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			StringBuffer logBuffer = new StringBuffer();
 			float dr49CEAvgIV = 0f;
 			int dr49Count = 0;
+			
+			float dr16CEAvgIV = 0f;
+			int dr16Count = 0;
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
 				float delta = Math.abs(rs.getFloat("delta"));
@@ -362,6 +365,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				if (delta >= 0.4f && delta <= 0.9f) {
 					dr49CEAvgIV = dr49CEAvgIV + curIv;
 					dr49Count++;
+				}
+				if (delta >= 0.1f && delta <= 0.6f) {
+					dr16CEAvgIV = dr16CEAvgIV + curIv;
+					dr16Count++;
 				}
 			}
 			rs.close();
@@ -408,6 +415,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
 			
 			retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
+			retMap.put("dr16CEAvgIV",dr16CEAvgIV!=0?dr16CEAvgIV/(float)dr16Count:0);
 			
 			retMap.put("countCETotal",(float) countCETotal);
 			retMap.put("countCEOutlier",(float) countCEOutlier);
@@ -447,6 +455,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			
 			float dr49PEAvgIV = 0f;
 			dr49Count = 0;
+			float dr16PEAvgIV = 0f;
+			dr16Count = 0;
 			while (rs.next()) {	
 				float curIv = rs.getFloat("iv");
 				float delta = Math.abs(rs.getFloat("delta"));
@@ -480,6 +490,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				if (delta >= 0.4f && delta <= 0.9f) {
 					dr49PEAvgIV = dr49PEAvgIV + curIv;
 					dr49Count++;
+				}
+				if (delta >= 0.1f && delta <= 0.6f) {
+					dr16PEAvgIV = dr16PEAvgIV + curIv;
+					dr16Count++;
 				}
 			}
 			rs.close();
@@ -523,6 +537,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			retMap.put("deltaRangeHybridPEAvgGamma",deltaRangeHybridPEAvgGamma);
 			retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
 			retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
+			retMap.put("dr16PEAvgIV",dr16PEAvgIV!=0?dr16PEAvgIV/(float)dr16Count:0);
 			
 			retMap.put("countPETotal",(float) countPETotal);
 			retMap.put("countPEOutlier",(float) countPEOutlier);
@@ -673,6 +688,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", countPETotal"
 						+ ", countPEOutlier"
 
+						+ ", dr1_6CEAvgIv"
+						+ ", dr1_6PEAvgIv"
+
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -775,6 +793,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				
 						+ " ," + deltaRangeGreeksDetails.get("countPETotal").intValue()
 						+ " ," + deltaRangeGreeksDetails.get("countPEOutlier").intValue()
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr16CEAvgIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr16PEAvgIV")
 						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
