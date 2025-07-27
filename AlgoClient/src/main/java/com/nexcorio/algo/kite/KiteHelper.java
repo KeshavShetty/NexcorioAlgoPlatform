@@ -665,7 +665,7 @@ public class KiteHelper {
             		log.debug("Ticks recieved");
             		new ZerodhaIntradayStreamingThread(ticks);
             	}
-				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 0))) {
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 31, 0))) {
 					log.debug("End of the daym disconnect and logout");
 					try {
 						tickerProvider.disconnect();
