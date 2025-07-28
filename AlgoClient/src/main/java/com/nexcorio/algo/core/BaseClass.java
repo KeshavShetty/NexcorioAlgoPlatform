@@ -581,10 +581,10 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+			// First try to fetch from Snapshot table
+			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
 					+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
-					+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
-					+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 15:15:00'";
+					+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
 			
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			
@@ -594,6 +594,21 @@ public class BaseClass {
 				optionnames.add(rs.getString("trading_symbol"));
 			}
 			rs.close();
+			
+			if (optionnames.size()==0) { // not found in snapshot			
+				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:30:00'";
+				
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+						
+				rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+			}
 			fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
 			
 			List<OptionGreek> ceOptionGreeks = new ArrayList<>();
