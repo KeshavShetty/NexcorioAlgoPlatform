@@ -111,7 +111,7 @@ public class G3GreekGapCocktailStrangleAlgoThread extends G3BaseClass implements
 					String[] lowerEntryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(lowerDelta, this.optimalHedgeDistance);
 					String[] upperEntryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(upperDelta, this.optimalHedgeDistance);
 					
-					String ceOptionname = upperEntryStraddleOptionNames[0];
+					String ceOptionname = upperEntryStraddleOptionNames[0]; // if currentTrend = "CE" {
 					String peOptionname = lowerEntryStraddleOptionNames[1];
 					
 					if (currentTrend.equals("PE")) {
