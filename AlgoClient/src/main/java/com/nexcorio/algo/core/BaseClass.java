@@ -586,7 +586,7 @@ public class BaseClass {
 					+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
 					+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 15:15:00'";
 			
-			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			//fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			
 			List<String> optionnames = new ArrayList<>();			
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -594,7 +594,7 @@ public class BaseClass {
 				optionnames.add(rs.getString("trading_symbol"));
 			}
 			rs.close();
-			fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
+			//fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
 			
 			List<OptionGreek> ceOptionGreeks = new ArrayList<>();
 			List<OptionGreek> peOptionGreeks = new ArrayList<>();
