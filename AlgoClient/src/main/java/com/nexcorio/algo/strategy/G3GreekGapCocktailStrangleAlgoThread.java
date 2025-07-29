@@ -124,7 +124,7 @@ public class G3GreekGapCocktailStrangleAlgoThread extends G3BaseClass implements
 							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 							// Exit CE
 							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							ceStraddleOptionName = "";
 						}
@@ -152,7 +152,7 @@ public class G3GreekGapCocktailStrangleAlgoThread extends G3BaseClass implements
 						if (!peStraddleOptionName.equals("")) { // Exit and re enter
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
 							peStraddleOptionName = "";
 						}
