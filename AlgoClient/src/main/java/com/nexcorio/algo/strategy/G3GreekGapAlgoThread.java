@@ -343,7 +343,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
-				if (ceGreek+adjustGap>peGreek) {
+				if (ceGreek+adjustGap>=peGreek) {
 					gapCount++;
 				}
 			}
