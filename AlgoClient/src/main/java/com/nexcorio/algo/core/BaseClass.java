@@ -595,21 +595,22 @@ public class BaseClass {
 			}
 			rs.close();
 			
-			if (optionnames.size()==0) { // not found in snapshot			
+			if (optionnames.size()==0) { // not found in snapshot
+						
 				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
 						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
 						+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
-						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:30:00'";
+						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 15:15:00'";
 				
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
-						
+				//fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+							
 				rs = stmt.executeQuery(fetchSql);
 				while (rs.next()) {
 					optionnames.add(rs.getString("trading_symbol"));
 				}
 				rs.close();
+				//fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
 			}
-			fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
 			
 			List<OptionGreek> ceOptionGreeks = new ArrayList<>();
 			List<OptionGreek> peOptionGreeks = new ArrayList<>();
