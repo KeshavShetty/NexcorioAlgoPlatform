@@ -78,7 +78,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		startTime = elapsedTime1;
 		
 		if (optionIV!=0) {
-			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp);
+			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp, optionInstrument.getfMainInstrument());
 			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
 		}
 		elapsedTime1 = System.currentTimeMillis();
@@ -144,7 +144,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		return retVal;
 	}
 
-	public OptionGreek calculateAndSaveOptionGreeks(String optionType, String optionName, double lastPrice, double underlyingValue, double strikePrice, double impliedVolatility, Date expDate, Date latestTickQuoteTime) {
+	public OptionGreek calculateAndSaveOptionGreeks(String optionType, String optionName, double lastPrice, double underlyingValue, double strikePrice, double impliedVolatility, Date expDate, Date latestTickQuoteTime, Long fMainInstrument) {
 		//System.out.println("nseIdentifier="+nseIdentifier+" optionName="+optionName+" lastPrice="+lastPrice+" underlyingValue="+underlyingValue+" impliedVolatility="+impliedVolatility);
 		OptionGreek retVal = null;
 		Calendar cal = Calendar.getInstance();
@@ -188,8 +188,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 			
-			String insertSql = "INSERT INTO nexcorio_option_greeks (id, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"
-					+ " VALUES (" + this.fStreamingId + ",'" + this.tradingSymbol+ "','" + postgresLongDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest  +"," + underlyingValue 
+			String insertSql = "INSERT INTO nexcorio_option_greeks (id, f_main_instrument, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"
+					+ " VALUES (" + this.fStreamingId + "," + fMainInstrument + ",'" + this.tradingSymbol+ "','" + postgresLongDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest  +"," + underlyingValue 
 					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 			log.debug(insertSql);
 			stmt.execute(insertSql);
