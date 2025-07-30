@@ -11,26 +11,39 @@ import com.nexcorio.algo.util.db.HDataSource;
 
 public class ATMProcessorMain {
 
-	private static String forDate = "2025-07-21";
+	private static String forDate = "2025-07-29";
 	
 	private static List<String> getOptionnames() {
 		List<String> retList = new ArrayList<>();
-		
+		System.out.println("getOptionnames Begin");
 		Connection conn = null;
 		try {			
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+			// First try to fetch from Snapshot table
+			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
 					+ " where trading_symbol like 'NIFTY%' "
-					+ " and quote_time > '" + forDate + " 09:15:00'"
-					+ " and quote_time < '" + forDate + " 15:15:00'";
-			
+					+ " and record_date = '" + forDate + "'";
+						
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retList.add(rs.getString("trading_symbol"));
 			}
 			rs.close();
+			
+			if (retList.size()==0) {
+				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+					+ " where trading_symbol like 'NIFTY%' "
+					+ " and quote_time > '" + forDate + " 09:15:00'"
+					+ " and quote_time < '" + forDate + " 09:20:00'";
+			
+				rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					retList.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+			}
 			
 			stmt.close();
 		} catch (Exception e) {
@@ -54,7 +67,7 @@ public class ATMProcessorMain {
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=2"
-					+ " AND record_time >= '" + forDate + " 09:15:00' AND record_time <= '" + forDate + " 15:30:00' order by id";
+					+ " AND record_time >= '" + forDate + " 09:20:00' AND record_time <= '" + forDate + " 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				Long aId = rs.getLong("id");
