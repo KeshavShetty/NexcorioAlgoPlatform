@@ -133,6 +133,7 @@ public class ATMThread implements Runnable {
 		float deltaRangeCEAvgIvPlus2 = 0f;
 		int plus2Count = 0;
 		int outlierAdded = 0;
+		float ceDeltaOIWorth =0f;
 		for(OptionGreek aGreek: ceOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -159,6 +160,7 @@ public class ATMThread implements Runnable {
 					//System.out.println("Include "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
 					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + aGreek.getLtp();
 					deltaRangeCEAvgIv = deltaRangeCEAvgIv + aGreek.getIv();
+					ceDeltaOIWorth = ceDeltaOIWorth + aGreek.getOi()*aGreek.getDelta();	
 					deltaRangeCEAvgIvPlus2 = deltaRangeCEAvgIvPlus2 + aGreek.getIv();
 					plus2Count++;
 					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + Math.abs(aGreek.getDelta());
@@ -243,6 +245,7 @@ public class ATMThread implements Runnable {
 		float deltaRangePEAvgIvPlus2 = 0f;
 		outlierAdded = 0;
 		plus2Count = 0;
+		float peDeltaOIWorth = 0f;
 		for(OptionGreek aGreek: peOptionGreeks) {
 			int optionStrike = getStrike(aGreek.getTradingSymbol());
 			
@@ -269,6 +272,7 @@ public class ATMThread implements Runnable {
 					//System.out.println("Include "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
 					deltaRangePEAvgLtp = deltaRangePEAvgLtp + aGreek.getLtp();
 					deltaRangePEAvgIv = deltaRangePEAvgIv + aGreek.getIv();
+					peDeltaOIWorth = peDeltaOIWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());
 					deltaRangePEAvgIvPlus2 = deltaRangePEAvgIvPlus2 + aGreek.getIv();
 					plus2Count++;
 					deltaRangePEAvgDelta = deltaRangePEAvgDelta + Math.abs(aGreek.getDelta());
@@ -399,31 +403,31 @@ public class ATMThread implements Runnable {
 		Collections.sort(ceOptionGreeks, new SortbyWorthDesc());
 		Collections.sort(peOptionGreeks, new SortbyWorthDesc());
 		
-		float ceDeltaOIWorth = 0f;
-		int recCounted = 0;
-		for(OptionGreek aGreek: ceOptionGreeks) {
-			
-			if (aGreek.getDelta() >= 0.2f && aGreek.getDelta() <= 0.8f) {
-				//fileLogTelegramWriter.write(aGreek.getDelta() + " OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-				if (recCounted<100) {				 
-					ceDeltaOIWorth = ceDeltaOIWorth + aGreek.getOi()*aGreek.getDelta();		
-					recCounted++;
-				}	
-			}
-			
-		}
-		float peDeltaOIWorth = 0f;
-		recCounted = 0;
-		for(OptionGreek aGreek: peOptionGreeks) {
-			
-			if (aGreek.getDelta() >= -0.8f && aGreek.getDelta() <= -0.2f) {
-				//fileLogTelegramWriter.write(aGreek.getDelta() +" OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-				if (recCounted<100) {
-					peDeltaOIWorth = peDeltaOIWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());		
-					recCounted++;
-				}
-			}
-		}
+//		float ceDeltaOIWorth = 0f;
+//		int recCounted = 0;
+//		for(OptionGreek aGreek: ceOptionGreeks) {
+//			
+//			if (aGreek.getDelta() >= 0.1f && aGreek.getDelta() <= 0.6f) {
+//				//fileLogTelegramWriter.write(aGreek.getDelta() + " OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
+//				if (recCounted<100) {				 
+//					ceDeltaOIWorth = ceDeltaOIWorth + aGreek.getOi()*aGreek.getDelta();		
+//					recCounted++;
+//				}	
+//			}
+//			
+//		}
+//		float peDeltaOIWorth = 0f;
+//		recCounted = 0;
+//		for(OptionGreek aGreek: peOptionGreeks) {
+//			
+//			if (aGreek.getDelta() >= -0.6f && aGreek.getDelta() <= -0.1f) {
+//				//fileLogTelegramWriter.write(aGreek.getDelta() +" OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
+//				if (recCounted<100) {
+//					peDeltaOIWorth = peDeltaOIWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());		
+//					recCounted++;
+//				}
+//			}
+//		}
 		System.out.println("Sort done");
 		
 		
