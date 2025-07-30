@@ -600,7 +600,7 @@ public class BaseClass {
 				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
 						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
 						+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
-						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 15:15:00'";
+						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
 				
 				//fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 							
