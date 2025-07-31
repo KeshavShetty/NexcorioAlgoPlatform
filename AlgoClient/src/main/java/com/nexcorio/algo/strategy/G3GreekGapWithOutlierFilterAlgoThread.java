@@ -19,8 +19,8 @@ public class G3GreekGapWithOutlierFilterAlgoThread extends G3BaseClass implement
 	private static final Logger log = LogManager.getLogger(G3GreekGapWithOutlierFilterAlgoThread.class);
 	
 	public String greekname = "iv";
-	public float baseDelta = 0.5f;	
-	public boolean inverse = false;
+	public float baseDelta = 0.5f;
+	
 	public float adjustGap = 0.0f;
 	public boolean adjustPosition = false; // Adjust position after steep fall
 	
@@ -338,6 +338,12 @@ public class G3GreekGapWithOutlierFilterAlgoThread extends G3BaseClass implement
 				fieldname = "deltaRangeHybridCEAvgIv as ceGreek, deltaRangeHybridPEAvgIv as peGreek";
 			} else if (greekname.equalsIgnoreCase("drHybridAvgGamma")) {
 				fieldname = "deltaRangeHybridCEAvgGamma as ceGreek, deltaRangeHybridPEAvgGamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("drOutlierRatio")) {
+				fieldname = "deltarangeceoutlierratio as ceGreek, deltarangepeoutlierratio as peGreek";
+			} else if (greekname.equalsIgnoreCase("dr4-9AvgIv")) {
+				fieldname = "dr4_9CEAvgIv as ceGreek, dr4_9PEAvgIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("drTop5DeltaOI")) {
+				fieldname = "ceDeltaOIWorth as ceGreek, peDeltaOIWorth as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -345,37 +351,41 @@ public class G3GreekGapWithOutlierFilterAlgoThread extends G3BaseClass implement
 				instrumentIdToUse = dependentInstrumentId;
 			}
 			
-			String fetchSql = "select deltarangeceoutlierratio, deltarangepeoutlierratio, " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+			String fetchSql = "select countcetotal, countceoutlier,  countpetotal, countpeoutlier, " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
 			int gapCount = 0;
-			int outlierUncertainCount = 0;
+			String outlierDay = "None";
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
 				if (ceGreek+adjustGap>peGreek) {
 					gapCount++;
 				}
-				float ceOutlierRatio = rs.getFloat("deltarangeceoutlierratio");
-				float peOutlierRatio = rs.getFloat("deltarangepeoutlierratio");
-				if (ceOutlierRatio < 1.25f || peOutlierRatio < 1.25f) {
-					outlierUncertainCount++;
+				float countcetotal   = rs.getFloat("countcetotal");
+				float countceoutlier = rs.getFloat("countceoutlier");
+				float countpetotal   = rs.getFloat("countpetotal");
+				float countpeoutlier = rs.getFloat("countpeoutlier");
+				
+				if (countcetotal > 15f && countceoutlier/countcetotal > 0.3f) {
+					outlierDay = "CE";
+				} else if (countpetotal > 15f && countpeoutlier/countpetotal > 0.3f) {
+					outlierDay = "PE";
 				}
 			}
 			rs.close();			
 			stmt.close();
 			
-			fileLogTelegramWriter.write("gapCpunt="+gapCount);
+			fileLogTelegramWriter.write("gapCpunt="+gapCount+" outlierDay="+outlierDay);
 			
 			if (this.greekname.contains("gamma") || this.greekname.contains("Gamma")) gapCount = 5-gapCount;
 			
-			if(this.inverse) {
-				gapCount = 5-gapCount;
-			}
-			if (outlierUncertainCount == 5) {				
+			if (outlierDay.equals("CE") ||outlierDay.equals("PE")) {
+				retVal = outlierDay;
+			} else {
 				if (gapCount == 0) {
 					retVal = "PE";
 				} else if (gapCount == 5) {
@@ -389,8 +399,6 @@ public class G3GreekGapWithOutlierFilterAlgoThread extends G3BaseClass implement
 						retVal = "CE";
 					}
 				}
-			} else {
-				retVal = "Uncertain";
 			}
 		} catch(Exception ex) {
 			ex.printStackTrace();
