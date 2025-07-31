@@ -160,6 +160,7 @@ public class BaseClass {
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
 					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(backtestDate.getTime())+ "'") : "" )
+					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
 			//fileLogTelegramWriter.write("In getOptionGreeks fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -578,6 +579,7 @@ public class BaseClass {
 		String[] retStr = null;
 		Connection conn = null;
 		try {
+			
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
@@ -596,9 +598,10 @@ public class BaseClass {
 			rs.close();
 			
 			if (optionnames.size()==0) { // not found in snapshot
+				
 						
 				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
-						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " where f_main_instrument = " + mainInstrument.getId() + " "
 						+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
 						+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
 				
@@ -610,6 +613,7 @@ public class BaseClass {
 				}
 				rs.close();
 				//fileLogTelegramWriter.write("optionnames.size="+optionnames.size());
+				
 			}
 			
 			List<OptionGreek> ceOptionGreeks = new ArrayList<>();
@@ -624,6 +628,7 @@ public class BaseClass {
 					}
 				}
 			}
+			
 			// First search CE matching required delta
 			String optionname = "";
 			float minDeltaGap = 1f;
@@ -659,6 +664,7 @@ public class BaseClass {
 			retStr = new String[]{ceTradingSymbol, peTradingSymbol, localCeHedgeOptionName, localPeHedgeOptionName};
 			
 			stmt.close();
+			
 		} catch(Exception ex) {
 			ex.printStackTrace();
 			log.error("Error"+ex.getMessage(),ex);
