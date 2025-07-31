@@ -48,18 +48,17 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			
 			String lastKnownTrend = "Unknown";
 			
 			float soldPrice = 0f;
-			
 			String currentTrend = null;
 			do {
 				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
 				if (currentTrend.equals("Unknown")) sleep(15);
 			} while (currentTrend.equals(lastKnownTrend));
 			
+			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			if (currentTrend.equals("CE")) {
 				ceStraddleOptionName =  entryStraddleOptionNames[0];
 				ceHedgeOptionName =  entryStraddleOptionNames[2];
