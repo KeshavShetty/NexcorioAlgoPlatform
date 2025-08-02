@@ -104,7 +104,7 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 				fileLogTelegramWriter.write("totalGreekWhenFormed="+totalGreekWhenFormed+" totalGreekCurrent="+totalGreekCurrent+" changeinGreeksPercent="+changeinGreeksPercent+" needRepositioning="+needRepositioning);
 				
 				if (needRepositioning) {
-					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance); // getStraddleOptionNamesByGreekOptimised("ltp", this.baseDelta, this.optimalHedgeDistance);
 					
 					String ceOptionname = entryStraddleOptionNames[0];
 					
