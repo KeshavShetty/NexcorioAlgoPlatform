@@ -335,7 +335,11 @@ public class BaseClass {
 		OptionGreek peOptionGreek = getOptionGreeks(entryStraddleOptionNames1[1]);		
 		float diff1 = getGreekDiff(greekname, ceOptionGreek, peOptionGreek);
 		
+		System.out.println("1." + ceOptionGreek.getTradingSymbol() + " " + peOptionGreek.getTradingSymbol());
+		
 		String[] entryStraddleOptionNames2 = getStraddleOptionNamesByGreek(greekname, getGreekValue(greekname, ceOptionGreek), 0);
+		System.out.println("2." + entryStraddleOptionNames2[0] + " " + entryStraddleOptionNames2[1]);
+		
 		float diff2 = getGreekDiff(greekname, getOptionGreeks(entryStraddleOptionNames2[0]), getOptionGreeks(entryStraddleOptionNames2[1]));
 		
 		String[] entryStraddleOptionNames3 = getStraddleOptionNamesByGreek(greekname, getGreekValue(greekname, peOptionGreek), 0);
@@ -380,8 +384,9 @@ public class BaseClass {
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 			
 			String ceTradingSymbol = null;
+			String peTradingSymbol = null;
 			float ceGreek = 0f;
-			
+			float peGreek = 0f;
 			if (backtestDate == null) {			
 				String fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%CE' "	
 						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
@@ -395,59 +400,14 @@ public class BaseClass {
 					ceGreek = rs.getFloat("greek");
 				}
 				rs.close();
-			} else {
-				String fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%CE' "
-						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						+ " order by greekDiff";
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 				
-				ResultSet rs = stmt.executeQuery(fetchSql);
-				List<String> tradingSymbols = new ArrayList<String>();
-				List<Float> delta = new ArrayList<Float>();
-				List<Float> deltaDiff = new ArrayList<Float>();
-				List<Date> quote_times = new ArrayList<Date>();
-				while (rs.next()) {
-					tradingSymbols.add(rs.getString("trading_symbol"));
-					delta.add(rs.getFloat("greek"));
-					deltaDiff.add(rs.getFloat("greekDiff"));
-					quote_times.add(rs.getDate("quote_time"));
-				}
-				rs.close();
-				if (tradingSymbols.size()==1) {
-					ceTradingSymbol = tradingSymbols.get(0);
-					ceGreek = delta.get(0);
-				} else {
-					for(int i=0;i<tradingSymbols.size()-1;i++) {
-						boolean thisIsBest = true;
-						for(int j=1;j<tradingSymbols.size();j++) {
-							if (quote_times.get(i).after(quote_times.get(j))
-									&& tradingSymbols.get(i).equals(tradingSymbols.get(j))) {
-								thisIsBest  = false;
-							}
-						}
-						if (thisIsBest) {
-							ceTradingSymbol = tradingSymbols.get(i);
-							ceGreek = delta.get(i);
-							break;
-						}
-					}
-					if (ceTradingSymbol==null) { // Not found, then use first one
-						ceTradingSymbol = tradingSymbols.get(0);
-						ceGreek = delta.get(0);
-					}
-				}
-			}
-			
-			String peTradingSymbol = null;
-			float peGreek = 0f;
-			if (backtestDate == null) {
-				String fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%PE' "					
+				// Now PE
+				fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%PE' "					
 						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'"
 						+ " order by greekDiff limit 1";
 				fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
 				
-				ResultSet rs = stmt.executeQuery(fetchSql);
+				rs = stmt.executeQuery(fetchSql);
 				
 				while (rs.next()) {
 					peTradingSymbol = rs.getString("trading_symbol");
@@ -455,45 +415,74 @@ public class BaseClass {
 				}
 				rs.close();
 			} else {
-				String fetchSql = "select trading_symbol, " + greekname + " as greek, abs(" + requiredValue + "-abs(" + greekname+ ")) as greekDiff, quote_time from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%PE' "
-						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						+ " order by greekDiff";
-				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 				
+				String fetchSql = "SELECT trading_symbol FROM nexcorio_option_greeks WHERE f_main_instrument = " + this.mainInstrument.getId() + 
+						" AND quote_time BETWEEN '" + postgresLongDateFormat.format(getCurrentTime(-5)) +"' AND '" + postgresLongDateFormat.format(getCurrentTime())+ "' GROUP BY trading_symbol";
+				
+				System.out.println("fetchSql="+fetchSql);
 				ResultSet rs = stmt.executeQuery(fetchSql);
-				List<String> tradingSymbols = new ArrayList<String>();
-				List<Float> delta = new ArrayList<Float>();
-				List<Float> deltaDiff = new ArrayList<Float>();
-				List<Date> quote_times = new ArrayList<Date>();
+				List<String> optionnames = new ArrayList<>();
 				while (rs.next()) {
-					tradingSymbols.add(rs.getString("trading_symbol"));
-					delta.add(rs.getFloat("greek"));
-					deltaDiff.add(rs.getFloat("greekDiff"));
-					quote_times.add(rs.getDate("quote_time"));
+					optionnames.add(rs.getString("trading_symbol"));
 				}
 				rs.close();
-				if (tradingSymbols.size()==1) {
-					peTradingSymbol = tradingSymbols.get(0);
-					peGreek = delta.get(0);
-				} else {
-					for(int i=0;i<tradingSymbols.size()-1;i++) {
-						boolean thisIsBest = true;
-						for(int j=1;j<tradingSymbols.size();j++) {
-							if (quote_times.get(i).after(quote_times.get(j))
-									&& tradingSymbols.get(i).equals(tradingSymbols.get(j))) {
-								thisIsBest  = false;
-							}
-						}
-						if (thisIsBest) {
-							peTradingSymbol = tradingSymbols.get(i);
-							peGreek = delta.get(i);
-							break;
+				
+				List<OptionGreek> ceOptionGreeks = new ArrayList<>();
+				List<OptionGreek> peOptionGreeks = new ArrayList<>();
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						if (optionname.endsWith("CE")) {
+							ceOptionGreeks.add(aGreek);
+						} else {
+							peOptionGreeks.add(aGreek);
 						}
 					}
-					if (peTradingSymbol==null) { // Not found, then use first one
-						peTradingSymbol = tradingSymbols.get(0);
-						peGreek = delta.get(0);
+				}
+				
+				float minDiff = 100000000000f;
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					if (greekname.equals("ltp")) {
+						float diff = Math.abs(requiredValue - aGreek.getLtp());
+						if (diff < minDiff) {
+							minDiff = diff;
+							ceTradingSymbol = aGreek.getTradingSymbol();
+						}
+					} else if (greekname.equals("iv")) {
+						float diff = Math.abs(requiredValue - aGreek.getIv());
+						if (diff < minDiff) {
+							minDiff = diff;
+							ceTradingSymbol = aGreek.getTradingSymbol();
+						}
+					}else if (greekname.equals("gamma")) {
+						float diff = Math.abs(requiredValue - aGreek.getGamma());
+						if (diff < minDiff) {
+							minDiff = diff;
+							ceTradingSymbol = aGreek.getTradingSymbol();
+						}
+					}
+				}
+				
+				minDiff = 100000000000f;
+				for(OptionGreek aGreek: peOptionGreeks) {
+					if (greekname.equals("ltp")) {
+						float diff = Math.abs(requiredValue - aGreek.getLtp());
+						if (diff < minDiff) {
+							minDiff = diff;
+							peTradingSymbol = aGreek.getTradingSymbol();
+						}
+					} else if (greekname.equals("iv")) {
+						float diff = Math.abs(requiredValue - aGreek.getIv());
+						if (diff < minDiff) {
+							minDiff = diff;
+							peTradingSymbol = aGreek.getTradingSymbol();
+						}
+					} else if (greekname.equals("gamma")) {
+						float diff = Math.abs(requiredValue - aGreek.getGamma());
+						if (diff < minDiff) {
+							minDiff = diff;
+							peTradingSymbol = aGreek.getTradingSymbol();
+						}
 					}
 				}
 			}
