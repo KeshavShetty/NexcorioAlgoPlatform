@@ -5,9 +5,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,10 +92,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			Long beginTime = System.currentTimeMillis();
 			Long startTime = System.currentTimeMillis();
 			
-			Map<String, Integer> futuresMap = getFutureStandOff();
+			//Map<String, Integer> futuresMap = getFutureStandOff();
 			Long elapsedTime1 = System.currentTimeMillis();
-			logStr.append(", Time taken for getFutureStandOff=" +(elapsedTime1-startTime));
-			startTime = elapsedTime1;
+			//logStr.append(", Time taken for getFutureStandOff=" +(elapsedTime1-startTime));
+			//startTime = elapsedTime1;
 			
 			float futuresLtp = getPriceFromTicks(futuresTradingSymbol);
 			elapsedTime1 = System.currentTimeMillis();
@@ -115,7 +119,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			logStr.append(", Time taken for getDeltaRangeGreeksDetails=" +(elapsedTime1-startTime));
 			startTime = elapsedTime1;
 			
-			Map<String, OptionGreek> atmGreeksMap = processAndSaveRawStraddleData(0.5f, futuresMap.get("Total"), futuresMap.get("Bullish"), 
+			Map<String, OptionGreek> atmGreeksMap = processAndSaveRawStraddleData(0.5f,  
 					aggregateGreeks.get("TotalCEOI"), aggregateGreeks.get("TotalPEOI"), 
 					aggregateGreeks.get("TotalCEIV"), aggregateGreeks.get("TotalPEIV"),
 					aggregateGreeks.get("TotalCEGamma"), aggregateGreeks.get("TotalPEGamma"), 
@@ -150,74 +154,127 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	private Map<String, Float> getAggregateGreeksDetails() {
 		Map<String, Float> retMap = new HashMap<>();
-		Connection conn = null;
-		try {			
-			conn = HDataSource.getReadOnlyConnection();
-			Statement stmt = conn.createStatement();
-			
-			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
-			
-			String 
-			fetchSql = "select sum(oi) as totalOI, avg(iv) as totalIV, sum(gamma) as totalGamma, avg(gamma) as avgGamma, sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
-			fileLogTelegramWriter.write(fetchSql);
-			
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			
+		
+		if(this.backtestDate == null) { // live
+			List<OptionGreek> greekList = getSnapshotGreeks();
 			float totalCEOI = 0f;
-			float totalCEIV = 0f;
+			float totalCEIV = 0f; // It is actually avg IV
 			float totalCEGamma = 0f;
 			float avgCEGamma = 0f;
 			float totalCEVega = 0f;
-			while (rs.next()) {
-				totalCEOI = rs.getFloat("totalOI");
-				totalCEIV = rs.getFloat("totalIV");
-				totalCEGamma = rs.getFloat("totalGamma");
-				avgCEGamma = rs.getFloat("avgGamma");
-				totalCEVega = rs.getFloat("totalVega");
-			}
-			rs.close();
-			retMap.put("TotalCEOI", totalCEOI);
-			
-			retMap.put("TotalCEIV", totalCEIV);
-			retMap.put("TotalCEGamma", totalCEGamma);
-			retMap.put("AvgCEGamma", avgCEGamma);
-			retMap.put("TotalCEVega", totalCEVega);
-			
-			
-			fetchSql = "select sum(oi) as totalOI, avg(iv) as totalIV, sum(gamma) as totalGamma, avg(gamma) as avgGamma, sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
-			fileLogTelegramWriter.write(fetchSql);
-			
-			rs = stmt.executeQuery(fetchSql);
+			int ceRecCount = 0;
 			
 			float totalPEOI = 0f;
 			float totalPEIV = 0f;
 			float totalPEGamma = 0f;
 			float avgPEGamma = 0f;
 			float totalPEVega = 0f;
-			while (rs.next()) {
-				totalPEOI = rs.getFloat("totalOI");
-				totalPEIV = rs.getFloat("totalIV");
-				totalPEGamma = rs.getFloat("totalGamma");
-				avgPEGamma = rs.getFloat("avgGamma");
-				totalPEVega = rs.getFloat("totalVega");
-			}
-			rs.close();
-			retMap.put("TotalPEOI", totalPEOI);
+			int peRecCount = 0;
 			
+			for(OptionGreek aGreek :greekList) {
+				if (aGreek.getTradingSymbol().endsWith("CE")) {
+					ceRecCount++;
+					totalCEOI = totalCEOI + aGreek.getOi();
+					totalCEIV = totalCEIV + aGreek.getIv();
+					totalCEGamma = totalCEGamma + aGreek.getGamma();
+					totalCEVega = totalCEVega + aGreek.getVega();
+				}
+				
+				if (aGreek.getTradingSymbol().endsWith("PE")) {
+					peRecCount++;
+					totalPEOI = totalPEOI + aGreek.getOi();
+					totalPEIV = totalPEIV + aGreek.getIv();
+					totalPEGamma = totalPEGamma + aGreek.getGamma();
+					totalPEVega = totalPEVega + aGreek.getVega();
+				}
+			}
+			totalCEIV = ceRecCount!=0?totalCEIV/(float)ceRecCount:0f;
+			totalPEIV = peRecCount!=0?totalPEIV/(float)peRecCount:0f;
+			
+			avgCEGamma = ceRecCount>0?totalCEGamma/(float)ceRecCount:0f; 
+			avgPEGamma = peRecCount>0?totalPEGamma/(float)peRecCount:0f;
+			
+			retMap.put("TotalCEOI", totalCEOI);
+			retMap.put("TotalCEIV", totalCEIV);
+			retMap.put("TotalCEGamma", totalCEGamma);
+			retMap.put("AvgCEGamma", avgCEGamma);
+			retMap.put("TotalCEVega", totalCEVega);
+			
+			retMap.put("TotalPEOI", totalPEOI);
 			retMap.put("TotalPEIV", totalPEIV);
 			retMap.put("TotalPEGamma", totalPEGamma);
 			retMap.put("AvgPEGamma", avgPEGamma);
 			retMap.put("TotalPEVega", totalPEVega);
-			
-			stmt.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error("Error"+e.getMessage(),e);
-		} finally {
-			try {
-				conn.close();
-			} catch (SQLException e) {
-				log.error(e);
+		} else { // Get from snapshot table
+			Connection conn = null;
+			try {			
+				conn = HDataSource.getReadOnlyConnection();
+				Statement stmt = conn.createStatement();
+				
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				
+				String 
+				fetchSql = "select sum(oi) as totalOI, avg(iv) as totalIV, sum(gamma) as totalGamma, avg(gamma) as avgGamma, sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'";
+				fileLogTelegramWriter.write(fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				float totalCEOI = 0f;
+				float totalCEIV = 0f;
+				float totalCEGamma = 0f;
+				float avgCEGamma = 0f;
+				float totalCEVega = 0f;
+				while (rs.next()) {
+					totalCEOI = rs.getFloat("totalOI");
+					totalCEIV = rs.getFloat("totalIV");
+					totalCEGamma = rs.getFloat("totalGamma");
+					avgCEGamma = rs.getFloat("avgGamma");
+					totalCEVega = rs.getFloat("totalVega");
+				}
+				rs.close();
+				retMap.put("TotalCEOI", totalCEOI);
+				
+				retMap.put("TotalCEIV", totalCEIV);
+				retMap.put("TotalCEGamma", totalCEGamma);
+				retMap.put("AvgCEGamma", avgCEGamma);
+				retMap.put("TotalCEVega", totalCEVega);
+				
+				
+				fetchSql = "select sum(oi) as totalOI, avg(iv) as totalIV, sum(gamma) as totalGamma, avg(gamma) as avgGamma, sum(vega) as totalVega from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'";
+				fileLogTelegramWriter.write(fetchSql);
+				
+				rs = stmt.executeQuery(fetchSql);
+				
+				float totalPEOI = 0f;
+				float totalPEIV = 0f;
+				float totalPEGamma = 0f;
+				float avgPEGamma = 0f;
+				float totalPEVega = 0f;
+				while (rs.next()) {
+					totalPEOI = rs.getFloat("totalOI");
+					totalPEIV = rs.getFloat("totalIV");
+					totalPEGamma = rs.getFloat("totalGamma");
+					avgPEGamma = rs.getFloat("avgGamma");
+					totalPEVega = rs.getFloat("totalVega");
+				}
+				rs.close();
+				retMap.put("TotalPEOI", totalPEOI);
+				
+				retMap.put("TotalPEIV", totalPEIV);
+				retMap.put("TotalPEGamma", totalPEGamma);
+				retMap.put("AvgPEGamma", avgPEGamma);
+				retMap.put("TotalPEVega", totalPEVega);
+				
+				stmt.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error("Error"+e.getMessage(),e);
+			} finally {
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					log.error(e);
+				}
 			}
 		}
 		return retMap;
@@ -225,63 +282,105 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	private Map<String, Float> getSelectiveGreeksDetails(int noOflegs) {
 		Map<String, Float> retMap = new HashMap<>(); 
-		Connection conn = null;
-		try {			
-			conn = HDataSource.getReadOnlyConnection();
-			Statement stmt = conn.createStatement();
+		
+		if (this.backtestDate == null) { // Live
+			List<OptionGreek> greekList = getSnapshotGreeks();
 			
-			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			float avgCEGamma = 0f;
+			float avgCEIv = 0f;
+			int ceRecCount = 0;
+			
+			float avgPEGamma = 0f;
+			float avgPEIv = 0f;
+			int peRecCount = 0;
 			
 			int upperBound = (int) (this.instrumentLtp + this.mainInstrument.getGapBetweenStrikes()*noOflegs);
 			int lowerBound = (int) (this.instrumentLtp - this.mainInstrument.getGapBetweenStrikes()*noOflegs);
 			
-			String 
-			fetchSql = "select avg(gamma) as avgGamma, avg(iv) as avgIv from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'"
-					+ " AND strike <= " + upperBound
-					+ " AND strike >= " + lowerBound;
-			fileLogTelegramWriter.write(fetchSql);
-			
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			
-			float avgCEGamma = 0f;
-			float avgCEIv = 0f;
-			while (rs.next()) {
-				avgCEGamma = rs.getFloat("avgGamma");
-				avgCEIv = rs.getFloat("avgIv");
+			for(OptionGreek aGreek :greekList) {
+				int strike = getStrikePriceFromOptionName(aGreek.getTradingSymbol());
+				if (aGreek.getTradingSymbol().endsWith("CE") && strike >=lowerBound && strike <= upperBound ) {
+					avgCEGamma = avgCEGamma + aGreek.getGamma();
+					avgCEIv = avgCEIv + aGreek.getIv();
+					ceRecCount++;
+				}
+				if (aGreek.getTradingSymbol().endsWith("PE") && strike >=lowerBound && strike <= upperBound ) {
+					avgPEGamma = avgPEGamma + aGreek.getGamma();
+					avgPEIv = avgPEIv + aGreek.getIv();
+					peRecCount++;
+				}
 			}
-			rs.close();
+			avgCEGamma = ceRecCount>0?avgCEGamma/(float)ceRecCount:0f;
+			avgPEGamma = peRecCount>0?avgPEGamma/(float)peRecCount:0f;
+			
+			avgCEIv = ceRecCount>0?avgCEIv/(float)ceRecCount:0f;
+			avgPEIv = peRecCount>0?avgPEIv/(float)peRecCount:0f;
 			
 			retMap.put("AvgCEGamma", avgCEGamma);
 			retMap.put("AvgCEIv", avgCEIv);
 			
-			fetchSql = "select avg(gamma) as avgGamma, avg(iv) as avgIv  from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'"
-					+ " AND strike <= " + upperBound
-					+ " AND strike >= " + lowerBound;
-			
-			fileLogTelegramWriter.write(fetchSql);
-			
-			rs = stmt.executeQuery(fetchSql);
-			
-			float avgPEGamma = 0f;
-			float avgPEIv = 0f;
-			while (rs.next()) {
-				avgPEGamma = rs.getFloat("avgGamma");
-				avgPEIv = rs.getFloat("avgIv");
-			}
-			rs.close();
-			
 			retMap.put("AvgPEGamma", avgPEGamma);
 			retMap.put("AvgPEIv", avgPEIv);
 			
-			stmt.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error("Error"+e.getMessage(),e);
-		} finally {
-			try {
-				conn.close();
-			} catch (SQLException e) {
-				log.error(e);
+		} else {
+			Connection conn = null;
+			try {			
+				conn = HDataSource.getReadOnlyConnection();
+				Statement stmt = conn.createStatement();
+				
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				
+				int upperBound = (int) (this.instrumentLtp + this.mainInstrument.getGapBetweenStrikes()*noOflegs);
+				int lowerBound = (int) (this.instrumentLtp - this.mainInstrument.getGapBetweenStrikes()*noOflegs);
+				
+				String 
+				fetchSql = "select avg(gamma) as avgGamma, avg(iv) as avgIv from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%CE'"
+						+ " AND strike <= " + upperBound
+						+ " AND strike >= " + lowerBound;
+				fileLogTelegramWriter.write(fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				float avgCEGamma = 0f;
+				float avgCEIv = 0f;
+				while (rs.next()) {
+					avgCEGamma = rs.getFloat("avgGamma");
+					avgCEIv = rs.getFloat("avgIv");
+				}
+				rs.close();
+				
+				retMap.put("AvgCEGamma", avgCEGamma);
+				retMap.put("AvgCEIv", avgCEIv);
+				
+				fetchSql = "select avg(gamma) as avgGamma, avg(iv) as avgIv  from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "' and trading_symbol LIKE '" + optionnamePrefix + "%PE'"
+						+ " AND strike <= " + upperBound
+						+ " AND strike >= " + lowerBound;
+				
+				fileLogTelegramWriter.write(fetchSql);
+				
+				rs = stmt.executeQuery(fetchSql);
+				
+				float avgPEGamma = 0f;
+				float avgPEIv = 0f;
+				while (rs.next()) {
+					avgPEGamma = rs.getFloat("avgGamma");
+					avgPEIv = rs.getFloat("avgIv");
+				}
+				rs.close();
+				
+				retMap.put("AvgPEGamma", avgPEGamma);
+				retMap.put("AvgPEIv", avgPEIv);
+				
+				stmt.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error("Error"+e.getMessage(),e);
+			} finally {
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					log.error(e);
+				}
 			}
 		}
 		return retMap;
@@ -289,283 +388,284 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	private Map<String, Float> getDeltaRangeGreeksDetails() {
 		Map<String, Float> retMap = new HashMap<>(); 
-		Connection conn = null;
-		try {			
-			conn = HDataSource.getReadOnlyConnection();
-			Statement stmt = conn.createStatement();
-			
-			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
-			
-			float lowerDelta = 0.1f;
-			float upperDelta = 0.9f;
-			
-			String 
-			fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
-					+ " AND trading_symbol LIKE '" + optionnamePrefix + "%CE'"
-					+ " AND delta >= " + lowerDelta
-					+ " AND delta <= " + upperDelta
-					+ " ORDER BY iv";
-			fileLogTelegramWriter.write(fetchSql);
-			
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			
-			float lastIvRead = 0f;
-			int recCount = 0;
-			int fullcount = 0;
-			float deltaRangeCEAvgLtp = 0f;
-			float deltaRangeCEAvgIv = 0f;
-			float deltaRangeCEFullAvgIv = 0f;
-			float deltaRangeCEAvgDelta = 0f;
-			float deltaRangeCEAvgGamma = 0f;
-			float deltaRangeCEFullGamma = 0f;
-			float deltaRangeCEAvgVega = 0f;
-			float deltaRangeCEWorth = 0f;
-			float deltaRangeCEOI = 0f;
-			float deltaRangeCEDeltaOI = 0f;
-			float deltaRangeCEFullDeltaOI = 0f;
-			float deltaRangeCEGammaOI = 0f;
-			float deltaRangeCEvolume1min = 0f;
-			StringBuffer logBuffer = new StringBuffer();
-			float dr49CEAvgIV = 0f;
-			int dr49Count = 0;
-			float ceDeltaOIWorth = 0f;
-			
-			float dr16CEAvgIV = 0f;
-			int dr16Count = 0;
-			while (rs.next()) {	
-				float curIv = rs.getFloat("iv");
-				float delta = Math.abs(rs.getFloat("delta"));
-				float ltp = rs.getFloat("ltp");
-				float oi = rs.getFloat("oi");
-				float gamma = rs.getFloat("gamma");
-				float volume1min = rs.getFloat("volume1min");
+		
+			Connection conn = null;
+			try {			
+				conn = HDataSource.getReadOnlyConnection();
+				Statement stmt = conn.createStatement();
 				
-				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
-					//System.out.println("Include "+curIv);
-					logBuffer.append( " {" + curIv+ " D " + delta +" Worth " + (oi*ltp/10000000f) +"} ");
-					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
-					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
-					ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
-					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
-					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
-					deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
-					deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
-					deltaRangeCEOI = deltaRangeCEOI + oi;
-					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
-					deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
-					lastIvRead = curIv; 
-					recCount++;
-				} else {
-					logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
-				}
-				fullcount++;
-				deltaRangeCEvolume1min = deltaRangeCEvolume1min + volume1min;
-				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
-				deltaRangeCEFullGamma = deltaRangeCEFullGamma + gamma;
-				deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 				
-				if (delta >= 0.4f && delta <= 0.9f) {
-					dr49CEAvgIV = dr49CEAvgIV + curIv;
-					dr49Count++;
-				}
-				if (delta >= 0.1f && delta <= 0.6f) {
-					dr16CEAvgIV = dr16CEAvgIV + curIv;
-					dr16Count++;
-				}
-			}
-			rs.close();
-			//System.out.println("CE recCount "+recCount);
-			fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
-			
-			int countCETotal = fullcount;
-			int countCEOutlier = fullcount - recCount;
-			
-			float deltaRangeHybridCEAvgIv = 0f;
-			float deltaRangeHybridCEAvgGamma = 0f;
-			if ((float)recCount/(float)fullcount < 0.65f) {				
-				deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
-				deltaRangeHybridCEAvgGamma = deltaRangeCEFullGamma/(float)fullcount;
-			} else {
-				deltaRangeHybridCEAvgIv = deltaRangeCEAvgIv/(float)recCount;
-				deltaRangeHybridCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
-			}
-			
-			deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
-			deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
-			deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
-			deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
-			deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
-			deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores
-			
-			deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
-			
-			retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
-			retMap.put("deltaRangeCEAvgIv", deltaRangeCEAvgIv);
-			retMap.put("deltaRangeCEAvgDelta", deltaRangeCEAvgDelta);
-			retMap.put("deltaRangeCEAvgGamma", deltaRangeCEAvgGamma);
-			retMap.put("deltaRangeCEAvgVega", deltaRangeCEAvgVega);
-			retMap.put("deltaRangeCEWorth", deltaRangeCEWorth);
-			retMap.put("deltaRangeCEOI", deltaRangeCEOI/10000000f);
-			retMap.put("deltaRangeCEDeltaOI", deltaRangeCEDeltaOI/10000000f);
-			retMap.put("deltaRangeCEFullDeltaOI", deltaRangeCEFullDeltaOI/10000000f);
-			retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
-			retMap.put("deltaRangeCEFullAvgIv", deltaRangeCEFullAvgIv);
-			retMap.put("deltaRangeHybridCEAvgIv",deltaRangeHybridCEAvgIv);
-			retMap.put("deltaRangeCEvolume1min", deltaRangeCEvolume1min);
-			retMap.put("deltaRangeHybridCEAvgGamma",deltaRangeHybridCEAvgGamma);
-			
-			retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
-			
-			retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
-			retMap.put("dr16CEAvgIV",dr16CEAvgIV!=0?dr16CEAvgIV/(float)dr16Count:0);
-			
-			retMap.put("countCETotal",(float) countCETotal);
-			retMap.put("countCEOutlier",(float) countCEOutlier);
-			retMap.put("ceDeltaOIWorth",ceDeltaOIWorth);
-			
-			
-			lowerDelta = -0.9f;
-			upperDelta = -0.1f;
-			
-			fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
-					+ " AND trading_symbol LIKE '" + optionnamePrefix + "%PE'"
-					+ " AND delta >= " + lowerDelta
-					+ " AND delta <= " + upperDelta
-					+ " ORDER BY iv";
-			
-			fileLogTelegramWriter.write(fetchSql);
-			
-			rs = stmt.executeQuery(fetchSql);
-			
-			lastIvRead = 0f;
-			recCount = 0;
-			fullcount = 0;
-			float deltaRangePEAvgLtp = 0f;
-			float deltaRangePEAvgIv = 0f;
-			
-			float deltaRangePEFullAvgIv = 0f;
-			float deltaRangePEFullGamma = 0f;
-			float deltaRangePEAvgDelta = 0f;
-			float deltaRangePEAvgGamma = 0f;
-			float deltaRangePEAvgVega = 0f;
-			float deltaRangePEWorth = 0f;
-			float deltaRangePEOI = 0f;
-			
-			float deltaRangePEDeltaOI = 0f;
-			float deltaRangePEGammaOI = 0f;
-			float deltaRangePEFullDeltaOI = 0f;
-			float deltaRangePEvolume1min = 0f;
-			StringBuffer logBuffer2 = new StringBuffer();
-			
-			float dr49PEAvgIV = 0f;
-			dr49Count = 0;
-			float dr16PEAvgIV = 0f;
-			dr16Count = 0;
-			float peDeltaOIWorth = 0f;
-			while (rs.next()) {	
-				float curIv = rs.getFloat("iv");
-				float delta = Math.abs(rs.getFloat("delta"));
-				float ltp = rs.getFloat("ltp");
-				float oi = rs.getFloat("oi");				
-				float gamma = rs.getFloat("gamma");
-				float volume1min = rs.getFloat("volume1min");
-				if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
-					//System.out.println("Include "+curIv);
-					logBuffer2.append( " {" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f)+"} ");
+				float lowerDelta = 0.1f;
+				float upperDelta = 0.9f;
+				
+				String 
+				fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
+						+ " AND trading_symbol LIKE '" + optionnamePrefix + "%CE'"
+						+ " AND delta >= " + lowerDelta
+						+ " AND delta <= " + upperDelta
+						+ " ORDER BY iv";
+				fileLogTelegramWriter.write(fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				
+				float lastIvRead = 0f;
+				int recCount = 0;
+				int fullcount = 0;
+				float deltaRangeCEAvgLtp = 0f;
+				float deltaRangeCEAvgIv = 0f;
+				float deltaRangeCEFullAvgIv = 0f;
+				float deltaRangeCEAvgDelta = 0f;
+				float deltaRangeCEAvgGamma = 0f;
+				float deltaRangeCEFullGamma = 0f;
+				float deltaRangeCEAvgVega = 0f;
+				float deltaRangeCEWorth = 0f;
+				float deltaRangeCEOI = 0f;
+				float deltaRangeCEDeltaOI = 0f;
+				float deltaRangeCEFullDeltaOI = 0f;
+				float deltaRangeCEGammaOI = 0f;
+				float deltaRangeCEvolume1min = 0f;
+				StringBuffer logBuffer = new StringBuffer();
+				float dr49CEAvgIV = 0f;
+				int dr49Count = 0;
+				float ceDeltaOIWorth = 0f;
+				
+				float dr16CEAvgIV = 0f;
+				int dr16Count = 0;
+				while (rs.next()) {	
+					float curIv = rs.getFloat("iv");
+					float delta = Math.abs(rs.getFloat("delta"));
+					float ltp = rs.getFloat("ltp");
+					float oi = rs.getFloat("oi");
+					float gamma = rs.getFloat("gamma");
+					float volume1min = rs.getFloat("volume1min");
 					
-					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
-					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
-					peDeltaOIWorth = peDeltaOIWorth + oi*delta;
-					deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
-					deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
-					deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
-					deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
-					deltaRangePEOI = deltaRangePEOI + oi;
-					deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
-					deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
-					lastIvRead = curIv; 
-					recCount++;
+					if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
+						//System.out.println("Include "+curIv);
+						logBuffer.append( " {" + curIv+ " D " + delta +" Worth " + (oi*ltp/10000000f) +"} ");
+						deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
+						deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
+						ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
+						deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
+						deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
+						deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
+						deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
+						deltaRangeCEOI = deltaRangeCEOI + oi;
+						deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
+						deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
+						lastIvRead = curIv; 
+						recCount++;
+					} else {
+						logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
+					}
+					fullcount++;
+					deltaRangeCEvolume1min = deltaRangeCEvolume1min + volume1min;
+					deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
+					deltaRangeCEFullGamma = deltaRangeCEFullGamma + gamma;
+					deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
+					
+					if (delta >= 0.4f && delta <= 0.9f) {
+						dr49CEAvgIV = dr49CEAvgIV + curIv;
+						dr49Count++;
+					}
+					if (delta >= 0.1f && delta <= 0.6f) {
+						dr16CEAvgIV = dr16CEAvgIV + curIv;
+						dr16Count++;
+					}
+				}
+				rs.close();
+				//System.out.println("CE recCount "+recCount);
+				fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
+				
+				int countCETotal = fullcount;
+				int countCEOutlier = fullcount - recCount;
+				
+				float deltaRangeHybridCEAvgIv = 0f;
+				float deltaRangeHybridCEAvgGamma = 0f;
+				if ((float)recCount/(float)fullcount < 0.65f) {				
+					deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
+					deltaRangeHybridCEAvgGamma = deltaRangeCEFullGamma/(float)fullcount;
 				} else {
-					logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
+					deltaRangeHybridCEAvgIv = deltaRangeCEAvgIv/(float)recCount;
+					deltaRangeHybridCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 				}
-				fullcount++;
-				deltaRangePEvolume1min = deltaRangePEvolume1min + volume1min;
-				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
-				deltaRangePEFullGamma = deltaRangePEFullGamma + gamma;
-				deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
-				if (delta >= 0.4f && delta <= 0.9f) {
-					dr49PEAvgIV = dr49PEAvgIV + curIv;
-					dr49Count++;
+				
+				deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
+				deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
+				deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
+				deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
+				deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
+				deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores
+				
+				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
+				
+				retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
+				retMap.put("deltaRangeCEAvgIv", deltaRangeCEAvgIv);
+				retMap.put("deltaRangeCEAvgDelta", deltaRangeCEAvgDelta);
+				retMap.put("deltaRangeCEAvgGamma", deltaRangeCEAvgGamma);
+				retMap.put("deltaRangeCEAvgVega", deltaRangeCEAvgVega);
+				retMap.put("deltaRangeCEWorth", deltaRangeCEWorth);
+				retMap.put("deltaRangeCEOI", deltaRangeCEOI/10000000f);
+				retMap.put("deltaRangeCEDeltaOI", deltaRangeCEDeltaOI/10000000f);
+				retMap.put("deltaRangeCEFullDeltaOI", deltaRangeCEFullDeltaOI/10000000f);
+				retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
+				retMap.put("deltaRangeCEFullAvgIv", deltaRangeCEFullAvgIv);
+				retMap.put("deltaRangeHybridCEAvgIv",deltaRangeHybridCEAvgIv);
+				retMap.put("deltaRangeCEvolume1min", deltaRangeCEvolume1min);
+				retMap.put("deltaRangeHybridCEAvgGamma",deltaRangeHybridCEAvgGamma);
+				
+				retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
+				
+				retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
+				retMap.put("dr16CEAvgIV",dr16CEAvgIV!=0?dr16CEAvgIV/(float)dr16Count:0);
+				
+				retMap.put("countCETotal",(float) countCETotal);
+				retMap.put("countCEOutlier",(float) countCEOutlier);
+				retMap.put("ceDeltaOIWorth",ceDeltaOIWorth);
+				
+				
+				lowerDelta = -0.9f;
+				upperDelta = -0.1f;
+				
+				fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
+						+ " AND trading_symbol LIKE '" + optionnamePrefix + "%PE'"
+						+ " AND delta >= " + lowerDelta
+						+ " AND delta <= " + upperDelta
+						+ " ORDER BY iv";
+				
+				fileLogTelegramWriter.write(fetchSql);
+				
+				rs = stmt.executeQuery(fetchSql);
+				
+				lastIvRead = 0f;
+				recCount = 0;
+				fullcount = 0;
+				float deltaRangePEAvgLtp = 0f;
+				float deltaRangePEAvgIv = 0f;
+				
+				float deltaRangePEFullAvgIv = 0f;
+				float deltaRangePEFullGamma = 0f;
+				float deltaRangePEAvgDelta = 0f;
+				float deltaRangePEAvgGamma = 0f;
+				float deltaRangePEAvgVega = 0f;
+				float deltaRangePEWorth = 0f;
+				float deltaRangePEOI = 0f;
+				
+				float deltaRangePEDeltaOI = 0f;
+				float deltaRangePEGammaOI = 0f;
+				float deltaRangePEFullDeltaOI = 0f;
+				float deltaRangePEvolume1min = 0f;
+				StringBuffer logBuffer2 = new StringBuffer();
+				
+				float dr49PEAvgIV = 0f;
+				dr49Count = 0;
+				float dr16PEAvgIV = 0f;
+				dr16Count = 0;
+				float peDeltaOIWorth = 0f;
+				while (rs.next()) {	
+					float curIv = rs.getFloat("iv");
+					float delta = Math.abs(rs.getFloat("delta"));
+					float ltp = rs.getFloat("ltp");
+					float oi = rs.getFloat("oi");				
+					float gamma = rs.getFloat("gamma");
+					float volume1min = rs.getFloat("volume1min");
+					if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
+						//System.out.println("Include "+curIv);
+						logBuffer2.append( " {" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f)+"} ");
+						
+						deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
+						deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
+						peDeltaOIWorth = peDeltaOIWorth + oi*delta;
+						deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
+						deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
+						deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
+						deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
+						deltaRangePEOI = deltaRangePEOI + oi;
+						deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
+						deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
+						lastIvRead = curIv; 
+						recCount++;
+					} else {
+						logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
+					}
+					fullcount++;
+					deltaRangePEvolume1min = deltaRangePEvolume1min + volume1min;
+					deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
+					deltaRangePEFullGamma = deltaRangePEFullGamma + gamma;
+					deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
+					if (delta >= 0.4f && delta <= 0.9f) {
+						dr49PEAvgIV = dr49PEAvgIV + curIv;
+						dr49Count++;
+					}
+					if (delta >= 0.1f && delta <= 0.6f) {
+						dr16PEAvgIV = dr16PEAvgIV + curIv;
+						dr16Count++;
+					}
 				}
-				if (delta >= 0.1f && delta <= 0.6f) {
-					dr16PEAvgIV = dr16PEAvgIV + curIv;
-					dr16Count++;
+				rs.close();
+				//System.out.println("PE recCount "+recCount);
+				fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
+				
+				int countPETotal = fullcount;
+				int countPEOutlier = fullcount - recCount;
+				
+				float deltaRangeHybridPEAvgIv = 0f;
+				float deltaRangeHybridPEAvgGamma = 0f;
+				if ((float)recCount/(float)fullcount < 0.65f) {
+					deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
+					deltaRangeHybridPEAvgGamma = deltaRangePEFullGamma/(float)fullcount;
+				} else {
+					deltaRangeHybridPEAvgIv = deltaRangePEAvgIv/(float)recCount;
+					deltaRangeHybridPEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
+				}
+				
+				deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
+				deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
+				deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
+				deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
+				deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
+				deltaRangePEWorth = deltaRangePEWorth/10000000f; // in Crores
+				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
+				
+				retMap.put("deltaRangePEAvgLtp", deltaRangePEAvgLtp);
+				retMap.put("deltaRangePEAvgIv", deltaRangePEAvgIv);
+				retMap.put("deltaRangePEAvgDelta", deltaRangePEAvgDelta);
+				retMap.put("deltaRangePEAvgGamma", deltaRangePEAvgGamma);
+				retMap.put("deltaRangePEAvgVega", deltaRangePEAvgVega);
+				retMap.put("deltaRangePEWorth", deltaRangePEWorth);
+				retMap.put("deltaRangePEOI", deltaRangePEOI/10000000f);
+				retMap.put("deltaRangePEDeltaOI", deltaRangePEDeltaOI/10000000f);
+				retMap.put("deltaRangePEFullDeltaOI", deltaRangePEFullDeltaOI/10000000f);
+				retMap.put("deltaRangePEGammaOI", deltaRangePEGammaOI);
+				retMap.put("deltaRangePEFullAvgIv", deltaRangePEFullAvgIv);
+				retMap.put("deltaRangeHybridPEAvgIv", deltaRangeHybridPEAvgIv);
+				retMap.put("deltaRangePEvolume1min", deltaRangePEvolume1min);
+				retMap.put("deltaRangeHybridPEAvgGamma",deltaRangeHybridPEAvgGamma);
+				retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
+				retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
+				retMap.put("dr16PEAvgIV",dr16PEAvgIV!=0?dr16PEAvgIV/(float)dr16Count:0);
+				
+				retMap.put("countPETotal",(float) countPETotal);
+				retMap.put("countPEOutlier",(float) countPEOutlier);
+				
+				retMap.put("peDeltaOIWorth", peDeltaOIWorth);
+				
+				stmt.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error("Error"+e.getMessage(),e);
+			} finally {
+				try {
+					conn.close();
+				} catch (SQLException e) {
+					log.error(e);
 				}
 			}
-			rs.close();
-			//System.out.println("PE recCount "+recCount);
-			fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
-			
-			int countPETotal = fullcount;
-			int countPEOutlier = fullcount - recCount;
-			
-			float deltaRangeHybridPEAvgIv = 0f;
-			float deltaRangeHybridPEAvgGamma = 0f;
-			if ((float)recCount/(float)fullcount < 0.65f) {
-				deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
-				deltaRangeHybridPEAvgGamma = deltaRangePEFullGamma/(float)fullcount;
-			} else {
-				deltaRangeHybridPEAvgIv = deltaRangePEAvgIv/(float)recCount;
-				deltaRangeHybridPEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
-			}
-			
-			deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
-			deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
-			deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
-			deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
-			deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
-			deltaRangePEWorth = deltaRangePEWorth/10000000f; // in Crores
-			deltaRangePEFullAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
-			
-			retMap.put("deltaRangePEAvgLtp", deltaRangePEAvgLtp);
-			retMap.put("deltaRangePEAvgIv", deltaRangePEAvgIv);
-			retMap.put("deltaRangePEAvgDelta", deltaRangePEAvgDelta);
-			retMap.put("deltaRangePEAvgGamma", deltaRangePEAvgGamma);
-			retMap.put("deltaRangePEAvgVega", deltaRangePEAvgVega);
-			retMap.put("deltaRangePEWorth", deltaRangePEWorth);
-			retMap.put("deltaRangePEOI", deltaRangePEOI/10000000f);
-			retMap.put("deltaRangePEDeltaOI", deltaRangePEDeltaOI/10000000f);
-			retMap.put("deltaRangePEFullDeltaOI", deltaRangePEFullDeltaOI/10000000f);
-			retMap.put("deltaRangePEGammaOI", deltaRangePEGammaOI);
-			retMap.put("deltaRangePEFullAvgIv", deltaRangePEFullAvgIv);
-			retMap.put("deltaRangeHybridPEAvgIv", deltaRangeHybridPEAvgIv);
-			retMap.put("deltaRangePEvolume1min", deltaRangePEvolume1min);
-			retMap.put("deltaRangeHybridPEAvgGamma",deltaRangeHybridPEAvgGamma);
-			retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
-			retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
-			retMap.put("dr16PEAvgIV",dr16PEAvgIV!=0?dr16PEAvgIV/(float)dr16Count:0);
-			
-			retMap.put("countPETotal",(float) countPETotal);
-			retMap.put("countPEOutlier",(float) countPEOutlier);
-			
-			retMap.put("peDeltaOIWorth", peDeltaOIWorth);
-			
-			stmt.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error("Error"+e.getMessage(),e);
-		} finally {
-			try {
-				conn.close();
-			} catch (SQLException e) {
-				log.error(e);
-			}
-		}
 		
 		return retMap;
 	}
 	
-	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, Integer futuresTotalPoint, Integer futuresBullishPoint, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
+	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
 			float totalCEGamma, float totalPEGamma,
 			float totalCEVega, float totalPEVega,
 			float avgCeGamma, float avgPeGamma,
@@ -617,8 +717,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", peIV"
 						+ ", ceLtp"
 						+ ", peLtp"
-						+ ", totalFuturePoints"
-						+ ", bullishFuturePoints"
+						
 						+ ", ceOi"
 						+ ", peOi"
 						+ ", totalCEOI"
@@ -724,8 +823,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + ceOptionGreek.getLtp() 
 						+ " ," + peOptionGreek.getLtp()
-						+ " ," + futuresTotalPoint
-						+ " ," + futuresBullishPoint
 						+ " ," + ceOptionGreek.getOi()
 						+ " ," + peOptionGreek.getOi()
 						+ " ," + totalCEOI
@@ -908,6 +1005,22 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			}
 		}
 		return retVal;
+	}
+	
+	private List<OptionGreek> getSnapshotGreeks() {
+		List<OptionGreek> retList = new ArrayList<OptionGreek>();
+		ConcurrentMap<String, OptionGreek> caffeineObjects =KiteCache.optionGreekCache.asMap();
+		
+		Iterator<String> iter = caffeineObjects.keySet().iterator();
+		while(iter.hasNext()) {
+			String keyStr = iter.next();
+			
+			if (keyStr.startsWith(this.mainInstrument.getShortName())) {
+				retList.add(caffeineObjects.get(keyStr));
+			}
+		}
+		return retList;
+		
 	}
 	
 	public static void main(String[] args) {
