@@ -90,13 +90,16 @@ public class G3CallBiasedRollingStrangleAlgoThread extends G3BaseClass implement
 				if (ceStraddleOptionName.equals("")) {
 					needRepositioning = true; // Just starting, no open positions
 				} else if (this.instrumentLtp > indexWhenStrangleFormed + indexRollingPts || this.instrumentLtp < indexWhenStrangleFormed - indexRollingPts) {
+					fileLogTelegramWriter.write("Realigning " + indexRollingPts + " pt range broken. indexWhenStrangleFormed="+indexWhenStrangleFormed+" index now at "+this.instrumentLtp);
 					needRepositioning = true;
 				} else if (this.maintainBias == true && Math.abs(ceOptionGreeks.getDelta()) < Math.abs(peOptionGreeks.getDelta())) {
+					fileLogTelegramWriter.write("Realigning maintainBias breached");
 					needRepositioning = true;
 				} else if(this.oppositeDeltaDiff > 0f) {
 					float originalDeltaGap = callDelta-putDelta;
 					float currentGap = ceOptionGreeks.getDelta() - Math.abs(peOptionGreeks.getDelta());
 					if (currentGap > originalDeltaGap+oppositeDeltaDiff) { // 0.15f
+						fileLogTelegramWriter.write("Realigning oppositeDeltaDiff breached. currentGap="+currentGap);
 						needRepositioning = true;
 					}
 				}
