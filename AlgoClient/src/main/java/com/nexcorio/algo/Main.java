@@ -34,6 +34,7 @@ public class Main {
 		System.out.println("Login done");
 		
 		kiteHelper.populateInstruments();
+		kiteHelper.createDBPartitions();
 		System.out.println("Populate Instruments done");
 		// Wait till 9:10:05
 		try {

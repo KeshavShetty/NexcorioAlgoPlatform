@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -716,10 +717,71 @@ public class KiteHelper {
 		return retStr;
 	}
 	
+	public void createDBPartitions() {
+		
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			stmt = conn.createStatement();
+			
+			Calendar cal = Calendar.getInstance();
+			int year = cal.get(Calendar.YEAR);
+			int month = cal.get(Calendar.MONTH) + 2;
+			if (month > 12) {
+				month = 1;
+				year++;
+			}
+			String monthStr = month<10?"0"+month:""+month;
+			
+			String monthEndPartStr = month==12?"01" : month<9?"0"+(month+1):""+(month+1);
+					
+			String creatpartition = "CREATE TABLE IF NOT EXISTS nexcorio_option_greeks_" + year + monthStr + " PARTITION OF nexcorio_option_greeks"
+					+ " FOR VALUES FROM ('" + year + "-" + monthStr + "-01 00:00:00+00') TO ('" + (month==12?(year+1):year) + "-" + monthEndPartStr + "-01 00:00:00+00')"
+					+ " WITH (autovacuum_vacuum_scale_factor = 0, toast.autovacuum_vacuum_scale_factor = 0)";			
+			log.info("1. " + "creatpartition Sql = "+creatpartition);			
+			int rec= stmt.executeUpdate(creatpartition);
+			log.info(rec);
+			
+			creatpartition = "CREATE TABLE IF NOT EXISTS nexcorio_tick_data_" + year + monthStr + " PARTITION OF nexcorio_tick_data"
+					+ " FOR VALUES FROM ('" + year + "-" + monthStr + "-01 00:00:00+00') TO ('" + (month==12?(year+1):year) + "-" + monthEndPartStr + "-01 00:00:00+00')"
+					+ " WITH (autovacuum_vacuum_scale_factor = 0, toast.autovacuum_vacuum_scale_factor = 0)";			
+			log.info("2. " + "creatpartition Sql = "+creatpartition);			
+			stmt.executeUpdate(creatpartition);
+			
+			creatpartition = "CREATE TABLE IF NOT EXISTS nexcorio_option_atm_movement_data_" + year + monthStr + " PARTITION OF nexcorio_option_atm_movement_data"
+					+ " FOR VALUES FROM ('" + year + "-" + monthStr + "-01 00:00:00+00') TO ('" + (month==12?(year+1):year) + "-" + monthEndPartStr + "-01 00:00:00+00')"
+					+ " WITH (autovacuum_vacuum_scale_factor = 0, toast.autovacuum_vacuum_scale_factor = 0)";			
+			log.info("3. " + "creatpartition Sql = "+creatpartition);			
+			stmt.executeUpdate(creatpartition);
+			
+			
+			creatpartition = "CREATE INDEX IF NOT EXISTS nexcorio_option_greeks_" + year + monthStr + "_idx1 ON nexcorio_option_greeks_" + year + monthStr + " (trading_symbol, quote_time)";
+			log.info("4. " + "creatpartition Sql = "+creatpartition);			
+			stmt.execute(creatpartition);
+			
+			creatpartition = "CREATE INDEX IF NOT EXISTS nexcorio_tick_data_" + year + monthStr + "_idx1 ON nexcorio_tick_data_" + year + monthStr + " (quote_time)";
+			log.info("5. " + "creatpartition Sql = "+creatpartition);			
+			stmt.execute(creatpartition);
+			
+			creatpartition = "CREATE INDEX IF NOT EXISTS nexcorio_option_atm_movement_data_" + year + monthStr + "_idx1 ON nexcorio_option_atm_movement_data_" + year + monthStr + " (f_main_instrument, record_time)";
+			log.info("6. " + "creatpartition Sql = "+creatpartition);			
+			stmt.execute(creatpartition);
+			
+			stmt.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+	}
+	
 	public static void main(String[] args) {
-		String inpStr = "\"Keshav\"";
-		KiteHelper kiteHelper = new KiteHelper();
-		System.out.println(inpStr + ","+  kiteHelper.getClearAlphaNumericText(inpStr));
+		//createDBPartitions();;
 	}
 	
 
