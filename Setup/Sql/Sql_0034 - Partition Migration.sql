@@ -38,9 +38,9 @@ CREATE TABLE nexcorio_option_greeks_202508
     WITH (autovacuum_vacuum_scale_factor = 0, toast.autovacuum_vacuum_scale_factor = 0);
 	
 -- Index on each partition
-CREATE INDEX ON nexcorio_option_greeks_202506 (f_main_instrument, quote_time, trading_symbol);
-CREATE INDEX ON nexcorio_option_greeks_202507 (f_main_instrument, quote_time, trading_symbol);
-CREATE INDEX ON nexcorio_option_greeks_202508 (f_main_instrument, quote_time, trading_symbol);
+CREATE INDEX ON nexcorio_option_greeks_202506 (trading_symbol, quote_time);
+CREATE INDEX ON nexcorio_option_greeks_202507 (trading_symbol, quote_time);
+CREATE INDEX ON nexcorio_option_greeks_202508 (trading_symbol, quote_time);
 
 -- Migrate Data
 INSERT INTO nexcorio_option_greeks_partitioned

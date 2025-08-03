@@ -156,7 +156,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>();
 		
 		if(this.backtestDate == null) { // live
-			List<OptionGreek> greekList = getSnapshotGreeks();
+			List<OptionGreek> greekList = getSnapshotGreeksFromCache();
 			float totalCEOI = 0f;
 			float totalCEIV = 0f; // It is actually avg IV
 			float totalCEGamma = 0f;
@@ -284,7 +284,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>(); 
 		
 		if (this.backtestDate == null) { // Live
-			List<OptionGreek> greekList = getSnapshotGreeks();
+			List<OptionGreek> greekList = getSnapshotGreeksFromCache();
 			
 			float avgCEGamma = 0f;
 			float avgCEIv = 0f;
@@ -1005,22 +1005,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			}
 		}
 		return retVal;
-	}
-	
-	private List<OptionGreek> getSnapshotGreeks() {
-		List<OptionGreek> retList = new ArrayList<OptionGreek>();
-		ConcurrentMap<String, OptionGreek> caffeineObjects =KiteCache.optionGreekCache.asMap();
-		
-		Iterator<String> iter = caffeineObjects.keySet().iterator();
-		while(iter.hasNext()) {
-			String keyStr = iter.next();
-			
-			if (keyStr.startsWith(this.mainInstrument.getShortName())) {
-				retList.add(caffeineObjects.get(keyStr));
-			}
-		}
-		return retList;
-		
 	}
 	
 	public static void main(String[] args) {
