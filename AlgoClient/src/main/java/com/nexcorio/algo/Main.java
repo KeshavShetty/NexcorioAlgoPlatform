@@ -34,8 +34,9 @@ public class Main {
 		System.out.println("Login done");
 		
 		kiteHelper.populateInstruments();
-		kiteHelper.createDBPartitions();
 		System.out.println("Populate Instruments done");
+		kiteHelper.createDBPartitions();
+		System.out.println("Create next month partition and index seccessful");
 		// Wait till 9:10:05
 		try {
 			while  ( (new Date()).before(KiteUtil.getDailyCustomTime(9, 10, 5)) )  {
