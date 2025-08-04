@@ -110,7 +110,14 @@ public class G3NapAlgoTriggerThread implements Runnable {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String opOIFetch = "select id, algo_class_name from nexcorio_options_algo_strategy where isactive=TRUE and entry_time > '" + prevHourMinuteSecondPart + "' and entry_time <='" + currentHourMinuteSecondPart+"'";
+			//String opOIFetch = "select id, algo_class_name from nexcorio_options_algo_strategy where isactive=TRUE and entry_time > '" + prevHourMinuteSecondPart + "' and entry_time <='" + currentHourMinuteSecondPart+"'";
+			
+			String opOIFetch ="SELECT noas.id as id, noas.algo_class_name as algo_class_name"
+					+ " FROM nexcorio_options_algo_strategy noas, nexcorio_main_instruments nmi "
+					+ " WHERE noas.f_main_instrument = nmi.id "
+					+ " AND nmi.is_active = TRUE AND noas.isactive=TRUE "
+					+ " AND noas.entry_time > '" + prevHourMinuteSecondPart + "' AND noas.entry_time <='" + currentHourMinuteSecondPart + "'";
+			
 			fileLogTelegramWriter.write("opOIFetch="+opOIFetch);
 			
 			ResultSet rs = stmt.executeQuery(opOIFetch);
