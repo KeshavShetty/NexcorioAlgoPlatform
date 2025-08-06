@@ -16,8 +16,10 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.kite.KiteHelper;
+import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.TelegramUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.InputException;
@@ -175,12 +177,13 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		}
 	}
 	
-	private void updateOrderStatus(Long orderId, String placedKiteOrderId) {
+	private String updateOrderStatus(Long orderId, String placedKiteOrderId) {
+		String status = "SUCCESS";
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
-			String status = "SUCCESS";
+			
 			if (placedKiteOrderId==null)  status = "FAILED";
 			stmt.executeUpdate("UPDATE nexcorio_real_orders set status='" + status +"', executed_time=NOW() WHERE id="+orderId);
 			stmt.close();
@@ -194,6 +197,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 				e.printStackTrace();
 			}
 		}
+		return status;
 	}
 	
 	
@@ -450,7 +454,11 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 							String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
 									KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
 							
-							updateOrderStatus(aOrder.getId(), placedKiteOrderId);
+							String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
+							if (status.equals("FAILED")) {
+								TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + aOrder.getAlgoTag() + ": " 
+								+ aOrder.getOption_name() + " FAILED");
+							}
 							aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 						}
 						Thread.sleep(1000);
