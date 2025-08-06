@@ -37,9 +37,9 @@ public class HDataSource {
         config.setMinimumIdle(5);
         config.setConnectionTimeout(120000 );
         config.setIdleTimeout(60000);
-        config.setMaximumPoolSize(200);
+        config.setMaximumPoolSize(150);
         
-        config.setLeakDetectionThreshold(120000);
+        config.setLeakDetectionThreshold(10000);
         ds = new HikariDataSource( config );
     }
  
