@@ -7,11 +7,11 @@ import java.sql.Statement;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,6 +21,17 @@ import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
+
+class SortbyIV implements Comparator<OptionGreek> 
+{ 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
+    	if (a.getIv() < b.getIv()) return -1;
+    	else if (a.getIv() > b.getIv()) return 1;
+    	else return 0;
+    } 
+}
 
 public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass implements Runnable {
 
@@ -390,24 +401,70 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		Map<String, Float> retMap = new HashMap<>(); 
 		
 			Connection conn = null;
-			try {			
+			try {
 				conn = HDataSource.getReadOnlyConnection();
 				Statement stmt = conn.createStatement();
 				
-				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				List<OptionGreek> ceOptionGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> peOptionGreeks = new ArrayList<OptionGreek>();
+				
+				if (this.backtestDate == null) { // Live
+					for(OptionGreek aGreek: getSnapshotGreeksFromCache()) {
+						if (aGreek.getTradingSymbol().endsWith("CE")) {
+							ceOptionGreeks.add(aGreek);
+						} else { // PE
+							peOptionGreeks.add(aGreek);
+						}
+					}
+				} else {
+					// First try to fetch from Snapshot table
+					String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+							+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+							+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+					fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+					
+					List<String> optionnames = new ArrayList<>();			
+					ResultSet rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					if (optionnames.size()==0) { // not found in snapshot		
+						fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+								+ " where f_main_instrument = " + mainInstrument.getId() + " "
+								+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+								+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+									
+						rs = stmt.executeQuery(fetchSql);
+						while (rs.next()) {
+							optionnames.add(rs.getString("trading_symbol"));
+						}
+						rs.close();
+						
+						// Insert to snapshot
+						for(String aSymbol: optionnames) {
+							String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+									+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+							stmt.executeUpdate(insertSql);
+						}
+					}
+					for(String optionname:optionnames ) {
+						OptionGreek aGreek = getOptionGreeks(optionname);
+						if (aGreek!=null) {
+							if (optionname.endsWith("CE")) {
+								ceOptionGreeks.add(aGreek);
+							} else {
+								peOptionGreeks.add(aGreek);
+							}
+						}
+					}
+				}				
+				Collections.sort(ceOptionGreeks, new SortbyIV());
+				Collections.sort(peOptionGreeks, new SortbyIV());
 				
 				float lowerDelta = 0.1f;
 				float upperDelta = 0.9f;
-				
-				String 
-				fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
-						+ " AND trading_symbol LIKE '" + optionnamePrefix + "%CE'"
-						+ " AND delta >= " + lowerDelta
-						+ " AND delta <= " + upperDelta
-						+ " ORDER BY iv";
-				fileLogTelegramWriter.write(fetchSql);
-				
-				ResultSet rs = stmt.executeQuery(fetchSql);
 				
 				float lastIvRead = 0f;
 				int recCount = 0;
@@ -424,59 +481,51 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				float deltaRangeCEDeltaOI = 0f;
 				float deltaRangeCEFullDeltaOI = 0f;
 				float deltaRangeCEGammaOI = 0f;
-				float deltaRangeCEvolume1min = 0f;
-				StringBuffer logBuffer = new StringBuffer();
 				float dr49CEAvgIV = 0f;
 				int dr49Count = 0;
 				float ceDeltaOIWorth = 0f;
 				
 				float dr16CEAvgIV = 0f;
 				int dr16Count = 0;
-				while (rs.next()) {	
-					float curIv = rs.getFloat("iv");
-					float delta = Math.abs(rs.getFloat("delta"));
-					float ltp = rs.getFloat("ltp");
-					float oi = rs.getFloat("oi");
-					float gamma = rs.getFloat("gamma");
-					float volume1min = rs.getFloat("volume1min");
-					
-					if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
-						//System.out.println("Include "+curIv);
-						logBuffer.append( " {" + curIv+ " D " + delta +" Worth " + (oi*ltp/10000000f) +"} ");
-						deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
-						deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
-						ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
-						deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
-						deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
-						deltaRangeCEAvgVega = deltaRangeCEAvgVega + rs.getFloat("vega");
-						deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
-						deltaRangeCEOI = deltaRangeCEOI + oi;
-						deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
-						deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
-						lastIvRead = curIv; 
-						recCount++;
-					} else {
-						logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
-					}
-					fullcount++;
-					deltaRangeCEvolume1min = deltaRangeCEvolume1min + volume1min;
-					deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
-					deltaRangeCEFullGamma = deltaRangeCEFullGamma + gamma;
-					deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
-					
-					if (delta >= 0.4f && delta <= 0.9f) {
-						dr49CEAvgIV = dr49CEAvgIV + curIv;
-						dr49Count++;
-					}
-					if (delta >= 0.1f && delta <= 0.6f) {
-						dr16CEAvgIV = dr16CEAvgIV + curIv;
-						dr16Count++;
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					if (delta >= lowerDelta && delta <= upperDelta) {
+						
+						float curIv = aGreek.getIv();
+						float ltp = aGreek.getLtp();
+						float oi = aGreek.getOi();
+						float gamma = aGreek.getGamma();
+						
+						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+							deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
+							deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
+							ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
+							deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
+							deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
+							deltaRangeCEAvgVega = deltaRangeCEAvgVega + aGreek.getVega();
+							deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
+							deltaRangeCEOI = deltaRangeCEOI + oi;
+							deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
+							deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
+							lastIvRead = curIv; 
+							recCount++;
+						}
+						fullcount++;
+						deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
+						deltaRangeCEFullGamma = deltaRangeCEFullGamma + gamma;
+						deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + oi* delta;
+						
+						if (delta >= 0.4f && delta <= 0.9f) {
+							dr49CEAvgIV = dr49CEAvgIV + curIv;
+							dr49Count++;
+						}
+						if (delta >= 0.1f && delta <= 0.6f) {
+							dr16CEAvgIV = dr16CEAvgIV + curIv;
+							dr16Count++;
+						}
 					}
 				}
-				rs.close();
-				//System.out.println("CE recCount "+recCount);
-				fileLogTelegramWriter.write("CE IVs " + logBuffer.toString());
-				
 				int countCETotal = fullcount;
 				int countCEOutlier = fullcount - recCount;
 				
@@ -495,8 +544,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
 				deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 				deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
-				deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores
-				
+				deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores				
 				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
 				
 				retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
@@ -511,32 +559,15 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
 				retMap.put("deltaRangeCEFullAvgIv", deltaRangeCEFullAvgIv);
 				retMap.put("deltaRangeHybridCEAvgIv",deltaRangeHybridCEAvgIv);
-				retMap.put("deltaRangeCEvolume1min", deltaRangeCEvolume1min);
 				retMap.put("deltaRangeHybridCEAvgGamma",deltaRangeHybridCEAvgGamma);
-				
 				retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
-				
 				retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
 				retMap.put("dr16CEAvgIV",dr16CEAvgIV!=0?dr16CEAvgIV/(float)dr16Count:0);
-				
 				retMap.put("countCETotal",(float) countCETotal);
 				retMap.put("countCEOutlier",(float) countCEOutlier);
 				retMap.put("ceDeltaOIWorth",ceDeltaOIWorth);
 				
-				
-				lowerDelta = -0.9f;
-				upperDelta = -0.1f;
-				
-				fetchSql = "select ltp, oi, iv, delta, vega, gamma, volume1min from nexcorio_option_snapshot where record_date = '" + postgresShortDateFormat.format(getCurrentTime())+ "'"
-						+ " AND trading_symbol LIKE '" + optionnamePrefix + "%PE'"
-						+ " AND delta >= " + lowerDelta
-						+ " AND delta <= " + upperDelta
-						+ " ORDER BY iv";
-				
-				fileLogTelegramWriter.write(fetchSql);
-				
-				rs = stmt.executeQuery(fetchSql);
-				
+				// Now PE
 				lastIvRead = 0f;
 				recCount = 0;
 				fullcount = 0;
@@ -555,57 +586,48 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				float deltaRangePEGammaOI = 0f;
 				float deltaRangePEFullDeltaOI = 0f;
 				float deltaRangePEvolume1min = 0f;
-				StringBuffer logBuffer2 = new StringBuffer();
 				
 				float dr49PEAvgIV = 0f;
 				dr49Count = 0;
 				float dr16PEAvgIV = 0f;
 				dr16Count = 0;
 				float peDeltaOIWorth = 0f;
-				while (rs.next()) {	
-					float curIv = rs.getFloat("iv");
-					float delta = Math.abs(rs.getFloat("delta"));
-					float ltp = rs.getFloat("ltp");
-					float oi = rs.getFloat("oi");				
-					float gamma = rs.getFloat("gamma");
-					float volume1min = rs.getFloat("volume1min");
-					if (lastIvRead<0.1f || curIv < lastIvRead +5f) {
-						//System.out.println("Include "+curIv);
-						logBuffer2.append( " {" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f)+"} ");
-						
-						deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
-						deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
-						peDeltaOIWorth = peDeltaOIWorth + oi*delta;
-						deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
-						deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
-						deltaRangePEAvgVega = deltaRangePEAvgVega + rs.getFloat("vega");
-						deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
-						deltaRangePEOI = deltaRangePEOI + oi;
-						deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
-						deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
-						lastIvRead = curIv; 
-						recCount++;
-					} else {
-						logBuffer.append( " [" + curIv+" D " + delta +" Worth " + (oi*ltp/10000000f) +"] ");
-					}
-					fullcount++;
-					deltaRangePEvolume1min = deltaRangePEvolume1min + volume1min;
-					deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
-					deltaRangePEFullGamma = deltaRangePEFullGamma + gamma;
-					deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + rs.getFloat("oi")* Math.abs(rs.getFloat("delta"));
-					if (delta >= 0.4f && delta <= 0.9f) {
-						dr49PEAvgIV = dr49PEAvgIV + curIv;
-						dr49Count++;
-					}
-					if (delta >= 0.1f && delta <= 0.6f) {
-						dr16PEAvgIV = dr16PEAvgIV + curIv;
-						dr16Count++;
+				
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());					
+					if (delta >= lowerDelta && delta <= upperDelta) {
+						float curIv = aGreek.getIv();						
+						float ltp = aGreek.getLtp();
+						float oi = aGreek.getOi();				
+						float gamma = aGreek.getGamma();
+						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+							deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
+							deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
+							peDeltaOIWorth = peDeltaOIWorth + oi*delta;
+							deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
+							deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
+							deltaRangePEAvgVega = deltaRangePEAvgVega + aGreek.getVega();
+							deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
+							deltaRangePEOI = deltaRangePEOI + oi;
+							deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
+							deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
+							lastIvRead = curIv; 
+							recCount++;
+						}
+						fullcount++;
+						deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
+						deltaRangePEFullGamma = deltaRangePEFullGamma + gamma;
+						deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + oi* delta;
+						if (delta >= 0.4f && delta <= 0.9f) {
+							dr49PEAvgIV = dr49PEAvgIV + curIv;
+							dr49Count++;
+						}
+						if (delta >= 0.1f && delta <= 0.6f) {
+							dr16PEAvgIV = dr16PEAvgIV + curIv;
+							dr16Count++;
+						}
 					}
 				}
-				rs.close();
-				//System.out.println("PE recCount "+recCount);
-				fileLogTelegramWriter.write("PE IVs " + logBuffer2.toString());
-				
 				int countPETotal = fullcount;
 				int countPEOutlier = fullcount - recCount;
 				
@@ -644,10 +666,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
 				retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
 				retMap.put("dr16PEAvgIV",dr16PEAvgIV!=0?dr16PEAvgIV/(float)dr16Count:0);
-				
 				retMap.put("countPETotal",(float) countPETotal);
 				retMap.put("countPEOutlier",(float) countPEOutlier);
-				
 				retMap.put("peDeltaOIWorth", peDeltaOIWorth);
 				
 				stmt.close();
@@ -661,7 +681,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					log.error(e);
 				}
 			}
-		
 		return retMap;
 	}
 	
@@ -777,10 +796,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ ", deltaRangeHybridCEAvgIv"
 						+ ", deltaRangeHybridPEAvgIv"
-						
-						+ ", deltaRangeCEvolume1min"
-						+ ", deltaRangePEvolume1min"
-						
+												
 						+ ", deltaRangeHybridCEAvgGamma"
 						+ ", deltaRangeHybridPEAvgGamma"
 						+ ", deltaRangeCEOutlierRatio"
@@ -883,9 +899,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridCEAvgIv")
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridPEAvgIv")
-						
-						+ " ," + deltaRangeGreeksDetails.get("deltaRangeCEvolume1min")
-						+ " ," + deltaRangeGreeksDetails.get("deltaRangePEvolume1min")
 						
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridCEAvgGamma")
 						+ " ," + deltaRangeGreeksDetails.get("deltaRangeHybridPEAvgGamma")
@@ -1008,7 +1021,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-07-30 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-05 09:17:00");
 		
 		
 	}
