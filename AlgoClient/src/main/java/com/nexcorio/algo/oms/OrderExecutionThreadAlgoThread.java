@@ -456,8 +456,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 							
 							String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
 							if (status.equals("FAILED")) {
-								TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + aOrder.getAlgoTag() + ": " 
-								+ aOrder.getOption_name() + " FAILED");
+								sendAlerts(aOrder.getAlgoTag(), aOrder.getOption_name());
 							}
 							aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 						}
@@ -495,6 +494,15 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			fileLogTelegramWriter.close();
 		} catch (Exception e) {			
 			log.error("Error"+e.getMessage(), e);
+		}
+	}
+	
+	private void sendAlerts(String algoTag, String tradingSymbol) {
+		try {
+			TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + algoTag + ": " + tradingSymbol + " FAILED");
+		} catch (Exception e) {			
+			e.printStackTrace();
+			log.error("Error in sendAlerts"+e.getMessage(), e);
 		}
 	}
 	
