@@ -23,6 +23,7 @@ import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.TelegramUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
@@ -664,6 +665,10 @@ public abstract class G3BaseClass extends BaseClass {
 				} catch (SQLException e) {
 					log.error(e);
 				}
+			}
+			if (this.placeActualOrder==true && this.exitThread == true) {
+				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X " + this.napAlgoId + ": " 
+						+ " Exit with PnL="+profit);
 			}
 		}
 	}
