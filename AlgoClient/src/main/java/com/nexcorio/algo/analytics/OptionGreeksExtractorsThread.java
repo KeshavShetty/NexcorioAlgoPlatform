@@ -145,6 +145,9 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	}
 
 	public OptionGreek calculateAndSaveOptionGreeks(String optionType, String optionName, double lastPrice, double underlyingValue, double strikePrice, double impliedVolatility, Date expDate, Date latestTickQuoteTime, Long fMainInstrument) {
+		Long startTime = System.currentTimeMillis();
+		Long beginTime = System.currentTimeMillis();
+		StringBuffer logStr = new StringBuffer();
 		//System.out.println("nseIdentifier="+nseIdentifier+" optionName="+optionName+" lastPrice="+lastPrice+" underlyingValue="+underlyingValue+" impliedVolatility="+impliedVolatility);
 		OptionGreek retVal = null;
 		Calendar cal = Calendar.getInstance();
@@ -176,9 +179,17 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		retVal.setLtp((float) lastPrice);
 		retVal.setOi(this.openIterest);
 		
-		long tradedVolume1minBack = getVolumeTradedMinBack(latestTickQuoteTime);
+		Long elapsedTime1 = System.currentTimeMillis();
+		logStr.append(", Time taken for BSOption=" +(elapsedTime1-beginTime));
+		beginTime = elapsedTime1;
 		
-		long volume1min = this.volumeTradedToday - tradedVolume1minBack;
+//		long tradedVolume1minBack = getVolumeTradedMinBack(latestTickQuoteTime);
+//		
+//		long volume1min = this.volumeTradedToday - tradedVolume1minBack;
+		
+		elapsedTime1 = System.currentTimeMillis();
+		logStr.append(", Time taken for volumeTradedToday=" +(elapsedTime1-beginTime));
+		beginTime = elapsedTime1;
 		
 		Connection conn = null;
 		try {
@@ -193,6 +204,10 @@ public class OptionGreeksExtractorsThread implements Runnable {
 					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 			log.debug(insertSql);
 			stmt.execute(insertSql);
+			
+			elapsedTime1 = System.currentTimeMillis();
+			logStr.append(", Time taken for INSERT nexcorio_option_greeks=" +(elapsedTime1-beginTime));
+			beginTime = elapsedTime1;
 			
 			Long snapshotId = null;
 			// get from cache first
@@ -210,14 +225,20 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				}
 				rs.close();
 				if(snapshotId!=null) KiteCache.snapshotIdCache.put(this.tradingSymbol, snapshotId);
+				
+				elapsedTime1 = System.currentTimeMillis();
+				logStr.append(", Time taken for fetch snapshotId=" +(elapsedTime1-beginTime));
+				beginTime = elapsedTime1;
 			} 
 			
 			if (snapshotId!=null) { // Already exist
 				String updateSql = "UPDATE nexcorio_option_snapshot set last_updated_time='" + postgresLongDateFormat.format(latestTickQuoteTime) + "', ltp=" + lastPrice + ", oi=" + this.openIterest  
-						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + ", volume1min=" + volume1min + " where id=" + snapshotId;
+						+", iv=" + (float)impliedVolatility +", delta=" + (float)delta+ ", vega=" + (float)vega+ ", theta=" + (float)theta+ ", gamma=" + (float)gamma + " where id=" + snapshotId;
 				log.debug(updateSql);
 				stmt.execute(updateSql);
-				
+				elapsedTime1 = System.currentTimeMillis();
+				logStr.append(", Time taken for UPDATE nexcorio_option_snapshot=" +(elapsedTime1-beginTime));
+				beginTime = elapsedTime1;
 			} else { // insert
 				insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, strike, last_updated_time, record_date, ltp, oi, iv, delta, vega, theta, gamma)"
 						+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + this.tradingSymbol+ "'," + strikePrice 
@@ -225,9 +246,17 @@ public class OptionGreeksExtractorsThread implements Runnable {
 						+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
 				log.debug(insertSql);
 				stmt.execute(insertSql);
+				elapsedTime1 = System.currentTimeMillis();
+				logStr.append(", Time taken for INSERT nexcorio_option_snapshot=" +(elapsedTime1-beginTime));
+				beginTime = elapsedTime1;
 			}
 			
 			stmt.close();
+			Long endTime = System.currentTimeMillis();
+			Long timeTaken = endTime-startTime;
+			if (timeTaken>500) {
+				log.error("2.0 Delay in calculateAndSaveOptionGreeks for " + tradingSymbol+" timeTaken="+timeTaken+ logStr.toString());
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			log.error("Error"+e.getMessage(), e);
