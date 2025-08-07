@@ -667,8 +667,8 @@ public abstract class G3BaseClass extends BaseClass {
 				}
 			}
 			if (this.placeActualOrder==true && this.exitThread == true) {
-				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X " + this.napAlgoId + ": " 
-						+ " Exit with PnL="+profit);
+				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
+						+ " Exit with PnL="+profit +"(Rs "+ (noOfLots*lotSize*profit) + ")");
 			}
 		}
 	}
