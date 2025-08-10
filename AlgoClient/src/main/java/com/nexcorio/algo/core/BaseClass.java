@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -58,6 +59,8 @@ public class BaseClass {
 	
 	protected SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	protected SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	
+	protected DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###,#####0.00");
 	
 	protected MainInstruments mainInstrument = null;
 	

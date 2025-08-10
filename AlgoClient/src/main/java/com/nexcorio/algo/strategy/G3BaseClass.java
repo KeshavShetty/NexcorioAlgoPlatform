@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -668,7 +669,7 @@ public abstract class G3BaseClass extends BaseClass {
 			}
 			if (this.placeActualOrder==true && this.exitThread == true) {
 				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
-						+ " Exit with PnL="+profit +"(Rs "+ (noOfLots*lotSize*profit) + ")");
+						+ " Exit with PnL="+CURRENCY_FORMAT.format(profit) +" ( Rs "+ CURRENCY_FORMAT.format((noOfLots*lotSize*profit)) + "/- )");
 			}
 		}
 	}
