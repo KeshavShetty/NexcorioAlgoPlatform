@@ -488,8 +488,21 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				float dr16CEAvgIV = 0f;
 				int dr16Count = 0;
 				
+				List<Float> dr16CEIvList = new ArrayList<Float>();
+				List<Float> dr49CEIvList = new ArrayList<Float>();
+				List<Float> dr46CEIvList = new ArrayList<Float>();
+				List<Float> dr4PlusCEIvList = new ArrayList<Float>();
+				List<Float> fullCEIvList = new ArrayList<Float>();
+				
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
+					fullCEIvList.add(aGreek.getIv());
+					
+					if (delta >= 0.1f && delta <= 0.6f) dr16CEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f && delta <= 0.9f) dr49CEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f && delta <= 0.6f) dr46CEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f ) dr4PlusCEIvList.add(aGreek.getIv());
+					
 					if (delta >= lowerDelta && delta <= upperDelta) {
 						
 						float curIv = aGreek.getIv();
@@ -567,6 +580,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("countCEOutlier",(float) countCEOutlier);
 				retMap.put("ceDeltaOIWorth",ceDeltaOIWorth);
 				
+				retMap.put("fullRangeCETotalIV",(float) fullCEIvList.stream().mapToDouble(d -> d).sum());
+				
+				retMap.put("dr16CETotalIV",(float) dr16CEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr49CETotalIV",(float) dr49CEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr46CETotalIV",(float) dr46CEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr4PlusCETotalIV",(float) dr4PlusCEIvList.stream().mapToDouble(d -> d).sum());
+				
 				// Now PE
 				lastIvRead = 0f;
 				recCount = 0;
@@ -593,8 +613,21 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				dr16Count = 0;
 				float peDeltaOIWorth = 0f;
 				
+				List<Float> dr16PEIvList = new ArrayList<Float>();
+				List<Float> dr49PEIvList = new ArrayList<Float>();
+				List<Float> dr46PEIvList = new ArrayList<Float>();
+				List<Float> dr4PlusPEIvList = new ArrayList<Float>();
+				List<Float> fullPEIvList = new ArrayList<Float>();
+				
 				for(OptionGreek aGreek: peOptionGreeks) {
-					float delta = Math.abs(aGreek.getDelta());					
+					float delta = Math.abs(aGreek.getDelta());
+					fullPEIvList.add(aGreek.getIv());
+					
+					if (delta >= 0.1f && delta <= 0.6f) dr16PEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f && delta <= 0.9f) dr49PEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f && delta <= 0.6f) dr46PEIvList.add(aGreek.getIv());
+					if (delta >= 0.4f ) dr4PlusPEIvList.add(aGreek.getIv());
+					
 					if (delta >= lowerDelta && delta <= upperDelta) {
 						float curIv = aGreek.getIv();						
 						float ltp = aGreek.getLtp();
@@ -669,6 +702,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("countPETotal",(float) countPETotal);
 				retMap.put("countPEOutlier",(float) countPEOutlier);
 				retMap.put("peDeltaOIWorth", peDeltaOIWorth);
+				
+				retMap.put("fullRangePETotalIV",(float) fullPEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr16PETotalIV",(float) dr16PEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr49PETotalIV",(float) dr49PEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr46PETotalIV",(float) dr46PEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("dr4PlusPETotalIV",(float) dr4PlusPEIvList.stream().mapToDouble(d -> d).sum());
 				
 				stmt.close();
 			} catch (Exception e) {
@@ -816,6 +855,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ ", ceDeltaOIWorth"
 						+ ", peDeltaOIWorth"
+						+ ", fullrangecetotaliv, fullrangepetotaliv, dr16CETotalIV, dr16PETotalIV, dr49CETotalIV, dr49PETotalIV, dr46CETotalIV, dr46PETotalIV, dr4PlusCETotalIV, dr4PlusPETotalIV"
 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -921,6 +961,21 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("ceDeltaOIWorth")
 						+ " ," + deltaRangeGreeksDetails.get("peDeltaOIWorth")
 						
+						+ " ," + deltaRangeGreeksDetails.get("fullRangeCETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("fullRangePETotalIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr16CETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr16PETotalIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr49CETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr49PETotalIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr46CETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr46PETotalIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr4PlusCETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr4PlusPETotalIV")
+						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1021,7 +1076,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-05 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-08 09:17:00");
 		
 		
 	}
