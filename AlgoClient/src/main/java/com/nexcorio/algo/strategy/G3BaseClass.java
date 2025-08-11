@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -668,8 +670,10 @@ public abstract class G3BaseClass extends BaseClass {
 				}
 			}
 			if (this.placeActualOrder==true && this.exitThread == true) {
+				com.ibm.icu.text.NumberFormat format = com.ibm.icu.text.NumberFormat.getCurrencyInstance(new Locale("en", "in"));
+			    
 				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
-						+ " Exit with PnL="+CURRENCY_FORMAT.format(profit) +" ( Rs "+ CURRENCY_FORMAT.format((noOfLots*lotSize*profit)) + "/- )");
+						+ " Exit with PnL="+CURRENCY_FORMAT.format(profit) +" ( "+ format.format((noOfLots*lotSize*profit)) + "/- )");
 			}
 		}
 	}

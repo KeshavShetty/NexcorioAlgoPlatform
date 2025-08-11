@@ -60,7 +60,7 @@ public class BaseClass {
 	protected SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	protected SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
-	protected DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,###,#####0.00");
+	protected DecimalFormat CURRENCY_FORMAT = new DecimalFormat("##,##,##,###.00"); // DecimalFormat("##,##,##,###.00"
 	
 	protected MainInstruments mainInstrument = null;
 	
