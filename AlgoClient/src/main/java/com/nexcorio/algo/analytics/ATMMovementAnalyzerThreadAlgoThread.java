@@ -493,7 +493,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> dr46CEIvList = new ArrayList<Float>();
 				List<Float> dr4PlusCEIvList = new ArrayList<Float>();
 				List<Float> fullCEIvList = new ArrayList<Float>();
-				
+				List<Float> outlierCEIvList = new ArrayList<Float>();
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullCEIvList.add(aGreek.getIv());
@@ -523,6 +523,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 							deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
 							lastIvRead = curIv; 
 							recCount++;
+						} else {
+							outlierCEIvList.add(curIv);
 						}
 						fullcount++;
 						deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
@@ -587,6 +589,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("dr46CETotalIV",(float) dr46CEIvList.stream().mapToDouble(d -> d).sum());
 				retMap.put("dr4PlusCETotalIV",(float) dr4PlusCEIvList.stream().mapToDouble(d -> d).sum());
 				
+				retMap.put("outlierCEMinIV", outlierCEIvList.size()>0?outlierCEIvList.get(0):0f);
+				retMap.put("outlierCEMaxIV", outlierCEIvList.size()>0?outlierCEIvList.get(outlierCEIvList.size()-1):0f);
+				retMap.put("outlierCETotalIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("outlierCEAvgIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+				retMap.put("outlierCEMedianIV", (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0) );
+				
 				// Now PE
 				lastIvRead = 0f;
 				recCount = 0;
@@ -618,7 +626,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> dr46PEIvList = new ArrayList<Float>();
 				List<Float> dr4PlusPEIvList = new ArrayList<Float>();
 				List<Float> fullPEIvList = new ArrayList<Float>();
-				
+				List<Float> outlierPEIvList = new ArrayList<Float>();
 				for(OptionGreek aGreek: peOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullPEIvList.add(aGreek.getIv());
@@ -646,6 +654,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 							deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
 							lastIvRead = curIv; 
 							recCount++;
+						} else {
+							outlierPEIvList.add(curIv);
 						}
 						fullcount++;
 						deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
@@ -708,6 +718,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("dr49PETotalIV",(float) dr49PEIvList.stream().mapToDouble(d -> d).sum());
 				retMap.put("dr46PETotalIV",(float) dr46PEIvList.stream().mapToDouble(d -> d).sum());
 				retMap.put("dr4PlusPETotalIV",(float) dr4PlusPEIvList.stream().mapToDouble(d -> d).sum());
+				
+				retMap.put("outlierPEMinIV", outlierPEIvList.size()>0?outlierPEIvList.get(0):0f);
+				retMap.put("outlierPEMaxIV", outlierPEIvList.size()>0?outlierPEIvList.get(outlierPEIvList.size()-1):0f);
+				retMap.put("outlierPETotalIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).sum());
+				retMap.put("outlierPEAvgIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+				retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
 				
 				stmt.close();
 			} catch (Exception e) {
@@ -856,7 +872,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", ceDeltaOIWorth"
 						+ ", peDeltaOIWorth"
 						+ ", fullrangecetotaliv, fullrangepetotaliv, dr16CETotalIV, dr16PETotalIV, dr49CETotalIV, dr49PETotalIV, dr46CETotalIV, dr46PETotalIV, dr4PlusCETotalIV, dr4PlusPETotalIV"
-
+						+ ", outlierCEMinIV, outlierPEMinIV, outlierCEMaxIV, outlierPEMaxIV, outlierCETotalIV, outlierPETotalIV, outlierCEAvgIV, outlierPEAvgIV, outlierCEMedianIV, outlierPEMedianIV" 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -976,6 +992,20 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("dr4PlusCETotalIV")
 						+ " ," + deltaRangeGreeksDetails.get("dr4PlusPETotalIV")
 						
+						+ " ," + deltaRangeGreeksDetails.get("outlierCEMinIV")
+						+ " ," + deltaRangeGreeksDetails.get("outlierPEMinIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("outlierCEMaxIV")
+						+ " ," + deltaRangeGreeksDetails.get("outlierPEMaxIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("outlierCETotalIV")
+						+ " ," + deltaRangeGreeksDetails.get("outlierPETotalIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("outlierCEAvgIV")
+						+ " ," + deltaRangeGreeksDetails.get("outlierPEAvgIV")
+						
+						+ " ," + deltaRangeGreeksDetails.get("outlierCEMedianIV")
+						+ " ," + deltaRangeGreeksDetails.get("outlierPEMedianIV")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1076,7 +1106,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-08 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-14 09:17:00");
 		
 		
 	}

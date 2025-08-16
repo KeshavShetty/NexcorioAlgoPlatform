@@ -1,0 +1,13 @@
+ALTER TABLE nexcorio_option_atm_movement_data 
+ADD COLUMN outlierCEMinIV REAL DEFAULT 0,
+ADD COLUMN outlierPEMinIV REAL DEFAULT 0,
+ADD COLUMN outlierCEMaxIV REAL DEFAULT 0,
+ADD COLUMN outlierPEMaxIV REAL DEFAULT 0,
+ADD COLUMN outlierCETotalIV REAL DEFAULT 0,
+ADD COLUMN outlierPETotalIV REAL DEFAULT 0,
+ADD COLUMN REAL outlierCEAvgIV DEFAULT 0,
+ADD COLUMN REAL outlierPEAvgIV DEFAULT 0,
+ADD COLUMN REAL outlierCEMedianIV DEFAULT 0,
+ADD COLUMN REAL outlierPEMedianIV DEFAULT 0;
+
+INSERT INTO db_versions VALUES ('0036', now(), 'Keshav', 'Additional column for ATM data', 'Schema');

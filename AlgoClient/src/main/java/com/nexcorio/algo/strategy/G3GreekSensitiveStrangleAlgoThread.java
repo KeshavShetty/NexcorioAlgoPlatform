@@ -92,6 +92,8 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 					totalGreekCurrent = (ceOptionGreeks!=null?Math.abs(ceOptionGreeks.getDelta()):0f) + (peOptionGreeks!=null?Math.abs(peOptionGreeks.getDelta()):0f);
 				} else if (this.greekname.equalsIgnoreCase("iv")) {
 					totalGreekCurrent = (ceOptionGreeks!=null?Math.abs(ceOptionGreeks.getIv()):0f) + (peOptionGreeks!=null?Math.abs(peOptionGreeks.getIv()):0f);
+				} else if (this.greekname.equalsIgnoreCase("theta")) {
+					totalGreekCurrent = (ceOptionGreeks!=null?Math.abs(ceOptionGreeks.getTheta()):0f) + (peOptionGreeks!=null?Math.abs(peOptionGreeks.getTheta()):0f);
 				}
 				
 				float changeinGreeksPercent =  totalGreekWhenFormed>0f? Math.abs( (totalGreekCurrent-totalGreekWhenFormed) )*100f/totalGreekWhenFormed:0f;
@@ -111,10 +113,13 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 					float changeinPEGreeksPercent =  0f;
 					if (this.greekname.equalsIgnoreCase("delta")) {
 						changeinCEGreeksPercent = ceGreekWhenStraddleFormed>0f? Math.abs( (ceOptionGreeks.getDelta()-ceGreekWhenStraddleFormed) )*100f/ceGreekWhenStraddleFormed:0f;
-						changeinPEGreeksPercent = peGreekWhenStraddleFormed>0f? Math.abs( (peOptionGreeks.getDelta()-peGreekWhenStraddleFormed) )*100f/peGreekWhenStraddleFormed:0f;
+						changeinPEGreeksPercent = peGreekWhenStraddleFormed>0f? Math.abs( (-peOptionGreeks.getDelta()-peGreekWhenStraddleFormed) )*100f/peGreekWhenStraddleFormed:0f;
 					} else if (this.greekname.equalsIgnoreCase("iv")) {
 						changeinCEGreeksPercent = ceGreekWhenStraddleFormed>0f? Math.abs( (ceOptionGreeks.getIv()-ceGreekWhenStraddleFormed) )*100f/ceGreekWhenStraddleFormed:0f;
 						changeinPEGreeksPercent = peGreekWhenStraddleFormed>0f? Math.abs( (peOptionGreeks.getIv()-peGreekWhenStraddleFormed) )*100f/peGreekWhenStraddleFormed:0f;
+					} else if (this.greekname.equalsIgnoreCase("theta")) {
+						changeinCEGreeksPercent = ceGreekWhenStraddleFormed>0f? Math.abs( (-ceOptionGreeks.getTheta()-ceGreekWhenStraddleFormed) )*100f/ceGreekWhenStraddleFormed:0f;
+						changeinPEGreeksPercent = peGreekWhenStraddleFormed>0f? Math.abs( (-peOptionGreeks.getTheta()-peGreekWhenStraddleFormed) )*100f/peGreekWhenStraddleFormed:0f;
 					}
 					if (changeinCEGreeksPercent > eachLegGreekDiffPct || changeinPEGreeksPercent > eachLegGreekDiffPct) {
 						fileLogTelegramWriter.write("Realigning changeinCEGreeksPercent="+changeinCEGreeksPercent+" changeinPEGreeksPercent="+changeinPEGreeksPercent);
@@ -195,6 +200,8 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 							ceGreekValue = Math.abs(ceOptionGreeks.getDelta());	
 						} else if (this.greekname.equalsIgnoreCase("iv")) {
 							ceGreekValue = ceOptionGreeks.getIv();	
+						} else if (this.greekname.equalsIgnoreCase("theta")) {
+							ceGreekValue = -ceOptionGreeks.getTheta();	
 						}
 					}
 					if (!peStraddleOptionName.equals("")) {
@@ -203,6 +210,8 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 							peGreekValue = Math.abs(peOptionGreeks.getDelta());	
 						} else if (this.greekname.equalsIgnoreCase("iv")) {
 							peGreekValue = peOptionGreeks.getIv();	
+						} else if (this.greekname.equalsIgnoreCase("theta")) {
+							peGreekValue = -peOptionGreeks.getTheta();	
 						}
 					}
 					totalGreekWhenFormed = ceGreekValue + peGreekValue;
