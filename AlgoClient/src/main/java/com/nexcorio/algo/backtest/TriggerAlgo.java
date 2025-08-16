@@ -62,17 +62,24 @@ public class TriggerAlgo {
 	}
 	
 	public static void main(String[] args) {
-		//Long algoId = 42L;
-//		triggerAlgo(55L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
-//		triggerAlgo(58L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+	
+		String forDate = "2025-06-01";
+		String toDate  = "2025-08-14";
 		
-		//triggerAlgo(185L, "2025-05-12 09:20:00", "2025-06-02 15:35:00");
-		//triggerAlgo(194L, "2025-06-02 09:20:00", "2025-06-02 09:46:00");
-		triggerAlgo(197L, "2025-06-06 09:20:00", "2025-06-06 09:46:00");
-		//triggerAlgo(185L, "2025-05-22 09:20:00", "2025-05-22 09:35:00");
-		//triggerAlgo(66L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
-//		triggerAlgo(63L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
-//		triggerAlgo(65L, "2025-04-01 09:20:00", "2025-04-25 09:20:00");
+		triggerAlgo(273L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		
+//		triggerAlgo(246L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(247L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(248L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(249L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(250L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(251L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(252L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(253L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(254L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(255L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(256L, forDate + " 09:20:00", toDate + " 09:21:00");
+//		triggerAlgo(257L, forDate + " 09:20:00", toDate + " 09:21:00");
 		
 	}
 	

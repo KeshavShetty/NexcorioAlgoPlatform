@@ -70,4 +70,8 @@ public class MultiDataSource {
         return terraceds.getConnection();
     }
     
+    public static Connection getLocalConnection() throws SQLException {
+        return terraceds.getConnection();
+    }
+    
 }

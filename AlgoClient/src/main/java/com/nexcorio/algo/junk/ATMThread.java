@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
@@ -62,10 +64,6 @@ public class ATMThread implements Runnable {
 	public void run() {
 		System.out.println("Run reached");
 		
-		SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-		
-		//fileLogTelegramWriter = new FileLogTelegramWriter("NIFTY", postgresLongDateFormat.format(recTimestamp)+"", null);
-		//fileLogTelegramWriter.write("Time="+ this.recTimestamp);
 		List<OptionGreek> ceOptionGreeks = new ArrayList<>();
 		List<OptionGreek> peOptionGreeks = new ArrayList<>();
 		for(String optionname:optionnames ) {
@@ -79,379 +77,287 @@ public class ATMThread implements Runnable {
 			}
 		}
 		
-		int upperBound5 = (int) (this.underlyingInstrumentLtp + 50*5);
-		int lowerBound5 = (int) (this.underlyingInstrumentLtp - 50*5);
-		
-		int upperBound10 = (int) (this.underlyingInstrumentLtp + 50*10);
-		int lowerBound10 = (int) (this.underlyingInstrumentLtp - 50*10);
-		
-		int upperBound20 = (int) (this.underlyingInstrumentLtp + 50*20);
-		int lowerBound20 = (int) (this.underlyingInstrumentLtp - 50*20);
-		
-		float selective5CeGamma = 0f;
-		float selective5PeGamma = 0f;
-		float selective5CeIV = 0f;
-		float selective5PeIV = 0f;
-		int selective5CECount = 0;
-		int selective5PECount = 0;
-		
-		float selective10CeGamma = 0f;
-		float selective10PeGamma = 0f;
-		float selective10CeIV = 0f;
-		float selective10PeIV = 0f;
-		int selective10CECount = 0;
-		int selective10PECount = 0;
-		
-		float selective20CeGamma = 0f;
-		float selective20PeGamma = 0f;
-		float selective20CeIV = 0f;
-		float selective20PeIV = 0f;
-		int selective20CECount = 0;
-		int selective20PECount = 0;
-		
 		Collections.sort(ceOptionGreeks, new SortbyIV());
 		Collections.sort(peOptionGreeks, new SortbyIV());
 		System.out.println("Sort done");
 		
-		float deltaRangeCEAvgLtp = 0f;
-		float deltaRangeCEAvgIv = 0f;
-		float deltaRangeCEAvgDelta = 0f;
-		float deltaRangeCEAvgGamma = 0f;
-		float deltaRangeCEAvgVega = 0f;
+		Map<String, Float> retMap = new HashMap<>();
+		
 		float lastIvRead = 0f;
 		int recCount = 0;
-		float deltaRangeCEDeltaOI = 0f;
-		float deltaRangeFullCEDeltaOI = 0f;
-		float deltaRangeCEGammaOI = 0f;
-		float deltaRangeCEDeltaProbabilityWorth = 0f;
+		int fullcount = 0;
+		float deltaRangeCEAvgLtp = 0f;
+		float deltaRangeCEAvgIv = 0f;
 		float deltaRangeCEFullAvgIv = 0f;
+		float deltaRangeCEAvgDelta = 0f;
+		float deltaRangeCEAvgGamma = 0f;
 		float deltaRangeCEFullGamma = 0f;
-		int fullCount = 0;
-		float drGammFilterdCEAvgIv = 0f;
-		int gammaFilteredRecCount = 0;
+		float deltaRangeCEAvgVega = 0f;
+		float deltaRangeCEWorth = 0f;
+		float deltaRangeCEOI = 0f;
+		float deltaRangeCEDeltaOI = 0f;
+		float deltaRangeCEFullDeltaOI = 0f;
+		float deltaRangeCEGammaOI = 0f;
+		float dr49CEAvgIV = 0f;
+		int dr49Count = 0;
+		float ceDeltaOIWorth = 0f;
 		
-		float deltaRangeCEAvgIvPlus2 = 0f;
-		int plus2Count = 0;
-		int outlierAdded = 0;
-		float ceDeltaOIWorth =0f;
+		float dr16CEAvgIV = 0f;
+		int dr16Count = 0;
+
+		float lowerDelta = 0.1f;
+		float upperDelta = 0.9f;
+		
+		List<Float> fullCEIvList = new ArrayList<Float>();
+		
+		List<Float> dr16CEIvList = new ArrayList<Float>();
+		List<Float> dr49CEIvList = new ArrayList<Float>();
+		List<Float> dr46CEIvList = new ArrayList<Float>();
+		List<Float> dr4PlusCEIvList = new ArrayList<Float>();
+		List<Float> outlierCEIvList = new ArrayList<Float>();
+		
 		for(OptionGreek aGreek: ceOptionGreeks) {
-			int optionStrike = getStrike(aGreek.getTradingSymbol());
+			float delta = Math.abs(aGreek.getDelta());
+			fullCEIvList.add(aGreek.getIv());
 			
-			if (optionStrike <= upperBound5 && optionStrike >= lowerBound5) {
-				selective5CeGamma = selective5CeGamma + aGreek.getGamma();
-				selective5CeIV = selective5CeGamma + aGreek.getIv();
-				selective5CECount++;
-			}
+			if (delta >= 0.1f && delta <= 0.6f) dr16CEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f && delta <= 0.9f) dr49CEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f && delta <= 0.6f) dr46CEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f ) dr4PlusCEIvList.add(aGreek.getIv());
 			
-			if (optionStrike <= upperBound10 && optionStrike >= lowerBound10) {
-				selective10CeGamma = selective10CeGamma + aGreek.getGamma();
-				selective10CeIV = selective10CeGamma + aGreek.getIv();
-				selective10CECount++;
-			}
-			
-			if (optionStrike <= upperBound20 && optionStrike >= lowerBound20) {
-				selective20CeGamma = selective20CeGamma + aGreek.getGamma();
-				selective20CeIV = selective20CeGamma + aGreek.getIv();
-				selective20CECount++;
-			}
-			
-			if (aGreek.getDelta() >= 0.1f && aGreek.getDelta() <= 0.9f) {
-				if (lastIvRead<0.1f || aGreek.getIv() < lastIvRead +5f) {
-					//System.out.println("Include "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
-					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + aGreek.getLtp();
-					deltaRangeCEAvgIv = deltaRangeCEAvgIv + aGreek.getIv();
-					ceDeltaOIWorth = ceDeltaOIWorth + aGreek.getOi()*aGreek.getDelta();	
-					deltaRangeCEAvgIvPlus2 = deltaRangeCEAvgIvPlus2 + aGreek.getIv();
-					plus2Count++;
-					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + Math.abs(aGreek.getDelta());
-					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + aGreek.getGamma();
+			if (delta >= lowerDelta && delta <= upperDelta) {
+				
+				float curIv = aGreek.getIv();
+				float ltp = aGreek.getLtp();
+				float oi = aGreek.getOi();
+				float gamma = aGreek.getGamma();
+				
+				if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
+					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
+					ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
+					deltaRangeCEAvgDelta = deltaRangeCEAvgDelta + delta;
+					deltaRangeCEAvgGamma = deltaRangeCEAvgGamma + gamma;
 					deltaRangeCEAvgVega = deltaRangeCEAvgVega + aGreek.getVega();
-					
-					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());		
-					
-					deltaRangeCEGammaOI = deltaRangeCEGammaOI + aGreek.getOi()*Math.abs(aGreek.getGamma());
-					
-					deltaRangeCEDeltaProbabilityWorth = deltaRangeCEDeltaProbabilityWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());
-					lastIvRead = aGreek.getIv(); 
+					deltaRangeCEWorth = deltaRangeCEWorth + oi*ltp;
+					deltaRangeCEOI = deltaRangeCEOI + oi;
+					deltaRangeCEDeltaOI = deltaRangeCEDeltaOI + oi*delta;
+					deltaRangeCEGammaOI = deltaRangeCEGammaOI + oi*gamma;
+					lastIvRead = curIv; 
 					recCount++;
 				} else {
-					//System.out.println("Skip "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
-					if (outlierAdded<4) {
-						deltaRangeCEAvgIvPlus2 = deltaRangeCEAvgIvPlus2 + aGreek.getIv();
-						plus2Count++;
-						outlierAdded++;
-					}
+					outlierCEIvList.add(curIv);
 				}
-				fullCount++;
-				deltaRangeCEFullGamma = deltaRangeCEFullGamma + aGreek.getGamma();
-				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + aGreek.getIv();
-				deltaRangeFullCEDeltaOI = deltaRangeFullCEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
-				if (aGreek.getGamma() > 0.0005f) {
-					drGammFilterdCEAvgIv = drGammFilterdCEAvgIv + aGreek.getIv();
-					gammaFilteredRecCount++;
+				fullcount++;
+				deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv + curIv;
+				deltaRangeCEFullGamma = deltaRangeCEFullGamma + gamma;
+				deltaRangeCEFullDeltaOI = deltaRangeCEFullDeltaOI + oi* delta;
+				
+				if (delta >= 0.4f && delta <= 0.9f) {
+					dr49CEAvgIV = dr49CEAvgIV + curIv;
+					dr49Count++;
+				}
+				if (delta >= 0.1f && delta <= 0.6f) {
+					dr16CEAvgIV = dr16CEAvgIV + curIv;
+					dr16Count++;
 				}
 			}
 		}
-		deltaRangeCEAvgIvPlus2 = deltaRangeCEAvgIvPlus2/(float)plus2Count;
-		
-		int countCETotal = fullCount;
-		int countCEOutlier = fullCount - recCount;
+		int countCETotal = fullcount;
+		int countCEOutlier = fullcount - recCount;
 		
 		float deltaRangeHybridCEAvgIv = 0f;
 		float deltaRangeHybridCEAvgGamma = 0f;
-		if ((float)recCount/(float)fullCount < 0.65f) {
-			deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullCount;
-			deltaRangeHybridCEAvgGamma = deltaRangeCEFullGamma/(float)fullCount;
+		if ((float)recCount/(float)fullcount < 0.65f) {				
+			deltaRangeHybridCEAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
+			deltaRangeHybridCEAvgGamma = deltaRangeCEFullGamma/(float)fullcount;
 		} else {
 			deltaRangeHybridCEAvgIv = deltaRangeCEAvgIv/(float)recCount;
 			deltaRangeHybridCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 		}
-		float deltaRangeCEOutlierRatio = (float)fullCount/(float)recCount;
 		
 		deltaRangeCEAvgLtp = deltaRangeCEAvgLtp/(float)recCount;
 		deltaRangeCEAvgIv  = deltaRangeCEAvgIv/(float)recCount;
 		deltaRangeCEAvgDelta =  deltaRangeCEAvgDelta/(float)recCount;
 		deltaRangeCEAvgGamma = deltaRangeCEAvgGamma/(float)recCount;
 		deltaRangeCEAvgVega = deltaRangeCEAvgVega/(float)recCount;
-		deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullCount;
+		deltaRangeCEWorth = deltaRangeCEWorth/10000000f; // in Crores				
+		deltaRangeCEFullAvgIv = deltaRangeCEFullAvgIv/(float)fullcount;
 		
-		selective5CeGamma = selective5CECount!=0?selective5CeGamma/selective5CECount:0;
-		selective5CeIV = selective5CECount!=0?selective5CeIV/selective5CECount:0;
+		retMap.put("deltaRangeCEAvgLtp", deltaRangeCEAvgLtp);
+		retMap.put("deltaRangeCEAvgIv", deltaRangeCEAvgIv);
+		retMap.put("deltaRangeCEAvgDelta", deltaRangeCEAvgDelta);
+		retMap.put("deltaRangeCEAvgGamma", deltaRangeCEAvgGamma);
+		retMap.put("deltaRangeCEAvgVega", deltaRangeCEAvgVega);
+		retMap.put("deltaRangeCEWorth", deltaRangeCEWorth);
+		retMap.put("deltaRangeCEOI", deltaRangeCEOI/10000000f);
+		retMap.put("deltaRangeCEDeltaOI", deltaRangeCEDeltaOI/10000000f);
+		retMap.put("deltaRangeCEFullDeltaOI", deltaRangeCEFullDeltaOI/10000000f);
+		retMap.put("deltaRangeCEGammaOI", deltaRangeCEGammaOI);
+		retMap.put("deltaRangeCEFullAvgIv", deltaRangeCEFullAvgIv);
+		retMap.put("deltaRangeHybridCEAvgIv",deltaRangeHybridCEAvgIv);
+		retMap.put("deltaRangeHybridCEAvgGamma",deltaRangeHybridCEAvgGamma);
+		retMap.put("deltaRangeCEOutlierRatio", (float)fullcount/(float)recCount);
+		retMap.put("dr49CEAvgIV",dr49CEAvgIV!=0?dr49CEAvgIV/(float)dr49Count:0);
+		retMap.put("dr16CEAvgIV",dr16CEAvgIV!=0?dr16CEAvgIV/(float)dr16Count:0);
+		retMap.put("countCETotal",(float) countCETotal);
+		retMap.put("countCEOutlier",(float) countCEOutlier);
+		retMap.put("ceDeltaOIWorth",ceDeltaOIWorth);
 		
-		selective10CeGamma = selective10CECount!=0?selective10CeGamma/selective10CECount:0;
-		selective10CeIV = selective10CECount!=0?selective10CeIV/selective10CECount:0;
+		retMap.put("fullRangeCETotalIV",(float) fullCEIvList.stream().mapToDouble(d -> d).sum());
 		
-		selective20CeGamma = selective20CECount!=0?selective20CeGamma/selective20CECount:0;
-		selective20CeIV = selective20CECount!=0?selective20CeIV/selective20CECount:0;
+		retMap.put("dr16CETotalIV",(float) dr16CEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr49CETotalIV",(float) dr49CEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr46CETotalIV",(float) dr46CEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr4PlusCETotalIV",(float) dr4PlusCEIvList.stream().mapToDouble(d -> d).sum());
 		
-		drGammFilterdCEAvgIv = drGammFilterdCEAvgIv/(float)gammaFilteredRecCount;
+		retMap.put("outlierCEMinIV", outlierCEIvList.size()>0?outlierCEIvList.get(0):0f);
+		retMap.put("outlierCEMaxIV", outlierCEIvList.size()>0?outlierCEIvList.get(outlierCEIvList.size()-1):0f);
+		retMap.put("outlierCETotalIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("outlierCEAvgIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+		retMap.put("outlierCEMedianIV", (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0) );
 		
+		// Now PE
+		lastIvRead = 0f;
+		recCount = 0;
+		fullcount = 0;
 		float deltaRangePEAvgLtp = 0f;
 		float deltaRangePEAvgIv = 0f;
+		
+		float deltaRangePEFullAvgIv = 0f;
+		float deltaRangePEFullGamma = 0f;
 		float deltaRangePEAvgDelta = 0f;
 		float deltaRangePEAvgGamma = 0f;
 		float deltaRangePEAvgVega = 0f;
-		lastIvRead = 0f;
-		recCount = 0;
+		float deltaRangePEWorth = 0f;
+		float deltaRangePEOI = 0f;
+		
 		float deltaRangePEDeltaOI = 0f;
-		float deltaRangeFullPEDeltaOI = 0f;
 		float deltaRangePEGammaOI = 0f;
-		float deltaRangePEFullAvgIv=0f;
-		float deltaRangePEFullGamma = 0f;
-		float deltaRangePEDeltaProbabilityWorth = 0f;
-		fullCount = 0;
-		gammaFilteredRecCount=0;
-		float drGammFilterdPEAvgIv = 0f;
-		float deltaRangePEAvgIvPlus2 = 0f;
-		outlierAdded = 0;
-		plus2Count = 0;
+		float deltaRangePEFullDeltaOI = 0f;
+		float deltaRangePEvolume1min = 0f;
+		
+		float dr49PEAvgIV = 0f;
+		dr49Count = 0;
+		float dr16PEAvgIV = 0f;
+		dr16Count = 0;
 		float peDeltaOIWorth = 0f;
+		
+		List<Float> fullPEIvList = new ArrayList<Float>();
+
+		List<Float> dr16PEIvList = new ArrayList<Float>();
+		List<Float> dr49PEIvList = new ArrayList<Float>();
+		List<Float> dr46PEIvList = new ArrayList<Float>();
+		List<Float> dr4PlusPEIvList = new ArrayList<Float>();
+		
+		List<Float> outlierPEIvList = new ArrayList<Float>();
+		
 		for(OptionGreek aGreek: peOptionGreeks) {
-			int optionStrike = getStrike(aGreek.getTradingSymbol());
+			float delta = Math.abs(aGreek.getDelta());		
+			fullPEIvList.add(aGreek.getIv());
 			
-			if (optionStrike <= upperBound5 && optionStrike >= lowerBound5) {
-				selective5PeGamma = selective5PeGamma + aGreek.getGamma();
-				selective5PeIV = selective5PeGamma + aGreek.getIv();
-				selective5PECount++;
-			}
+			if (delta >= 0.1f && delta <= 0.6f) dr16PEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f && delta <= 0.9f) dr49PEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f && delta <= 0.6f) dr46PEIvList.add(aGreek.getIv());
+			if (delta >= 0.4f ) dr4PlusPEIvList.add(aGreek.getIv());
 			
-			if (optionStrike <= upperBound10 && optionStrike >= lowerBound10) {
-				selective10PeGamma = selective10PeGamma + aGreek.getGamma();
-				selective10PeIV = selective10PeGamma + aGreek.getIv();
-				selective10PECount++;
-			}
-			
-			if (optionStrike <= upperBound20 && optionStrike >= lowerBound20) {
-				selective20PeGamma = selective20PeGamma + aGreek.getGamma();
-				selective20PeIV = selective20PeGamma + aGreek.getIv();
-				selective20PECount++;
-			}
-			
-			if (aGreek.getDelta() >= -0.9f && aGreek.getDelta() <= -0.1f) {
-				if (lastIvRead<0.1f || aGreek.getIv() < lastIvRead +5f) {
-					//System.out.println("Include "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
-					deltaRangePEAvgLtp = deltaRangePEAvgLtp + aGreek.getLtp();
-					deltaRangePEAvgIv = deltaRangePEAvgIv + aGreek.getIv();
-					peDeltaOIWorth = peDeltaOIWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());
-					deltaRangePEAvgIvPlus2 = deltaRangePEAvgIvPlus2 + aGreek.getIv();
-					plus2Count++;
-					deltaRangePEAvgDelta = deltaRangePEAvgDelta + Math.abs(aGreek.getDelta());
-					deltaRangePEAvgGamma = deltaRangePEAvgGamma + aGreek.getGamma();
+			if (delta >= lowerDelta && delta <= upperDelta) {
+				float curIv = aGreek.getIv();						
+				float ltp = aGreek.getLtp();
+				float oi = aGreek.getOi();				
+				float gamma = aGreek.getGamma();
+				if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
+					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
+					peDeltaOIWorth = peDeltaOIWorth + oi*delta;
+					deltaRangePEAvgDelta = deltaRangePEAvgDelta + delta;
+					deltaRangePEAvgGamma = deltaRangePEAvgGamma + gamma;
 					deltaRangePEAvgVega = deltaRangePEAvgVega + aGreek.getVega();
-					deltaRangePEDeltaOI = deltaRangePEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
-					
-					deltaRangePEGammaOI = deltaRangePEGammaOI + aGreek.getOi()*Math.abs(aGreek.getGamma());
-					deltaRangePEDeltaProbabilityWorth = deltaRangePEDeltaProbabilityWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());
-					lastIvRead = aGreek.getIv();
+					deltaRangePEWorth = deltaRangePEWorth + oi*ltp;
+					deltaRangePEOI = deltaRangePEOI + oi;
+					deltaRangePEDeltaOI = deltaRangePEDeltaOI + oi*delta;
+					deltaRangePEGammaOI = deltaRangePEGammaOI + oi*gamma;
+					lastIvRead = curIv; 
 					recCount++;
-				}  else {
-					//System.out.println("Skip "+aGreek.getTradingSymbol()+" iv"+aGreek.getIv());
-					if (outlierAdded<4) {
-						deltaRangePEAvgIvPlus2 = deltaRangePEAvgIvPlus2 + aGreek.getIv();
-						plus2Count++;
-						outlierAdded++;
-					}
+				} else {
+					outlierPEIvList.add(curIv);
 				}
-				fullCount++;
-				deltaRangePEFullGamma = deltaRangePEFullGamma + aGreek.getGamma();
-				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + aGreek.getIv();
-				deltaRangeFullPEDeltaOI = deltaRangeFullPEDeltaOI + aGreek.getOi()*Math.abs(aGreek.getDelta());
-				if (aGreek.getGamma() > 0.0005f) {
-					drGammFilterdPEAvgIv = drGammFilterdPEAvgIv + aGreek.getIv();
-					gammaFilteredRecCount++;
+				fullcount++;
+				deltaRangePEFullAvgIv = deltaRangePEFullAvgIv + curIv;
+				deltaRangePEFullGamma = deltaRangePEFullGamma + gamma;
+				deltaRangePEFullDeltaOI = deltaRangePEFullDeltaOI + oi* delta;
+				if (delta >= 0.4f && delta <= 0.9f) {
+					dr49PEAvgIV = dr49PEAvgIV + curIv;
+					dr49Count++;
+				}
+				if (delta >= 0.1f && delta <= 0.6f) {
+					dr16PEAvgIV = dr16PEAvgIV + curIv;
+					dr16Count++;
 				}
 			}
-			
 		}
-		deltaRangePEAvgIvPlus2 = deltaRangePEAvgIvPlus2 /(float) plus2Count;
-		int countPETotal = fullCount;
-		int countPEOutlier = fullCount - recCount;
+		int countPETotal = fullcount;
+		int countPEOutlier = fullcount - recCount;
 		
 		float deltaRangeHybridPEAvgIv = 0f;
 		float deltaRangeHybridPEAvgGamma = 0f;
-		if ((float)recCount/(float)fullCount < 0.65f) {
-			deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullCount;
-			deltaRangeHybridPEAvgGamma = deltaRangePEFullGamma/(float)fullCount;
+		if ((float)recCount/(float)fullcount < 0.65f) {
+			deltaRangeHybridPEAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
+			deltaRangeHybridPEAvgGamma = deltaRangePEFullGamma/(float)fullcount;
 		} else {
 			deltaRangeHybridPEAvgIv = deltaRangePEAvgIv/(float)recCount;
 			deltaRangeHybridPEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
 		}
-		float deltaRangePEOutlierRatio = (float)fullCount/(float)recCount;
-		
 		
 		deltaRangePEAvgLtp = deltaRangePEAvgLtp/(float)recCount;
 		deltaRangePEAvgIv  = deltaRangePEAvgIv/(float)recCount;
 		deltaRangePEAvgDelta =  deltaRangePEAvgDelta/(float)recCount;
 		deltaRangePEAvgGamma = deltaRangePEAvgGamma/(float)recCount;
 		deltaRangePEAvgVega = deltaRangePEAvgVega/(float)recCount;
-		deltaRangePEFullAvgIv = deltaRangePEFullAvgIv/(float)fullCount;
+		deltaRangePEWorth = deltaRangePEWorth/10000000f; // in Crores
+		deltaRangePEFullAvgIv = deltaRangePEFullAvgIv/(float)fullcount;
 		
-		selective5PeGamma = selective5PECount!=0?selective5PeGamma/selective5PECount:0;
-		selective5PeIV = selective5PECount!=0?selective5PeIV/selective5PECount:0;
-		
-		selective10PeGamma = selective10PECount!=0?selective10PeGamma/selective10PECount:0;
-		selective10PeIV = selective10PECount!=0?selective10PeIV/selective10PECount:0;
-		
-		selective20PeGamma = selective20PECount!=0?selective20PeGamma/selective20PECount:0;
-		selective20PeIV = selective20PECount!=0?selective20PeIV/selective20PECount:0;
-		
-		drGammFilterdPEAvgIv = drGammFilterdPEAvgIv/(float)gammaFilteredRecCount;
-
-		int entryCount = 0;		
-		float dr49CEAvgIv = 0f;		
-		float dr37CEAvgGamma = 0f;
-		int dr37Count =0;
-		for(OptionGreek aGreek: ceOptionGreeks) {
-			
-			if (aGreek.getDelta() >= 0.4f && aGreek.getDelta() <= 0.9f) {
-				//fileLogTelegramWriter.write(aGreek.getTradingSymbol()+" delta="+ aGreek.getDelta()+" IV=" + aGreek.getIv()+" OI(100s)="+aGreek.getOi()/100f+" ltp="+aGreek.getLtp()+" worth(cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-				dr49CEAvgIv = dr49CEAvgIv + aGreek.getIv();
-				entryCount++;
-			}
-			if (aGreek.getDelta() >= 0.4f && aGreek.getDelta() <= 0.9f) {
-				dr37CEAvgGamma = dr37CEAvgGamma + aGreek.getGamma();
-				dr37Count++;
-			}
-		}
-		dr49CEAvgIv = entryCount>0?dr49CEAvgIv/(float) entryCount:0f;
-		dr37CEAvgGamma = dr37CEAvgGamma>0?dr37CEAvgGamma/(float) dr37Count:0f;
-		
-		//fileLogTelegramWriter.write("===========================================================================");
-		entryCount = 0;		
-		float dr49PEAvgIv = 0f;	
-		float dr37PEAvgGamma = 0f;
-		dr37Count =0;
-		for(OptionGreek aGreek: peOptionGreeks) {
-			
-			if (aGreek.getDelta() >= -0.9f && aGreek.getDelta() <= -0.4f) {
-				//fileLogTelegramWriter.write(aGreek.getTradingSymbol()+" delta="+ aGreek.getDelta()+" IV=" + aGreek.getIv()+" OI(100s)="+aGreek.getOi()/100f+" ltp="+aGreek.getLtp()+" worth(cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-				dr49PEAvgIv = dr49PEAvgIv + aGreek.getIv();
-				entryCount++;
-			}
-			if (aGreek.getDelta() >= -0.9f && aGreek.getDelta() <= -0.4f) {
-				dr37PEAvgGamma = dr37PEAvgGamma + aGreek.getGamma();
-				dr37Count++;
-			}
-		}
-		dr49PEAvgIv = entryCount>0?dr49PEAvgIv/(float) entryCount:0f;
-		dr37PEAvgGamma = dr37PEAvgGamma>0?dr37PEAvgGamma/(float) dr37Count:0f;
-		
-		entryCount = 0;		
-		float dr16CEAvgIv = 0f;		
-		for(OptionGreek aGreek: ceOptionGreeks) {
-			if (aGreek.getDelta() >= 0.1f && aGreek.getDelta() <= 0.6f) {
-				dr16CEAvgIv = dr16CEAvgIv + aGreek.getIv();
-				entryCount++;
-			}
-		}
-		dr16CEAvgIv = entryCount>0?dr16CEAvgIv/(float) entryCount:0f;
-		
-		entryCount = 0;		
-		float dr16PEAvgIv = 0f;		
-		for(OptionGreek aGreek: peOptionGreeks) {
-			if (aGreek.getDelta() >= -0.6f && aGreek.getDelta() <= -0.1f) {
-				dr16PEAvgIv = dr16PEAvgIv + aGreek.getIv();
-				entryCount++;
-			}
-		}
-		dr16PEAvgIv = entryCount>0?dr16PEAvgIv/(float) entryCount:0f;
-		
-		//fileLogTelegramWriter.write("dr49CEAvgIv="+dr49CEAvgIv);
-		//fileLogTelegramWriter.write("dr49PEAvgIv="+dr49PEAvgIv);
+		retMap.put("deltaRangePEAvgLtp", deltaRangePEAvgLtp);
+		retMap.put("deltaRangePEAvgIv", deltaRangePEAvgIv);
+		retMap.put("deltaRangePEAvgDelta", deltaRangePEAvgDelta);
+		retMap.put("deltaRangePEAvgGamma", deltaRangePEAvgGamma);
+		retMap.put("deltaRangePEAvgVega", deltaRangePEAvgVega);
+		retMap.put("deltaRangePEWorth", deltaRangePEWorth);
+		retMap.put("deltaRangePEOI", deltaRangePEOI/10000000f);
+		retMap.put("deltaRangePEDeltaOI", deltaRangePEDeltaOI/10000000f);
+		retMap.put("deltaRangePEFullDeltaOI", deltaRangePEFullDeltaOI/10000000f);
+		retMap.put("deltaRangePEGammaOI", deltaRangePEGammaOI);
+		retMap.put("deltaRangePEFullAvgIv", deltaRangePEFullAvgIv);
+		retMap.put("deltaRangeHybridPEAvgIv", deltaRangeHybridPEAvgIv);
+		retMap.put("deltaRangePEvolume1min", deltaRangePEvolume1min);
+		retMap.put("deltaRangeHybridPEAvgGamma",deltaRangeHybridPEAvgGamma);
+		retMap.put("deltaRangePEOutlierRatio", (float)fullcount/(float)recCount);
+		retMap.put("dr49PEAvgIV",dr49PEAvgIV!=0?dr49PEAvgIV/(float)dr49Count:0);
+		retMap.put("dr16PEAvgIV",dr16PEAvgIV!=0?dr16PEAvgIV/(float)dr16Count:0);
+		retMap.put("countPETotal",(float) countPETotal);
+		retMap.put("countPEOutlier",(float) countPEOutlier);
+		retMap.put("peDeltaOIWorth", peDeltaOIWorth);
 		
 		
-		Collections.sort(ceOptionGreeks, new SortbyWorthDesc());
-		Collections.sort(peOptionGreeks, new SortbyWorthDesc());
+		retMap.put("fullRangePETotalIV",(float) fullPEIvList.stream().mapToDouble(d -> d).sum());
 		
-//		float ceDeltaOIWorth = 0f;
-//		int recCounted = 0;
-//		for(OptionGreek aGreek: ceOptionGreeks) {
-//			
-//			if (aGreek.getDelta() >= 0.1f && aGreek.getDelta() <= 0.6f) {
-//				//fileLogTelegramWriter.write(aGreek.getDelta() + " OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-//				if (recCounted<100) {				 
-//					ceDeltaOIWorth = ceDeltaOIWorth + aGreek.getOi()*aGreek.getDelta();		
-//					recCounted++;
-//				}	
-//			}
-//			
-//		}
-//		float peDeltaOIWorth = 0f;
-//		recCounted = 0;
-//		for(OptionGreek aGreek: peOptionGreeks) {
-//			
-//			if (aGreek.getDelta() >= -0.6f && aGreek.getDelta() <= -0.1f) {
-//				//fileLogTelegramWriter.write(aGreek.getDelta() +" OI Worth(Cr)="+aGreek.getOi()*aGreek.getLtp()/10000000f);
-//				if (recCounted<100) {
-//					peDeltaOIWorth = peDeltaOIWorth + aGreek.getOi()*Math.abs(aGreek.getDelta());		
-//					recCounted++;
-//				}
-//			}
-//		}
-		System.out.println("Sort done");
+		retMap.put("dr16PETotalIV",(float) dr16PEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr49PETotalIV",(float) dr49PEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr46PETotalIV",(float) dr46PEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("dr4PlusPETotalIV",(float) dr4PlusPEIvList.stream().mapToDouble(d -> d).sum());
 		
+		retMap.put("outlierPEMinIV", outlierPEIvList.size()>0?outlierPEIvList.get(0):0f);
+		retMap.put("outlierPEMaxIV", outlierPEIvList.size()>0?outlierPEIvList.get(outlierPEIvList.size()-1):0f);
+		retMap.put("outlierPETotalIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).sum());
+		retMap.put("outlierPEAvgIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+		retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
 		
-		saveGreek(selective5CeGamma, selective5CeIV, selective10CeGamma, selective10CeIV, selective20CeGamma, selective20CeIV,
-				selective5PeGamma, selective5PeIV, selective10PeGamma, selective10PeIV, selective20PeGamma, selective20PeIV,
-				deltaRangeCEAvgLtp, deltaRangeCEAvgIv, deltaRangeCEAvgDelta, deltaRangeCEAvgGamma, deltaRangeCEAvgVega,
-				deltaRangePEAvgLtp, deltaRangePEAvgIv, deltaRangePEAvgDelta, deltaRangePEAvgGamma, deltaRangePEAvgVega, deltaRangeCEDeltaOI, deltaRangePEDeltaOI,deltaRangeFullCEDeltaOI, deltaRangeFullPEDeltaOI,
-				deltaRangeCEGammaOI, deltaRangePEGammaOI, deltaRangeCEFullAvgIv, deltaRangePEFullAvgIv, deltaRangeHybridCEAvgIv, deltaRangeHybridPEAvgIv,
-				deltaRangeHybridCEAvgGamma, deltaRangeHybridPEAvgGamma, deltaRangeCEOutlierRatio, deltaRangePEOutlierRatio, deltaRangeCEDeltaProbabilityWorth, deltaRangePEDeltaProbabilityWorth,
-				dr49CEAvgIv, dr49PEAvgIv, countCETotal, countCEOutlier, countPETotal, countPEOutlier, dr16CEAvgIv, dr16PEAvgIv, dr37CEAvgGamma, dr37PEAvgGamma, ceDeltaOIWorth, peDeltaOIWorth, deltaRangeCEAvgIvPlus2, deltaRangePEAvgIvPlus2);
+		saveGreek(retMap);
 		
 		//fileLogTelegramWriter.close();
 	}
 
-	private void saveGreek(float selective5CeGamma, float selective5CeIV, float selective10CeGamma, float selective10CeIV, float selective20CeGamma, float selective20CeIV,
-			float selective5PeGamma, float selective5PeIV, float selective10PeGamma, float selective10PeIV, float selective20PeGamma, float selective20PeIV,
-			float deltaRangeCEAvgLtp, float deltaRangeCEAvgIv, float deltaRangeCEAvgDelta, float deltaRangeCEAvgGamma, float deltaRangeCEAvgVega,
-			float deltaRangePEAvgLtp, float deltaRangePEAvgIv, float deltaRangePEAvgDelta, float deltaRangePEAvgGamma, float deltaRangePEAvgVega,
-			float deltaRangeCEDeltaOI, float deltaRangePEDeltaOI, float deltaRangeFullCEDeltaOI, float deltaRangeFullPEDeltaOI, float deltaRangeCEGammaOI, float deltaRangePEGammaOI,
-			float deltaRangeCEFullAvgIv, float deltaRangePEFullAvgIv, float deltaRangeHybridCEAvgIv, float deltaRangeHybridPEAvgIv,
-			float deltaRangeHybridCEAvgGamma, float deltaRangeHybridPEAvgGamma,
-			float deltaRangeCEOutlierRatio, float deltaRangePEOutlierRatio, float deltaRangeCEDeltaProbabilityWorth, float deltaRangePEDeltaProbabilityWorth,
-			float atmOtmCEAvgIv, float atmOtmPEAvgIv, int countCETotal, int countCEOutlier, int countPETotal, int countPEOutlier, float dr16CEAvgIv, float dr16PEAvgIv,
-			float dr37CEAvgGamma, float dr37PEAvgGamma, float ceDeltaOIWorth, float peDeltaOIWorth, float deltaRangeCEAvgIvPlus2, float deltaRangePEAvgIvPlus2) {
+	private void saveGreek(Map<String, Float> retMap) {
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
@@ -459,35 +365,21 @@ public class ATMThread implements Runnable {
 			
 			String updateSql = "UPDATE nexcorio_option_atm_movement_data set "
 					
-//					+ "  selective10strike_avgcegamma=" + selective10CeGamma 
-//					+ ", selective10strike_avgpegamma=" + selective10PeGamma
-//					+ ", selective10strike_avgceiv=" + selective10CeIV
-//					+ ", selective10strike_avgpeiv=" + selective10PeIV
-//					+ ", selective20strike_avgcegamma=" + selective20CeGamma
-//					+ ", selective20strike_avgpegamma=" + selective20PeGamma
-//					+ ", selective20strike_avgceiv=" + selective20CeIV
-//					+ ", selective20strike_avgpeiv=" + selective20PeIV
-//					+ ", deltaRangeCEAvgLtp=" + deltaRangeCEAvgLtp
-//					+ ", deltaRangeCEAvgIv=" + deltaRangeCEAvgIv
-//					+ ", deltaRangeCEAvgDelta=" + deltaRangeCEAvgDelta
-//					+ ", deltaRangeCEAvgGamma=" + deltaRangeCEAvgGamma
-//					+ ", deltaRangeCEAvgVega=" + deltaRangeCEAvgVega
-//					+ ", deltaRangePEAvgLtp=" + deltaRangePEAvgLtp
-//					+ ", deltaRangePEAvgIv=" + deltaRangePEAvgIv
-//					+ ", deltaRangePEAvgDelta=" + deltaRangePEAvgDelta
-//					+ ", deltaRangePEAvgGamma=" + deltaRangePEAvgGamma
-//					+ ", deltaRangePEAvgVega=" +deltaRangePEAvgVega
-//					+ "  deltaRangeCEFullAvgIv="+deltaRangeCEFullAvgIv
-//					+ ", deltaRangePEFullAvgIv="+deltaRangePEFullAvgIv
-//					+ ", dr4_9CEAvgIv=" +atmOtmCEAvgIv
-//					+ ", dr4_9PEAvgIv=" +atmOtmPEAvgIv
-//					+ ", countCETotal="+countCETotal
-//					+ ", countCEOutlier=" + countCEOutlier
-//					+ ", countPETotal="+countPETotal
-//					+ ", countPEOutlier=" + countPEOutlier
+					+ "  outlierCEMinIV=" + retMap.get("outlierCEMinIV")
+					+ ", outlierPEMinIV=" + retMap.get("outlierPEMinIV")
 					
-					+ "  ceDeltaOIWorth=" +ceDeltaOIWorth
-					+ ", peDeltaOIWorth=" +peDeltaOIWorth
+					+ ", outlierCEMaxIV=" + retMap.get("outlierCEMaxIV")
+					+ ", outlierPEMaxIV=" + retMap.get("outlierPEMaxIV")
+					
+					+ ", outlierCETotalIV=" + retMap.get("outlierCETotalIV")
+					+ ", outlierPETotalIV=" + retMap.get("outlierPETotalIV")
+					
+					+ ", outlierCEAvgIV=" + retMap.get("outlierCEAvgIV")
+					+ ", outlierPEAvgIV=" + retMap.get("outlierPEAvgIV")
+					
+					+ ", outlierCEMedianIV=" + retMap.get("outlierCEMedianIV")
+					+ ", outlierPEMedianIV=" + retMap.get("outlierPEMedianIV")
+
 					
 					+ " where id="+atmId;
 			System.out.println(updateSql);
@@ -521,6 +413,7 @@ public class ATMThread implements Runnable {
 
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
+					+ " and f_main_instrument=2"
 					+ " and quote_time <= '" + postgresLongDateFormat.format(recTimestamp) + "'"
 					+ " order by quote_time desc limit 1";
 			//System.out.println(fetchSql);
@@ -553,5 +446,11 @@ public class ATMThread implements Runnable {
 	
 	public static void main(String[] args) {
 		//System.out.println(getStrike("NIFTY25JUN25300PE"));
+		List<Float> outlierCEIvList = new ArrayList<Float>();
+//		outlierCEIvList.add(1f);
+//		outlierCEIvList.add(2f);
+//		outlierCEIvList.add(3f);
+		float median = (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0);
+		System.out.println(median);
 	}
 }
