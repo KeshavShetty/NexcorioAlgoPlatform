@@ -785,4 +785,40 @@ public class KiteHelper {
 	}
 	
 
+	public static float getIndexCheck(String forDate) {
+		float retVal = 0f;
+		Connection conn = null;
+		try {
+			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(postgresLongDateFormat.parse(forDate));
+			Date beginTime = cal.getTime();
+			cal.add(Calendar.MINUTE, 5);
+			Date endTime = cal.getTime();
+			
+			String fetchSql = "select quote_time, last_traded_price from nexcorio_tick_data where trading_symbol = 'NIFTY'"
+					+ " and quote_time >='" + postgresLongDateFormat.format(beginTime)+ "'"
+					+ " and quote_time <='" + postgresLongDateFormat.format(endTime)+ "'"
+					+ " order by quote_time desc limit 1";
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				retVal = rs.getFloat("last_traded_price");
+			}
+			rs.close();
+			stmt.close();
+		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retVal;
+	}
 }

@@ -9,6 +9,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.experimental.theories.PotentialAssignment;
 
+import com.nexcorio.algo.kite.KiteHelper;
+
 /**
  * 
  * @author Keshav Shetty
@@ -29,15 +31,20 @@ public class TriggerAlgo {
 		retMap.keySet().iterator();
 		Long algoIdToRun = retMap.keySet().iterator().next();
 		
-		String algoClassname = retMap.get(algoIdToRun);
-		System.out.println("Going o run algo "+algoIdToRun);
-		try {
-			Class<?> myClass = Class.forName(algoClassname);
-			Constructor<?> ctr = myClass.getConstructor(Long.class, String.class);
-			Object object = ctr.newInstance(new Object[] { algoIdToRun, forDate });
-		} catch (Exception e) {
-			log.error(e.getMessage());
-			e.printStackTrace();
+		float indexCheckValue = KiteHelper.getIndexCheck(forDate);
+		if (indexCheckValue>0) {
+			String algoClassname = retMap.get(algoIdToRun);
+			System.out.println("Going o run algo "+algoIdToRun);
+			try {
+				Class<?> myClass = Class.forName(algoClassname);
+				Constructor<?> ctr = myClass.getConstructor(Long.class, String.class);
+				Object object = ctr.newInstance(new Object[] { algoIdToRun, forDate });
+			} catch (Exception e) {
+				log.error(e.getMessage());
+				e.printStackTrace();
+			}
+		} else {
+			System.out.println("Not a atrading day");
 		}
 	}
 	
@@ -63,10 +70,10 @@ public class TriggerAlgo {
 	
 	public static void main(String[] args) {
 	
-		String forDate = "2025-06-01";
-		String toDate  = "2025-08-14";
+		String forDate = "2025-08-01";
+		String toDate  = "2025-08-01";
 		
-		triggerAlgo(273L, forDate + " 09:20:00", toDate + " 09:21:00");
+		triggerAlgo(275L, forDate + " 09:20:00", toDate + " 09:21:00");
 //		
 //		triggerAlgo(246L, forDate + " 09:20:00", toDate + " 09:21:00");
 //		triggerAlgo(247L, forDate + " 09:20:00", toDate + " 09:21:00");

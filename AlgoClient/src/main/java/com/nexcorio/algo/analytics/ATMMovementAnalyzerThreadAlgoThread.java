@@ -739,6 +739,165 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		return retMap;
 	}
 	
+	private OptionGreek[] getExactATMQuandrangle(float baseDelta) {
+		OptionGreek[] returnGreeks = null;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> ceOptionGreeks = new ArrayList<OptionGreek>();
+			List<OptionGreek> peOptionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				for(OptionGreek aGreek: getSnapshotGreeksFromCache()) {
+					if (aGreek.getTradingSymbol().endsWith("CE")) {
+						ceOptionGreeks.add(aGreek);
+					} else { // PE
+						peOptionGreeks.add(aGreek);
+					}
+				}
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						if (optionname.endsWith("CE")) {
+							ceOptionGreeks.add(aGreek);
+						} else {
+							peOptionGreeks.add(aGreek);
+						}
+					}
+				}
+				stmt.close();	
+			}
+		
+			float minDelta = 1f;
+			OptionGreek lowerCEOptionGreek = null;
+			for(OptionGreek aGreek: ceOptionGreeks) {
+				if (baseDelta - Math.abs(aGreek.getDelta()) >= 0 ) {
+					float deltaDiff = baseDelta - Math.abs(aGreek.getDelta());
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						lowerCEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek upperCEOptionGreek = null;
+			for(OptionGreek aGreek: ceOptionGreeks) {
+				if (Math.abs(aGreek.getDelta())-baseDelta >= 0 ) {
+					float deltaDiff = Math.abs(aGreek.getDelta()) - baseDelta;
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						upperCEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek lowerPEOptionGreek = null;
+			for(OptionGreek aGreek: peOptionGreeks) {
+				if (baseDelta - Math.abs(aGreek.getDelta()) >= 0 ) {
+					float deltaDiff = baseDelta - Math.abs(aGreek.getDelta());
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						lowerPEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek upperPEOptionGreek = null;
+			for(OptionGreek aGreek: peOptionGreeks) {
+				if (Math.abs(aGreek.getDelta())-baseDelta >= 0 ) {
+					float deltaDiff = Math.abs(aGreek.getDelta()) - baseDelta;
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						upperPEOptionGreek = aGreek;
+					}
+				}				
+			}
+			print(lowerCEOptionGreek);
+			print(upperCEOptionGreek);
+			print(lowerPEOptionGreek);
+			print(upperPEOptionGreek);
+			
+			float adjustedCEATMLtp = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getLtp(), upperCEOptionGreek.getLtp(), 0.5f);
+			float adjustedCEATMIV  = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getIv(),  upperCEOptionGreek.getIv(),  0.5f);
+			float adjustedCEATMGamma  = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getGamma(),  upperCEOptionGreek.getGamma(),  0.5f);
+			float adjustedCEATMVega = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getVega(),  upperCEOptionGreek.getVega(),  0.5f);
+			float adjustedCEATMTheta = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getTheta(),  upperCEOptionGreek.getTheta(),  0.5f);
+			
+			float adjustedPEATMLtp = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getLtp(), upperPEOptionGreek.getLtp(), 0.5f);
+			float adjustedPEATMIV  = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getIv(),  upperPEOptionGreek.getIv(),  0.5f);
+			float adjustedPEATMGamma  = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getGamma(),  upperPEOptionGreek.getGamma(),  0.5f);
+			float adjustedPEATMVega = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getVega(),  upperPEOptionGreek.getVega(),  0.5f);
+			float adjustedPEATMTheta = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getTheta(),  upperPEOptionGreek.getTheta(),  0.5f);
+			
+			OptionGreek adjustedCEReturnGreek = new OptionGreek("DummyCE", adjustedCEATMIV, 0.5f,adjustedCEATMVega, adjustedCEATMTheta, adjustedCEATMGamma, adjustedCEATMLtp);
+			OptionGreek adjustedPEReturnGreek = new OptionGreek("DummyPE", adjustedPEATMIV, 0.5f,adjustedPEATMVega, adjustedPEATMTheta, adjustedPEATMGamma, adjustedPEATMLtp);
+			
+			fileLogTelegramWriter.write("adjustedCEATMLtp="+adjustedCEATMLtp+" adjustedCEATMIV="+adjustedCEATMIV+" adjustedCEATMGamma="+adjustedCEATMGamma+" adjustedCEATMVega="+adjustedCEATMVega+" adjustedCEATMTheta="+adjustedCEATMTheta); 
+			fileLogTelegramWriter.write("adjustedPEATMLtp="+adjustedPEATMLtp+" adjustedPEATMIV="+adjustedPEATMIV+" adjustedPEATMGamma="+adjustedPEATMGamma+" adjustedPEATMVega="+adjustedPEATMVega+" adjustedPEATMTheta="+adjustedPEATMTheta);
+			
+			returnGreeks = new OptionGreek[]{adjustedCEReturnGreek, adjustedPEReturnGreek};
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return returnGreeks;
+	}
+	
+	protected void print(OptionGreek optionGreekDto) {
+		if (optionGreekDto!=null) {
+			fileLogTelegramWriter.write( "[" + optionGreekDto.getTradingSymbol()+"@" + optionGreekDto.getLtp() + "] IV=" + optionGreekDto.getIv()+" Delta="+optionGreekDto.getDelta()+" Gamma="+optionGreekDto.getGamma()+" Vega="+optionGreekDto.getVega()+" Theta="+optionGreekDto.getTheta());
+		}
+	}
+	
+	private float getScaledValue(float lowerDelta, float upperDelta, float lowerLtp, float upperLtp, float targetValue) {
+		
+		float retVal =  lowerLtp + (targetValue - lowerDelta)*(upperLtp-lowerLtp)/(upperDelta-lowerDelta);
+		
+		return retVal;
+	}
+	
 	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
 			float totalCEGamma, float totalPEGamma,
 			float totalCEVega, float totalPEVega,
@@ -776,6 +935,11 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				peOptionName = optionPrefix + optionStrike + "PE";
 				peOptionGreek = getOptionGreeks(peOptionName);
 			}
+			// Calculate adjusted Adjust Ltp, IV and greeks
+			OptionGreek[] adjustedATMGreeks = getExactATMQuandrangle(baseDelta);
+			OptionGreek adjustedATMCEGreek = adjustedATMGreeks[0];
+			OptionGreek adjustedATMPEGreek = adjustedATMGreeks[1];
+			
 			
 			if (ceOptionGreek!=null && peOptionGreek!=null) {
 				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, record_time, ceOptionname, peOptionname"
@@ -872,7 +1036,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", ceDeltaOIWorth"
 						+ ", peDeltaOIWorth"
 						+ ", fullrangecetotaliv, fullrangepetotaliv, dr16CETotalIV, dr16PETotalIV, dr49CETotalIV, dr49PETotalIV, dr46CETotalIV, dr46PETotalIV, dr4PlusCETotalIV, dr4PlusPETotalIV"
-						+ ", outlierCEMinIV, outlierPEMinIV, outlierCEMaxIV, outlierPEMaxIV, outlierCETotalIV, outlierPETotalIV, outlierCEAvgIV, outlierPEAvgIV, outlierCEMedianIV, outlierPEMedianIV" 
+						+ ", outlierCEMinIV, outlierPEMinIV, outlierCEMaxIV, outlierPEMaxIV, outlierCETotalIV, outlierPETotalIV, outlierCEAvgIV, outlierPEAvgIV, outlierCEMedianIV, outlierPEMedianIV"
+						
+						+ ", adjustedCEATMLtp, adjustedPEATMLtp"
+						+ ", adjustedCEATMIV, adjustedPEATMIV"
+						+ ", adjustedCEATMGamma, adjustedPEATMGamma"
+						+ ", adjustedCEATMVega, adjustedPEATMVega"
+						+ ", adjustedCEATMTheta, adjustedPEATMTheta"
+						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -1006,6 +1177,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("outlierCEMedianIV")
 						+ " ," + deltaRangeGreeksDetails.get("outlierPEMedianIV")
+						
+						+ "," + adjustedATMCEGreek.getLtp() + "," + adjustedATMPEGreek.getLtp()
+						+ "," + adjustedATMCEGreek.getIv() + "," + adjustedATMPEGreek.getIv()
+						+ "," + adjustedATMCEGreek.getGamma() + "," + adjustedATMPEGreek.getGamma()
+						+ "," + adjustedATMCEGreek.getVega() + "," + adjustedATMPEGreek.getVega()
+						+ "," + adjustedATMCEGreek.getTheta() + "," + adjustedATMPEGreek.getTheta()
+						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);

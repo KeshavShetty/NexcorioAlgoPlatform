@@ -17,6 +17,8 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 	public float indexPoints = 50f;
 	public float reEntryPoints = 0f;
 	
+	public boolean adjustEntryExit = false;
+	
 	public G3AutoDirectionByIndexPtsStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -84,10 +86,14 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 			float peReEntryAtIndex = this.instrumentLtp - indexPoints/2f;
 			if (reEntryPoints != 0) peReEntryAtIndex = this.instrumentLtp - reEntryPoints;
 			
-			fileLogTelegramWriter.write( " this.indexLtp="+this.instrumentLtp + ", Set ceExitAtIndex="+ceExitAtIndex+" ceReEntryAtIndex=" + ceReEntryAtIndex + " peExitAtIndex="+peExitAtIndex+" peReEntryAtIndex=" + peReEntryAtIndex ); 
+			float minIndexReached = this.instrumentLtp;
+			float maxIndexReached = this.instrumentLtp;
+			
 			
 			do {
 				sleep(10); // Every 10sec
+				
+				fileLogTelegramWriter.write( " this.indexLtp="+this.instrumentLtp + ", Set ceExitAtIndex="+ceExitAtIndex+" ceReEntryAtIndex=" + ceReEntryAtIndex + " peExitAtIndex="+peExitAtIndex+" peReEntryAtIndex=" + peReEntryAtIndex +" minIndexReached="+minIndexReached+" maxIndexReached="+maxIndexReached); 
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -149,6 +155,7 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
 						ceLegOpen = true;
+						if (adjustEntryExit) ceExitAtIndex    = this.instrumentLtp + indexPoints;
 					}
 					
 					if (peLegOpen == false &&  this.instrumentLtp > peReEntryAtIndex) {
@@ -161,7 +168,17 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
 						peLegOpen = true;
+						if (adjustEntryExit) peExitAtIndex    = this.instrumentLtp - indexPoints;
 					}
+				}
+				
+				if ( this.instrumentLtp < minIndexReached) {
+					minIndexReached = this.instrumentLtp;
+					if (adjustEntryExit) peReEntryAtIndex = this.instrumentLtp + indexPoints/2f;
+				}
+				if ( this.instrumentLtp > maxIndexReached) {
+					maxIndexReached = this.instrumentLtp;
+					if (adjustEntryExit) ceReEntryAtIndex = this.instrumentLtp - indexPoints/2f;
 				}
 				
 				checkExitSignals();
