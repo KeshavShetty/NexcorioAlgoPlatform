@@ -7,6 +7,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -62,6 +63,9 @@ public class ATMThread implements Runnable {
 
 	@Override
 	public void run() {
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(recTimestamp);
+		fileLogTelegramWriter = new FileLogTelegramWriter("NIFTY", this.atmId+"", cal);
 		System.out.println("Run reached");
 		
 		List<OptionGreek> ceOptionGreeks = new ArrayList<>();
@@ -116,6 +120,8 @@ public class ATMThread implements Runnable {
 		List<Float> dr4PlusCEIvList = new ArrayList<Float>();
 		List<Float> outlierCEIvList = new ArrayList<Float>();
 		
+		StringBuffer ceGreekDetails = new StringBuffer();
+		List<Float> dr19WholeStrikeCEIvList = new ArrayList<Float>();
 		for(OptionGreek aGreek: ceOptionGreeks) {
 			float delta = Math.abs(aGreek.getDelta());
 			fullCEIvList.add(aGreek.getIv());
@@ -133,6 +139,7 @@ public class ATMThread implements Runnable {
 				float gamma = aGreek.getGamma();
 				
 				if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+					ceGreekDetails.append(" " + aGreek.getTradingSymbol()+"[D:"+aGreek.getDelta()+",IV:"+aGreek.getIv()+",G:"+aGreek.getGamma()+",LTP:"+aGreek.getLtp());
 					deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
 					deltaRangeCEAvgIv = deltaRangeCEAvgIv + curIv;
 					ceDeltaOIWorth = ceDeltaOIWorth + oi*delta;	
@@ -146,6 +153,7 @@ public class ATMThread implements Runnable {
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
+					ceGreekDetails.append(">><<" + aGreek.getTradingSymbol()+"[D:"+aGreek.getDelta()+",IV:"+aGreek.getIv()+",G:"+aGreek.getGamma()+",LTP:"+aGreek.getLtp());
 					outlierCEIvList.add(curIv);
 				}
 				fullcount++;
@@ -160,6 +168,9 @@ public class ATMThread implements Runnable {
 				if (delta >= 0.1f && delta <= 0.6f) {
 					dr16CEAvgIV = dr16CEAvgIV + curIv;
 					dr16Count++;
+				}
+				if (getStrike(aGreek.getTradingSymbol())%100 == 0) { // Strike ends with 00 (full number, no 50s) 
+					dr19WholeStrikeCEIvList.add(curIv);
 				}
 			}
 		}
@@ -217,6 +228,8 @@ public class ATMThread implements Runnable {
 		retMap.put("outlierCEAvgIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 		retMap.put("outlierCEMedianIV", (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0) );
 		
+		retMap.put("dr19WholeStrikeCEAvgIV",(float) dr19WholeStrikeCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+		
 		// Now PE
 		lastIvRead = 0f;
 		recCount = 0;
@@ -251,7 +264,10 @@ public class ATMThread implements Runnable {
 		List<Float> dr4PlusPEIvList = new ArrayList<Float>();
 		
 		List<Float> outlierPEIvList = new ArrayList<Float>();
+		StringBuffer peGreekDetails = new StringBuffer();
 		
+		List<Float> dr19WholeStrikePEIvList = new ArrayList<Float>();
+
 		for(OptionGreek aGreek: peOptionGreeks) {
 			float delta = Math.abs(aGreek.getDelta());		
 			fullPEIvList.add(aGreek.getIv());
@@ -267,6 +283,7 @@ public class ATMThread implements Runnable {
 				float oi = aGreek.getOi();				
 				float gamma = aGreek.getGamma();
 				if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+					peGreekDetails.append(" " + aGreek.getTradingSymbol()+"[D:"+aGreek.getDelta()+",IV:"+aGreek.getIv()+",G:"+aGreek.getGamma()+",LTP:"+aGreek.getLtp());
 					deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
 					deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
 					peDeltaOIWorth = peDeltaOIWorth + oi*delta;
@@ -280,6 +297,7 @@ public class ATMThread implements Runnable {
 					lastIvRead = curIv; 
 					recCount++;
 				} else {
+					peGreekDetails.append(">><<" + aGreek.getTradingSymbol()+",D:"+aGreek.getDelta()+",IV:"+aGreek.getIv()+",G:"+aGreek.getGamma()+",LTP:"+aGreek.getLtp());
 					outlierPEIvList.add(curIv);
 				}
 				fullcount++;
@@ -293,6 +311,9 @@ public class ATMThread implements Runnable {
 				if (delta >= 0.1f && delta <= 0.6f) {
 					dr16PEAvgIV = dr16PEAvgIV + curIv;
 					dr16Count++;
+				}
+				if (getStrike(aGreek.getTradingSymbol())%100 == 0) { // Strike ends with 00 (full number, no 50s) 
+					dr19WholeStrikePEIvList.add(curIv);
 				}
 			}
 		}
@@ -351,13 +372,23 @@ public class ATMThread implements Runnable {
 		retMap.put("outlierPETotalIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).sum());
 		retMap.put("outlierPEAvgIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 		retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
+		retMap.put("dr19WholeStrikePEAvgIV",(float) dr19WholeStrikePEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 		
-		saveGreek(retMap);
+		// Calculate adjusted Adjust Ltp, IV and greeks
+		OptionGreek[] adjustedATMGreeks = getExactATMQuandrangle(ceOptionGreeks, peOptionGreeks, 0.5f);
+		OptionGreek adjustedATMCEGreek = adjustedATMGreeks[0];
+		OptionGreek adjustedATMPEGreek = adjustedATMGreeks[1];
 		
-		//fileLogTelegramWriter.close();
+		saveGreek(retMap, adjustedATMCEGreek, adjustedATMPEGreek);
+		fileLogTelegramWriter.write("ceGreekDetails="+ceGreekDetails);
+		fileLogTelegramWriter.write("peGreekDetails="+peGreekDetails);
+		
+		fileLogTelegramWriter.write("dr19WholeStrikeCEAvgIV="+retMap.get("dr19WholeStrikeCEAvgIV")+" dr19WholeStrikePEAvgIV="+retMap.get("dr19WholeStrikePEAvgIV"));
+		
+		fileLogTelegramWriter.close();
 	}
 
-	private void saveGreek(Map<String, Float> retMap) {
+	private void saveGreek(Map<String, Float> retMap, OptionGreek adjustedATMCEGreek, OptionGreek adjustedATMPEGreek) {
 		Connection conn = null;
 		try {
 			conn = HDataSource.getConnection();
@@ -365,22 +396,24 @@ public class ATMThread implements Runnable {
 			
 			String updateSql = "UPDATE nexcorio_option_atm_movement_data set "
 					
-					+ "  outlierCEMinIV=" + retMap.get("outlierCEMinIV")
-					+ ", outlierPEMinIV=" + retMap.get("outlierPEMinIV")
+//					+ "  outlierCEMinIV=" + retMap.get("outlierCEMinIV")
+//					+ ", outlierPEMinIV=" + retMap.get("outlierPEMinIV")
+//					
+//					+ ", outlierCEMaxIV=" + retMap.get("outlierCEMaxIV")
+//					+ ", outlierPEMaxIV=" + retMap.get("outlierPEMaxIV")
+//					
+//					+ ", outlierCETotalIV=" + retMap.get("outlierCETotalIV")
+//					+ ", outlierPETotalIV=" + retMap.get("outlierPETotalIV")
+//					
+//					+ ", outlierCEAvgIV=" + retMap.get("outlierCEAvgIV")
+//					+ ", outlierPEAvgIV=" + retMap.get("outlierPEAvgIV")
+//					
+//					+ ", outlierCEMedianIV=" + retMap.get("outlierCEMedianIV")
+//					+ ", outlierPEMedianIV=" + retMap.get("outlierPEMedianIV")
 					
-					+ ", outlierCEMaxIV=" + retMap.get("outlierCEMaxIV")
-					+ ", outlierPEMaxIV=" + retMap.get("outlierPEMaxIV")
-					
-					+ ", outlierCETotalIV=" + retMap.get("outlierCETotalIV")
-					+ ", outlierPETotalIV=" + retMap.get("outlierPETotalIV")
-					
-					+ ", outlierCEAvgIV=" + retMap.get("outlierCEAvgIV")
-					+ ", outlierPEAvgIV=" + retMap.get("outlierPEAvgIV")
-					
-					+ ", outlierCEMedianIV=" + retMap.get("outlierCEMedianIV")
-					+ ", outlierPEMedianIV=" + retMap.get("outlierPEMedianIV")
-
-					
+					+ " dr19WholeStrikeCEAvgIV=" + retMap.get("dr19WholeStrikeCEAvgIV")
+					+ ",dr19WholeStrikePEAvgIV=" + retMap.get("dr19WholeStrikePEAvgIV")
+										
 					+ " where id="+atmId;
 			System.out.println(updateSql);
 			
@@ -399,6 +432,93 @@ public class ATMThread implements Runnable {
 		}
 	}
 	
+	private OptionGreek[] getExactATMQuandrangle(List<OptionGreek> ceOptionGreeks, List<OptionGreek> peOptionGreeks, float baseDelta) {
+		OptionGreek[] returnGreeks = null;
+		try {
+			float minDelta = 1f;
+			OptionGreek lowerCEOptionGreek = null;
+			for(OptionGreek aGreek: ceOptionGreeks) {
+				if (baseDelta - Math.abs(aGreek.getDelta()) >= 0 ) {
+					float deltaDiff = baseDelta - Math.abs(aGreek.getDelta());
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						lowerCEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek upperCEOptionGreek = null;
+			for(OptionGreek aGreek: ceOptionGreeks) {
+				if (Math.abs(aGreek.getDelta())-baseDelta >= 0 ) {
+					float deltaDiff = Math.abs(aGreek.getDelta()) - baseDelta;
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						upperCEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek lowerPEOptionGreek = null;
+			for(OptionGreek aGreek: peOptionGreeks) {
+				if (baseDelta - Math.abs(aGreek.getDelta()) >= 0 ) {
+					float deltaDiff = baseDelta - Math.abs(aGreek.getDelta());
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						lowerPEOptionGreek = aGreek;
+					}
+				}				
+			}
+			minDelta = 1f;
+			OptionGreek upperPEOptionGreek = null;
+			for(OptionGreek aGreek: peOptionGreeks) {
+				if (Math.abs(aGreek.getDelta())-baseDelta >= 0 ) {
+					float deltaDiff = Math.abs(aGreek.getDelta()) - baseDelta;
+					if (deltaDiff < minDelta) {
+						minDelta = deltaDiff;
+						upperPEOptionGreek = aGreek;
+					}
+				}				
+			}
+//			print(lowerCEOptionGreek);
+//			print(upperCEOptionGreek);
+//			print(lowerPEOptionGreek);
+//			print(upperPEOptionGreek);
+			
+			float adjustedCEATMLtp = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getLtp(), upperCEOptionGreek.getLtp(), 0.5f);
+			float adjustedCEATMIV  = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getIv(),  upperCEOptionGreek.getIv(),  0.5f);
+			float adjustedCEATMGamma  = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getGamma(),  upperCEOptionGreek.getGamma(),  0.5f);
+			float adjustedCEATMVega = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getVega(),  upperCEOptionGreek.getVega(),  0.5f);
+			float adjustedCEATMTheta = getScaledValue(Math.abs(lowerCEOptionGreek.getDelta()), Math.abs(upperCEOptionGreek.getDelta()), lowerCEOptionGreek.getTheta(),  upperCEOptionGreek.getTheta(),  0.5f);
+			
+			float adjustedPEATMLtp = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getLtp(), upperPEOptionGreek.getLtp(), 0.5f);
+			float adjustedPEATMIV  = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getIv(),  upperPEOptionGreek.getIv(),  0.5f);
+			float adjustedPEATMGamma  = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getGamma(),  upperPEOptionGreek.getGamma(),  0.5f);
+			float adjustedPEATMVega = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getVega(),  upperPEOptionGreek.getVega(),  0.5f);
+			float adjustedPEATMTheta = getScaledValue(Math.abs(lowerPEOptionGreek.getDelta()), Math.abs(upperPEOptionGreek.getDelta()), lowerPEOptionGreek.getTheta(),  upperPEOptionGreek.getTheta(),  0.5f);
+			
+			OptionGreek adjustedCEReturnGreek = new OptionGreek("DummyCE", adjustedCEATMIV, 0.5f,adjustedCEATMVega, adjustedCEATMTheta, adjustedCEATMGamma, adjustedCEATMLtp);
+			OptionGreek adjustedPEReturnGreek = new OptionGreek("DummyPE", adjustedPEATMIV, 0.5f,adjustedPEATMVega, adjustedPEATMTheta, adjustedPEATMGamma, adjustedPEATMLtp);
+			
+			returnGreeks = new OptionGreek[]{adjustedCEReturnGreek, adjustedPEReturnGreek};
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return returnGreeks;
+	}
+	
+	protected void print(OptionGreek optionGreekDto) {
+		if (optionGreekDto!=null) {
+			fileLogTelegramWriter.write( "[" + optionGreekDto.getTradingSymbol()+"@" + optionGreekDto.getLtp() + "] IV=" + optionGreekDto.getIv()+" Delta="+optionGreekDto.getDelta()+" Gamma="+optionGreekDto.getGamma()+" Vega="+optionGreekDto.getVega()+" Theta="+optionGreekDto.getTheta());
+		}
+	}
+	
+	private float getScaledValue(float lowerDelta, float upperDelta, float lowerLtp, float upperLtp, float targetValue) {
+		
+		float retVal =  lowerLtp + (targetValue - lowerDelta)*(upperLtp-lowerLtp)/(upperDelta-lowerDelta);
+		
+		return retVal;
+	}
 	protected OptionGreek getOptionGreeks(String optionName) {
 		
 		if (optionName==null || optionName.equals("")) return null;
