@@ -494,6 +494,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> dr4PlusCEIvList = new ArrayList<Float>();
 				List<Float> fullCEIvList = new ArrayList<Float>();
 				List<Float> outlierCEIvList = new ArrayList<Float>();
+				List<Float> dr19WholeStrikeCEIvList = new ArrayList<Float>();
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullCEIvList.add(aGreek.getIv());
@@ -538,6 +539,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						if (delta >= 0.1f && delta <= 0.6f) {
 							dr16CEAvgIV = dr16CEAvgIV + curIv;
 							dr16Count++;
+						}
+						if (getStrikePriceFromOptionName(aGreek.getTradingSymbol())%100 == 0) { // Strike ends with 00 (full number, no 50s) 
+							dr19WholeStrikeCEIvList.add(curIv);
 						}
 					}
 				}
@@ -595,6 +599,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("outlierCEAvgIV",(float) outlierCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 				retMap.put("outlierCEMedianIV", (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0) );
 				
+				retMap.put("dr19WholeStrikeCEAvgIV",(float) dr19WholeStrikeCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+				
 				// Now PE
 				lastIvRead = 0f;
 				recCount = 0;
@@ -627,6 +633,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> dr4PlusPEIvList = new ArrayList<Float>();
 				List<Float> fullPEIvList = new ArrayList<Float>();
 				List<Float> outlierPEIvList = new ArrayList<Float>();
+				List<Float> dr19WholeStrikePEIvList = new ArrayList<Float>();
 				for(OptionGreek aGreek: peOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullPEIvList.add(aGreek.getIv());
@@ -668,6 +675,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						if (delta >= 0.1f && delta <= 0.6f) {
 							dr16PEAvgIV = dr16PEAvgIV + curIv;
 							dr16Count++;
+						}
+						if (getStrikePriceFromOptionName(aGreek.getTradingSymbol())%100 == 0) { // Strike ends with 00 (full number, no 50s) 
+							dr19WholeStrikePEIvList.add(curIv);
 						}
 					}
 				}
@@ -724,7 +734,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("outlierPETotalIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).sum());
 				retMap.put("outlierPEAvgIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 				retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
-				
+				retMap.put("dr19WholeStrikePEAvgIV",(float) dr19WholeStrikePEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -1044,6 +1054,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", adjustedCEATMVega, adjustedPEATMVega"
 						+ ", adjustedCEATMTheta, adjustedPEATMTheta"
 						
+						+ ", dr19WholeStrikeCEAvgIV, dr19WholeStrikePEAvgIV"
+						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -1184,6 +1196,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ "," + adjustedATMCEGreek.getVega() + "," + adjustedATMPEGreek.getVega()
 						+ "," + adjustedATMCEGreek.getTheta() + "," + adjustedATMPEGreek.getTheta()
 						
+						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikeCEAvgIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikePEAvgIV")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1284,7 +1298,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-14 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-22 09:17:00");
 		
 		
 	}
