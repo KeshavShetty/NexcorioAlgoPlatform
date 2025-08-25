@@ -112,7 +112,7 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 						}
 						peStraddleOptionName = "";
 					}
-				} else if (ceStraddleOptionName.equals("")) {
+				} else if (ceStraddleOptionName.equals("") && avoidCeOutliersAbove + avoidPeOutliersAbove >0) {
 					if (getOutlierCount("CE", avoidCeOutliersAbove)<=avoidCeOutliersAbove-1 && getOutlierCount("PE", avoidPeOutliersAbove)<=avoidPeOutliersAbove-1) {
 					
 						String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance); // getStraddleOptionNamesByGreekOptimised("ltp", this.baseDelta, this.optimalHedgeDistance);
