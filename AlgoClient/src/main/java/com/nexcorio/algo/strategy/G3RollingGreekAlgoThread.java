@@ -128,6 +128,9 @@ public class G3RollingGreekAlgoThread extends G3BaseClass implements Runnable {
 				} else if (greekname.equals("vega")) {					
 					greekSum = Math.abs(ceOptionGreeks.getVega()) + Math.abs(peOptionGreeks.getVega());
 					greekDiff = Math.abs( Math.abs(ceOptionGreeks.getVega()) - Math.abs(peOptionGreeks.getVega()) );
+				} else if (greekname.equals("theta")) {					
+					greekSum = Math.abs(ceOptionGreeks.getTheta()) + Math.abs(peOptionGreeks.getTheta());
+					greekDiff = Math.abs( Math.abs(ceOptionGreeks.getTheta()) - Math.abs(peOptionGreeks.getTheta()) );
 				}
 				
 				float thetaDiffRatio = greekDiff*100f/greekSum;
