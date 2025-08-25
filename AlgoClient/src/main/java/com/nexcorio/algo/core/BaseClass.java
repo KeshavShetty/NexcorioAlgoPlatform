@@ -344,10 +344,17 @@ public class BaseClass {
 		String[] entryStraddleOptionNames2 = getStraddleOptionNamesByGreek(greekname, getGreekValue(greekname, ceOptionGreek), 0);
 		System.out.println("2." + entryStraddleOptionNames2[0] + " " + entryStraddleOptionNames2[1]);
 		
-		float diff2 = getGreekDiff(greekname, getOptionGreeks(entryStraddleOptionNames2[0]), getOptionGreeks(entryStraddleOptionNames2[1]));
+		float diff2 = 10000000f;
+		
+		if (entryStraddleOptionNames2[0]!=null && entryStraddleOptionNames2[1]!=null) {
+			diff2 = getGreekDiff(greekname, getOptionGreeks(entryStraddleOptionNames2[0]), getOptionGreeks(entryStraddleOptionNames2[1]));
+		}
 		
 		String[] entryStraddleOptionNames3 = getStraddleOptionNamesByGreek(greekname, getGreekValue(greekname, peOptionGreek), 0);
-		float diff3 = getGreekDiff(greekname, getOptionGreeks(entryStraddleOptionNames3[0]), getOptionGreeks(entryStraddleOptionNames3[1]));
+		float diff3 = 100000000f;
+		if (entryStraddleOptionNames3[0]!=null && entryStraddleOptionNames3[1]!=null) {
+			getGreekDiff(greekname, getOptionGreeks(entryStraddleOptionNames3[0]), getOptionGreeks(entryStraddleOptionNames3[1]));
+		}
 		
 		String localCeHedgeOptionName =  "";
 		String localPeHedgeOptionName =  "";
@@ -458,8 +465,14 @@ public class BaseClass {
 							minDiff = diff;
 							ceTradingSymbol = aGreek.getTradingSymbol();
 						}
-					}else if (greekname.equals("gamma")) {
+					} else if (greekname.equals("gamma")) {
 						float diff = Math.abs(requiredValue - aGreek.getGamma());
+						if (diff < minDiff) {
+							minDiff = diff;
+							ceTradingSymbol = aGreek.getTradingSymbol();
+						}
+					} else if (greekname.equals("theta")) {
+						float diff = Math.abs(requiredValue - Math.abs(aGreek.getTheta()));
 						if (diff < minDiff) {
 							minDiff = diff;
 							ceTradingSymbol = aGreek.getTradingSymbol();
@@ -483,6 +496,12 @@ public class BaseClass {
 						}
 					} else if (greekname.equals("gamma")) {
 						float diff = Math.abs(requiredValue - aGreek.getGamma());
+						if (diff < minDiff) {
+							minDiff = diff;
+							peTradingSymbol = aGreek.getTradingSymbol();
+						}
+					} else if (greekname.equals("theta")) {
+						float diff = Math.abs(requiredValue - Math.abs(aGreek.getTheta()));
 						if (diff < minDiff) {
 							minDiff = diff;
 							peTradingSymbol = aGreek.getTradingSymbol();
