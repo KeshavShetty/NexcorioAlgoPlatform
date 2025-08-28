@@ -26,6 +26,8 @@ public class G3GreekDirectedTrendRollingStrangleAlgoThread extends G3BaseClass i
 	public boolean maintainBias = false;
 	public float oppositeDeltaDiff= 0.2f;
 		
+	public Integer dependentInstrumentId = null;
+	
 	public G3GreekDirectedTrendRollingStrangleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -285,6 +287,9 @@ public class G3GreekDirectedTrendRollingStrangleAlgoThread extends G3BaseClass i
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
