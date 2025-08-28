@@ -1,5 +1,6 @@
 package com.nexcorio.algo.oms;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -13,6 +14,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 
 import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.kite.KiteHelper;
@@ -184,7 +186,23 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			if (placedKiteOrderId==null)  status = "FAILED";
+			if (placedKiteOrderId==null) {
+				status = "FAILED";
+			} else { // Check order history status
+				List<Order> orderHistory;
+				try {
+					orderHistory = this.kiteConnect.getOrderHistory(placedKiteOrderId);
+					for (Order order : orderHistory) {
+				        if (order.status.contains("REJECTED")) {
+				        	status = "FAILED";
+				        }
+				    }
+				} catch (KiteException e) {
+					status = "FAILED";
+					e.printStackTrace();
+					log.error(e);
+				}
+			}
 			stmt.executeUpdate("UPDATE nexcorio_real_orders set status='" + status +"', executed_time=NOW() WHERE id="+orderId);
 			stmt.close();
 		} catch (Exception e) {
@@ -432,6 +450,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			fileLogTelegramWriter = new FileLogTelegramWriter("Generic", this.algoname, null);
 			
 			initialize();
+			//checkOrderDetails();
 			int i=0;
 			double lowestPnL = 0d;
 			double maxPnL = 0d;
@@ -574,8 +593,32 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		}
 	}
 	
+	private void checkOrderDetails() { // 250828600353273
+		
+		try {
+//			List<Order> orders = kiteConnect.getOrders();
+//		    for (Order order : orders) {
+//		        System.out.println("Order ID: " + order.orderId);
+//		        System.out.println("Status: " + order.status);
+//		        // Access other order details as needed
+//		    }
+		    
+			List<Order> orderHistory = kiteConnect.getOrderHistory("250828600329883");
+		    for (Order order : orderHistory) {
+		        System.out.println("Order ID: " + order.orderId);
+		        System.out.println("Status: " + order.status);
+		        System.out.println("filledQuantity: " + order.filledQuantity);
+		        // Access other historical order details
+		    }
+		} catch (JSONException | IOException | KiteException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	    
+	}
 	public static void main(String[] args) {
 		new OrderExecutionThreadAlgoThread(1L);
+		
 		
 	}
 }
