@@ -457,7 +457,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			
 			float maxUtilizedMargin = 0f;
 			float minUtilizedMargin = 1000000000f;
-			
+			List<String> blackListedAlgos = new ArrayList<String>();
 			do {
 				Thread.sleep(1000);
 				i++;
@@ -468,16 +468,22 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 				if (optionKiteOrders.size()>0) {
 					if (isUserLevelRealtimeOrderEnabled()) {
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
-							changeOrderStatus(aOrder.getId(), "PROCESSING"); // Immediately change order status, so that it is no more available for next run cycle (To avoid repeated order placing in case of Kite fail)
-							
-							String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
-									KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
-							
-							String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
-							if (status.equals("FAILED")) {
-								sendAlerts(aOrder.getAlgoTag(), aOrder.getOption_name());
+							if (blackListedAlgos.contains(aOrder.getAlgoTag())) {
+								changeOrderStatus(aOrder.getId(), "BLOCKED");
+							} else {
+								changeOrderStatus(aOrder.getId(), "PROCESSING"); // Immediately change order status, so that it is no more available for next run cycle (To avoid repeated order placing in case of Kite fail)
+								
+								String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
+										KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
+								
+								String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
+								if (status.equals("FAILED")) {
+									sendAlerts(aOrder.getAlgoTag(), aOrder.getOption_name());
+									blackListedAlgos.add(aOrder.getAlgoTag());
+									new RollbackStrategyOrdersAlgoThread(userId, aOrder.getAlgoTag());
+								}
+								aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 							}
-							aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 						}
 						Thread.sleep(1000);
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
