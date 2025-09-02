@@ -1,5 +1,9 @@
 package com.nexcorio.algo.strategy;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -8,21 +12,20 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.db.HDataSource;
 
-public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements Runnable{
+public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Runnable{
 
 	private static final Logger log = LogManager.getLogger(G3PriceParityIVBasedAlgoThread.class);
 	
 	public float baseDelta = 0.5f;
 	public String greekname = "ltp";
 	
-	public float diffValue = 0f;
+	public float diffFromAtmPremium = 10f;
 	
-	public float combinedDiff = 0f;
+	public boolean useMinReached = Boolean.FALSE;
 	
-	public boolean useMinGreek = false;
-	
-	public G3PriceSensitiveStrangleAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3FollowStraddlePremiumAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -53,12 +56,9 @@ public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements R
 			
 			updateAlgoStatus("Running");
 			
-			float ceGreekWhenStraddleFormed = 0f;
-			float peGreekWhenStraddleFormed = 0f;
-			
-			float minCeGreekReached = 0f;
-			float minPeGreekReached = 0f;
-			
+			float straddlePremiumWhenFormed = 0f;
+			float straddlePremiumLowestReached = 0f;
+					
 			do {
 				sleep(5); // Quick to react
 				
@@ -89,39 +89,41 @@ public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements R
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
+				float currentATMStraddlePremium = getStradlePremium();
+				float currentStraddlePositionPremium = (ceOptionGreeks==null?0: ceOptionGreeks.getLtp()) + (peOptionGreeks==null?0: peOptionGreeks.getLtp());
+				
+				fileLogTelegramWriter.write( "currentATMStraddlePremium="+currentATMStraddlePremium+" currentStraddlePositionPremium="+currentStraddlePositionPremium);
+				
 				boolean needRepositioning = false;
 				
 				if (ceStraddleOptionName.equals("")) {
 					needRepositioning = true; // Just starting, no open positions
 				} 
-				if (needRepositioning == false && useMinGreek == true ) {
-					float ceGreekValue = ceOptionGreeks.getLtp();
-					float peGreekValue = peOptionGreeks.getLtp();
-					if (greekname.equals("iv")) {
-						ceGreekValue = ceOptionGreeks.getIv();
-						peGreekValue = peOptionGreeks.getIv();
-					}
+				if (needRepositioning==false) {
+					float actualATMThetaDecay = straddlePremiumWhenFormed - currentATMStraddlePremium;
+					float capturedThetaDecay  = straddlePremiumWhenFormed - currentStraddlePositionPremium;
 					
-					if (ceGreekValue - minCeGreekReached > diffValue || peGreekValue - minPeGreekReached > diffValue ) {
-						fileLogTelegramWriter.write("Realigning diffValue"); 
-						needRepositioning = true;
-					}	
-				}
-				if (needRepositioning == false && diffValue > 0f ) {
-					if (ceOptionGreeks.getLtp() - ceGreekWhenStraddleFormed > diffValue || peOptionGreeks.getLtp() - peGreekWhenStraddleFormed > diffValue ) {
-						fileLogTelegramWriter.write("Realigning diffValue 2"); 
-						needRepositioning = true;
+					if (actualATMThetaDecay-capturedThetaDecay > diffFromAtmPremium) {
+						fileLogTelegramWriter.write(" Realigning 1.0, actualATMThetaDecay="+actualATMThetaDecay+" capturedThetaDecay="+capturedThetaDecay+" (Diff)="+(actualATMThetaDecay-capturedThetaDecay));
+						needRepositioning = true;	
+					}
+				} 
+				if (needRepositioning==false && useMinReached ) { // Check spike in premium
+					float actualATMThetaDecay = straddlePremiumLowestReached - currentATMStraddlePremium;
+					float capturedThetaDecay  = straddlePremiumLowestReached - currentStraddlePositionPremium;
+					
+					if (actualATMThetaDecay-capturedThetaDecay > diffFromAtmPremium) {
+						fileLogTelegramWriter.write(" Realigning 2.0, actualATMThetaDecay="+actualATMThetaDecay+" capturedThetaDecay="+capturedThetaDecay+" (Diff)="+(actualATMThetaDecay-capturedThetaDecay)); 
+						needRepositioning = true;	
 					}
 				}
-				if (needRepositioning == false && combinedDiff > 0f ) {
-					float totalDiff = Math.abs( ceOptionGreeks.getLtp() - peOptionGreeks.getLtp() );
-					if (totalDiff > combinedDiff ) {
-						fileLogTelegramWriter.write("Realigning combinedDiff"); 
-						needRepositioning = true;
-					}
+				
+				if (currentATMStraddlePremium<straddlePremiumLowestReached) {
+					straddlePremiumLowestReached = currentATMStraddlePremium;
 				}
+				
 				if (needRepositioning) {
-					String[] entryStraddleOptionNames = getStraddleOptionNamesByGreekOptimised("ltp", baseDelta, this.optimalHedgeDistance); // getStraddleOptionNamesByGreekOptimised("ltp", this.baseDelta, this.optimalHedgeDistance);
+					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 					
 					String ceOptionname = entryStraddleOptionNames[0];
 					
@@ -156,6 +158,7 @@ public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements R
 					}
 					
 					String peOptionname = entryStraddleOptionNames[1];
+					float peGreekValue = 0f;
 					if (!peStraddleOptionName.equals(peOptionname)) {
 						if (!peStraddleOptionName.equals("")) { // Exit and re enter
 							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
@@ -184,31 +187,27 @@ public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements R
 						fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 					}
 					
-					ceOptionGreeks = !ceStraddleOptionName.equals("")?getOptionGreeks(ceStraddleOptionName):null;
-					peOptionGreeks = !peStraddleOptionName.equals("")?getOptionGreeks(peStraddleOptionName):null;
-					
-					if (ceOptionGreeks != null) {
-						if (greekname.equals("iv")) ceGreekWhenStraddleFormed = ceOptionGreeks.getIv();
-						else if (greekname.equals("ltp")) ceGreekWhenStraddleFormed = ceOptionGreeks.getLtp();
-					}
-					if (peOptionGreeks != null) {
-						if (greekname.equals("iv")) peGreekWhenStraddleFormed = peOptionGreeks.getIv();
-						else if (greekname.equals("ltp")) peGreekWhenStraddleFormed = peOptionGreeks.getLtp();
-					}
-					
-					minCeGreekReached = ceGreekWhenStraddleFormed;
-					minPeGreekReached = peGreekWhenStraddleFormed;
-					
-				} else {
-					if (greekname.equals("iv")) {
-						if (ceOptionGreeks.getIv() < minCeGreekReached) {
-							minCeGreekReached = ceOptionGreeks.getIv();
-						}
-						if (peOptionGreeks.getIv() < minPeGreekReached) {
-							minPeGreekReached = peOptionGreeks.getIv();
+					if (!ceStraddleOptionName.equals("")) {
+						ceOptionGreeks = getOptionGreeks(ceStraddleOptionName);
+						if (this.greekname.equalsIgnoreCase("delta")) {
+							ceGreekValue =  Math.abs(ceOptionGreeks.getDelta());	
+						} else if (this.greekname.equalsIgnoreCase("iv")) {
+							ceGreekValue = ceOptionGreeks.getIv();	
+						} else if (this.greekname.equalsIgnoreCase("ltp")) {
+							ceGreekValue = ceOptionGreeks.getLtp();	
 						}
 					}
-					
+					if (!peStraddleOptionName.equals("")) {
+						peOptionGreeks = getOptionGreeks(peStraddleOptionName);
+						if (this.greekname.equalsIgnoreCase("delta")) {
+							peGreekValue = Math.abs(peOptionGreeks.getDelta());	
+						} else if (this.greekname.equalsIgnoreCase("iv")) {
+							peGreekValue = peOptionGreeks.getIv();	
+						} else if (this.greekname.equalsIgnoreCase("ltp")) {
+							peGreekValue = peOptionGreeks.getLtp();	
+						}
+					}
+					straddlePremiumWhenFormed = ceGreekValue + peGreekValue;
 				}
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
@@ -242,6 +241,36 @@ public class G3PriceSensitiveStrangleAlgoThread extends G3BaseClass implements R
 		} finally {
 			fileLogTelegramWriter.close();
 		}
+	}
+	
+	private float getStradlePremium() {
+		float retVal =0f;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data WHERE record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " AND f_main_instrument=" + this.mainInstrument.getId() 
+					+ " ORDER BY record_time DESC LIMIT 1";
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while(rs.next()) {
+				retVal = rs.getFloat("premium");
+			}
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retVal;
 	}
 	
 }
