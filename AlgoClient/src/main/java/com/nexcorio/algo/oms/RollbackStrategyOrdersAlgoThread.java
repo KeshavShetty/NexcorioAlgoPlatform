@@ -168,7 +168,7 @@ public class RollbackStrategyOrdersAlgoThread implements Runnable {
 			orderParameters.transactionType=transactionType;
 			orderParameters.product= Constants.PRODUCT_MIS;
 	        
-			orderParameters.quantity = qty;
+			orderParameters.quantity = Math.abs(qty);
 			sendAlerts(algoTag, tradingSymbol+" "+transactionType+" "+qty);
 			
 			Order aOrder = this.kiteConnect.placeOrder(orderParameters, Constants.VARIETY_REGULAR);
