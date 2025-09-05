@@ -21,7 +21,7 @@ public class G3GreekSensitiveStrangleAlgoThread extends G3BaseClass implements R
 	public float baseDelta = 0.5f;
 	public String greekname = "delta";
 	
-	public float bothLegGreekDiffPct = 7.5f;
+	public float bothLegGreekDiffPct = 0f;
 	public float eachLegGreekDiffPct = 0f;
 	public boolean useMinGreek = false;
 	
