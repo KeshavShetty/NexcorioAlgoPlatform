@@ -114,6 +114,16 @@ public class RollbackStrategyOrdersAlgoThread implements Runnable {
 			fileLogTelegramWriter.close();
 		} catch (Exception | KiteException e) {			
 			log.error("Error"+e.getMessage(), e);
+			sendKiteExceptionAlerts("KiteException in Rollback ");
+		}
+	}
+	
+	private void sendKiteExceptionAlerts(String msg) {
+		try {
+			TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + msg);
+		} catch (Exception e) {			
+			e.printStackTrace();
+			log.error("Error in sendAlerts"+e.getMessage(), e);
 		}
 	}
 	
