@@ -34,17 +34,17 @@ public class KiteCache {
 	private static Map<String, OptionFnOInstrument> tradingSymbolToOptionInstrument = new HashMap<String, OptionFnOInstrument>();
 	
 	public static Cache<String, Float> tickPriceCache = Caffeine.newBuilder()
-			  .expireAfterWrite(1, TimeUnit.MINUTES)
+			  .expireAfterWrite(10, TimeUnit.MINUTES)
 			  .maximumSize(10000)
 			  .build();
 	
 	public static Cache<String, OptionGreek> optionGreekCache = Caffeine.newBuilder()
-			  .expireAfterWrite(5, TimeUnit.MINUTES)
+			  .expireAfterWrite(10, TimeUnit.MINUTES)
 			  .maximumSize(10000)
 			  .build();
 
 	public static Cache<String, Long> snapshotIdCache = Caffeine.newBuilder()
-			  .expireAfterAccess(2, TimeUnit.MINUTES)
+			  .expireAfterAccess(10, TimeUnit.MINUTES)
 			  .maximumSize(10000)
 			  .build();
 	
