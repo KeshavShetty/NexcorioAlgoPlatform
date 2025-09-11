@@ -322,14 +322,17 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			log.error("InputException "+e.getMessage(), e);
 			fileLogTelegramWriter.write("Exception: " + e.message);
 			orderId = null;
+			sendKiteExceptionAlerts("KiteException in placeKiteOrder " + optionname);
 		} catch (KiteException e) {
 			log.error("KiteException "+e.getMessage(), e);
 			fileLogTelegramWriter.write("Exception: " + e.message);
 			orderId = null;
+			sendKiteExceptionAlerts("KiteException in placeKiteOrder " + optionname);
 		} catch (Exception e) {
 			log.error("Error"+e.getMessage(), e);
 			fileLogTelegramWriter.write("Exception: " + e.getMessage());
 			orderId = null;
+			sendKiteExceptionAlerts("KiteException in placeKiteOrder " + optionname);
 		}
 		return orderId;
 	}
@@ -367,6 +370,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
     		}
 		} catch (Exception | KiteException e) {			
 			log.error("Error",e);
+			sendKiteExceptionAlerts("KiteException in getOpenPosition " + optionName);
 		}
 		log.info("In getOpenPosition "+ optionName + " qty:"+retVal);
 		return retVal;
@@ -525,6 +529,15 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	private void sendAlerts(String algoTag, String tradingSymbol) {
 		try {
 			TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + algoTag + ": " + tradingSymbol + " FAILED");
+		} catch (Exception e) {			
+			e.printStackTrace();
+			log.error("Error in sendAlerts"+e.getMessage(), e);
+		}
+	}
+	
+	private void sendKiteExceptionAlerts(String msg) {
+		try {
+			TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-Algo " + msg);
 		} catch (Exception e) {			
 			e.printStackTrace();
 			log.error("Error in sendAlerts"+e.getMessage(), e);
