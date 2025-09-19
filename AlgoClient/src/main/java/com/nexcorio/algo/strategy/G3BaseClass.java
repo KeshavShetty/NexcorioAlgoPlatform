@@ -68,6 +68,7 @@ public abstract class G3BaseClass extends BaseClass {
 	String ceStraddleOptionName = "";
 	String peStraddleOptionName = "";
 	
+	int ignoredOrders = 0;
 	void initializeAlgorithmParameters() {
 		
 		Connection conn = null;
@@ -785,7 +786,8 @@ public abstract class G3BaseClass extends BaseClass {
     		
     		CombinedMarginData marginData = kiteconnect.getCombinedMarginCalculation(params, true, false);
     		fileLogTelegramWriter.write("In checkDailyMarginUsed -> initialMargin " + marginData.initialMargin.total+" finalMargin "+marginData.finalMargin.total);
-			retVal = ((float) marginData.initialMargin.total + (float) marginData.finalMargin.total)/2f;			
+			//retVal = ((float) marginData.initialMargin.total + (float) marginData.finalMargin.total)/2f;			
+    		retVal = (float) marginData.finalMargin.total;
 		} catch (Exception | KiteException e) {			
 			e.printStackTrace();
 			log.error("Error in checkDailyMarginUsed"+e.getMessage(), e);
