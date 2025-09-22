@@ -15,6 +15,7 @@ public class OptionGreek {
 	private float gamma;
 	private float ltp;
 	private float oi;
+	private float changeInIv=0f;
 	
 	private float underlyingValue;
 	
@@ -129,6 +130,14 @@ public class OptionGreek {
 
 	public void setOi(float oi) {
 		this.oi = oi;
+	}
+
+	public float getChangeInIv() {
+		return changeInIv;
+	}
+
+	public void setChangeInIv(float changeInIv) {
+		this.changeInIv = changeInIv;
 	}
 }
 

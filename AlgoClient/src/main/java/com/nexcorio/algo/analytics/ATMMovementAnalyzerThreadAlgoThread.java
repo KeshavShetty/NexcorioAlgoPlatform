@@ -495,6 +495,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> fullCEIvList = new ArrayList<Float>();
 				List<Float> outlierCEIvList = new ArrayList<Float>();
 				List<Float> dr19WholeStrikeCEIvList = new ArrayList<Float>();
+				float totalChangeInCEIV = 0f;
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullCEIvList.add(aGreek.getIv());
@@ -510,6 +511,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						float ltp = aGreek.getLtp();
 						float oi = aGreek.getOi();
 						float gamma = aGreek.getGamma();
+						
+						totalChangeInCEIV =  totalChangeInCEIV + aGreek.getChangeInIv();
 						
 						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
 							deltaRangeCEAvgLtp = deltaRangeCEAvgLtp + ltp;
@@ -600,7 +603,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("outlierCEMedianIV", (float) outlierCEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierCEIvList.size()-1)/2).limit(2-outlierCEIvList.size()%2).average().orElse(0.0) );
 				
 				retMap.put("dr19WholeStrikeCEAvgIV",(float) dr19WholeStrikeCEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
-				
+				retMap.put("totalChangeInCEIV", totalChangeInCEIV);
 				// Now PE
 				lastIvRead = 0f;
 				recCount = 0;
@@ -634,6 +637,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<Float> fullPEIvList = new ArrayList<Float>();
 				List<Float> outlierPEIvList = new ArrayList<Float>();
 				List<Float> dr19WholeStrikePEIvList = new ArrayList<Float>();
+				float totalChangeInPEIV = 0f;
 				for(OptionGreek aGreek: peOptionGreeks) {
 					float delta = Math.abs(aGreek.getDelta());
 					fullPEIvList.add(aGreek.getIv());
@@ -648,6 +652,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						float ltp = aGreek.getLtp();
 						float oi = aGreek.getOi();				
 						float gamma = aGreek.getGamma();
+						
+						totalChangeInPEIV = totalChangeInPEIV + aGreek.getChangeInIv();
+						
 						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
 							deltaRangePEAvgLtp = deltaRangePEAvgLtp + ltp;
 							deltaRangePEAvgIv = deltaRangePEAvgIv + curIv;
@@ -735,6 +742,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("outlierPEAvgIV",(float) outlierPEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 				retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
 				retMap.put("dr19WholeStrikePEAvgIV",(float) dr19WholeStrikePEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
+				retMap.put("totalChangeInPEIV", totalChangeInPEIV);
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -1055,6 +1063,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", adjustedCEATMTheta, adjustedPEATMTheta"
 						
 						+ ", dr19WholeStrikeCEAvgIV, dr19WholeStrikePEAvgIV"
+						+ ", totalChangeInCEIV, totalChangeInPEIV"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1198,6 +1207,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikeCEAvgIV")
 						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikePEAvgIV")
+						+ " ," + deltaRangeGreeksDetails.get("totalChangeInCEIV")
+						+ " ," + deltaRangeGreeksDetails.get("totalChangeInPEIV")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);

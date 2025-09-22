@@ -79,6 +79,13 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		
 		if (optionIV!=0) {
 			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp, optionInstrument.getfMainInstrument());
+			
+			float changeInIv = 0f;
+			OptionGreek optionGreekFromCache = KiteCache.optionGreekCache.getIfPresent(tradingSymbol);
+			if (optionGreekFromCache!=null) {
+				changeInIv = optionGreekDto.getIv() - optionGreekFromCache.getIv();
+			}
+			optionGreekDto.setChangeInIv(changeInIv);
 			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
 		}
 		elapsedTime1 = System.currentTimeMillis();
