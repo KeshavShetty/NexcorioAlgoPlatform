@@ -98,7 +98,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			updateAlgoStatus("Running");
 			
 			do {
-				sleep(15); // Every 10sec
+				sleep(5); // Every 10sec
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				
@@ -330,6 +330,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "outliercemedianiv-outlierceminiv as ceGreek, outlierpemedianiv-outlierpeminiv as peGreek";
 			} else if (greekname.equalsIgnoreCase("dr19WholeStrikeAvgIV")) {
 				fieldname = "dr19WholeStrikeCEAvgIV as ceGreek, dr19WholeStrikePEAvgIV as peGreek";
+			} else if (greekname.equalsIgnoreCase("gammaExposure")) {
+				fieldname = "maxGammaExposure as ceGreek, minGammaExposure as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();

@@ -25,6 +25,11 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 	
 	public boolean useMinReached = Boolean.FALSE;
 	
+	public float spikeProtection = 0f;
+	
+	public int avoidCeOutliersAbove = 0;
+	public int avoidPeOutliersAbove = 0;
+	
 	public G3FollowStraddlePremiumAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -57,8 +62,13 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 			updateAlgoStatus("Running");
 			
 			float straddlePremiumWhenFormed = 0f;
-			float straddlePremiumLowestReached = 0f;
-					
+			float straddlePremiumMinReached = 0f;
+			float straddlePremiumMaxReached = 0f;
+				
+			straddlePremiumMinReached = getStradlePremium();
+			straddlePremiumMaxReached = straddlePremiumMinReached*1.2f;
+			
+			
 			do {
 				sleep(5); // Quick to react
 				
@@ -97,9 +107,21 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 				boolean needRepositioning = false;
 				
 				if (ceStraddleOptionName.equals("")) {
-					needRepositioning = true; // Just starting, no open positions
+					if (spikeProtection > 0f && currentATMStraddlePremium < straddlePremiumMaxReached*(100f-spikeProtection)/100f) {
+						needRepositioning = true; // Just starting, no open positions
+					} else if (avoidCeOutliersAbove+avoidPeOutliersAbove > 0) {
+						if (getOutlierCount("CE", avoidCeOutliersAbove) <  avoidCeOutliersAbove && getOutlierCount("PE", avoidPeOutliersAbove) <  avoidPeOutliersAbove) {
+							needRepositioning = true;
+						}						
+					} else if (spikeProtection < 1f) {
+						needRepositioning = true; // Just starting, no open positions
+					}
+					if (needRepositioning==true) {
+						straddlePremiumMinReached = currentATMStraddlePremium;
+						straddlePremiumMaxReached = currentATMStraddlePremium;
+					}
 				} 
-				if (needRepositioning==false) {
+				if (needRepositioning==false && !ceStraddleOptionName.equals("")) {
 					float actualATMThetaDecay = straddlePremiumWhenFormed - currentATMStraddlePremium;
 					float capturedThetaDecay  = straddlePremiumWhenFormed - currentStraddlePositionPremium;
 					
@@ -108,9 +130,9 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 						needRepositioning = true;	
 					}
 				} 
-				if (needRepositioning==false && useMinReached ) { // Check spike in premium
-					float actualATMThetaDecay = straddlePremiumLowestReached - currentATMStraddlePremium;
-					float capturedThetaDecay  = straddlePremiumLowestReached - currentStraddlePositionPremium;
+				if (needRepositioning==false && useMinReached && !ceStraddleOptionName.equals("")) { // Check spike in premium
+					float actualATMThetaDecay = straddlePremiumMinReached - currentATMStraddlePremium;
+					float capturedThetaDecay  = straddlePremiumMinReached - currentStraddlePositionPremium;
 					
 					if (actualATMThetaDecay-capturedThetaDecay > diffFromAtmPremium) {
 						fileLogTelegramWriter.write(" Realigning 2.0, actualATMThetaDecay="+actualATMThetaDecay+" capturedThetaDecay="+capturedThetaDecay+" (Diff)="+(actualATMThetaDecay-capturedThetaDecay)); 
@@ -118,11 +140,86 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 					}
 				}
 				
-				if (currentATMStraddlePremium<straddlePremiumLowestReached) {
-					straddlePremiumLowestReached = currentATMStraddlePremium;
-				}
-				
-				if (needRepositioning) {
+				if (!ceStraddleOptionName.equals("") && avoidCeOutliersAbove+avoidPeOutliersAbove > 0
+						&& ( getOutlierCount("CE", avoidCeOutliersAbove) >  avoidCeOutliersAbove || getOutlierCount("PE", avoidPeOutliersAbove) >  avoidPeOutliersAbove) ) {
+					// Exit Exit Exit
+					if (!ceStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+						// Exit CE
+						if (this.placeActualOrder) {
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						ceStraddleOptionName = "";
+						ignoredOrders++;
+					}
+					if (!peStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+						if (this.placeActualOrder) {
+							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						peStraddleOptionName = "";
+						ignoredOrders++;
+					}
+				} else if  (spikeProtection > 0 && !ceStraddleOptionName.equals("") && currentATMStraddlePremium > straddlePremiumMinReached*(100f+spikeProtection)/100f) {
+					// Exit Exit Exit
+					fileLogTelegramWriter.write( "Straddle Premium Spike, Exit Exit Exit");
+					if (!ceStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+						// Exit CE
+						if (this.placeActualOrder) {
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						ceStraddleOptionName = "";
+					}
+					if (!peStraddleOptionName.equals("")) { 
+						fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+						if (this.placeActualOrder) {
+							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						peStraddleOptionName = "";
+					}
+					sleep(15*60);
+					currentATMStraddlePremium = getStradlePremium();
+					straddlePremiumMinReached = currentATMStraddlePremium;
+					straddlePremiumMaxReached = currentATMStraddlePremium;
+					straddlePremiumWhenFormed = currentATMStraddlePremium;
+					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
+					
+					if (this.noOfOrders-ignoredOrders<maxAllowedNoOfOrders) {
+						ceStraddleOptionName =  entryStraddleOptionNames[0];
+						float cePrice = getPriceFromTicks(ceStraddleOptionName);
+						fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
+						// Place order
+						ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+						if (this.placeActualOrder) {
+							if (ceHedgeOptionName.equals("")) {								
+								ceHedgeOptionName =  entryStraddleOptionNames[2];
+								placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+					} else {
+						prepareExit("Too many orders");
+					}
+					
+					if (this.noOfOrders-ignoredOrders<maxAllowedNoOfOrders) {
+						peStraddleOptionName =  entryStraddleOptionNames[1];
+						float pePrice = getPriceFromTicks(peStraddleOptionName);						
+						fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
+						// Place order
+						peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+						if (this.placeActualOrder) {
+							if (peHedgeOptionName.equals("")) {
+								peHedgeOptionName =  entryStraddleOptionNames[3];
+								placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+					} else {
+						prepareExit("Too many orders");
+					}
+					
+				} else if (needRepositioning) {
 					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 					
 					String ceOptionname = entryStraddleOptionNames[0];
@@ -137,7 +234,7 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 							}
 							ceStraddleOptionName = "";
 						}
-						if (this.noOfOrders<maxAllowedNoOfOrders) {
+						if (this.noOfOrders-ignoredOrders<maxAllowedNoOfOrders) {
 							ceStraddleOptionName =  ceOptionname;
 							float cePrice = getPriceFromTicks(ceStraddleOptionName);
 							fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
@@ -167,7 +264,7 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 							}
 							peStraddleOptionName = "";
 						}
-						if (this.noOfOrders<maxAllowedNoOfOrders) {
+						if (this.noOfOrders-ignoredOrders<maxAllowedNoOfOrders) {
 							peStraddleOptionName =  peOptionname;
 							float pePrice = getPriceFromTicks(peStraddleOptionName);
 							fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
@@ -208,6 +305,13 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 						}
 					}
 					straddlePremiumWhenFormed = ceGreekValue + peGreekValue;
+				}
+				
+				if (currentATMStraddlePremium < straddlePremiumMinReached) {
+					straddlePremiumMinReached = currentATMStraddlePremium;
+				}
+				if (currentATMStraddlePremium > straddlePremiumMaxReached) {
+					straddlePremiumMaxReached = currentATMStraddlePremium;
 				}
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
@@ -268,6 +372,55 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 				if (conn!=null) conn.close();
 			} catch (SQLException e) {
 				log.error(e);
+			}
+		}
+		return retVal;
+	}
+	
+	private int getOutlierCount(String optionType, int allowedCount) {
+		int retVal = 0;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select countceoutlier, countpeoutlier from nexcorio_option_atm_movement_data where f_main_instrument = " + this.mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int ceCount = 0;
+			int peCount = 0;
+			while (rs.next()) {
+				float ceGreek = rs.getFloat("countceoutlier");
+				float peGreek = rs.getFloat("countpeoutlier");
+				
+				fileLogTelegramWriter.write("ceGreek="+ceGreek+" peGreek="+peGreek);
+				
+				ceCount = (int) (ceCount + ceGreek);
+				peCount = (int) (peCount + peGreek);
+			}
+			rs.close();			
+			stmt.close();
+			
+			ceCount = ceCount/5;
+			peCount = peCount/5;
+			
+			fileLogTelegramWriter.write("ceCount="+ceCount+" peCount="+peCount);
+			
+			if (optionType.equals("CE") && ceCount >= allowedCount) retVal = allowedCount+1;
+			else if (optionType.equals("PE") && peCount >= allowedCount) retVal = allowedCount+1;
+			else if (optionType.equals("CE")) retVal = ceCount;
+			else if (optionType.equals("PE")) retVal = peCount;
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 		return retVal;

@@ -18,6 +18,7 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 	public float reEntryPoints = 0f;
 	
 	public boolean adjustEntryExit = false;
+	public boolean matchDelta = false;
 	
 	public G3AutoDirectionByIndexPtsStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -91,7 +92,7 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 			
 			
 			do {
-				sleep(10); // Every 10sec
+				sleep(5); // Every 10sec
 				
 				fileLogTelegramWriter.write( " this.indexLtp="+this.instrumentLtp + ", Set ceExitAtIndex="+ceExitAtIndex+" ceReEntryAtIndex=" + ceReEntryAtIndex + " peExitAtIndex="+peExitAtIndex+" peReEntryAtIndex=" + peReEntryAtIndex +" minIndexReached="+minIndexReached+" maxIndexReached="+maxIndexReached); 
 				
@@ -142,6 +143,14 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 				}
 				
 				if (ceLegOpen == false || peLegOpen == false) {
+					if (matchDelta) {
+						float deltaToUse = 0.5f;
+						if (ceLegOpen == false) deltaToUse = Math.abs(peOptionGreeks.getDelta());
+						else deltaToUse = Math.abs(ceOptionGreeks.getDelta());
+						entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(deltaToUse, this.hedgeDistance);
+						if (ceLegOpen == false) ceOptionname = entryStraddleOptionNames[0];
+						else if (peLegOpen == false) ceOptionname = entryStraddleOptionNames[1];
+					}
 					float origCeOptionPriceNow = getPriceFromTicks(ceOptionname);
 					float origPeOptionPriceNow = getPriceFromTicks(peOptionname);
 				

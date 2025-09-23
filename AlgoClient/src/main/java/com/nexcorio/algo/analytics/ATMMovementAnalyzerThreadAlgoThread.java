@@ -10,6 +10,8 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -743,6 +745,50 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("outlierPEMedianIV", (float) outlierPEIvList.stream().mapToDouble(d -> d).sorted().skip((outlierPEIvList.size()-1)/2).limit(2-outlierPEIvList.size()%2).average().orElse(0.0) );
 				retMap.put("dr19WholeStrikePEAvgIV",(float) dr19WholeStrikePEIvList.stream().mapToDouble(d -> d).average().orElse(0.0));
 				retMap.put("totalChangeInPEIV", totalChangeInPEIV);
+				
+				// Gamma exposure
+				Map<Integer, Float> gammaPerStrike = new HashMap<Integer, Float>();
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float gammaExposure = aGreek.getOi()*aGreek.getGamma();
+					int strike = getStrike(aGreek.getTradingSymbol());
+					gammaExposure = gammaExposure + (gammaPerStrike.get(strike)!=null?gammaPerStrike.get(strike):0f);
+					gammaPerStrike.put(strike, gammaExposure);
+				}
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float gammaExposure = aGreek.getOi()*aGreek.getGamma();
+					int strike = getStrike(aGreek.getTradingSymbol());
+					gammaExposure = gammaExposure - (gammaPerStrike.get(strike)!=null?gammaPerStrike.get(strike):0f);
+					gammaPerStrike.put(strike, gammaExposure);
+				}
+				// Convert HashMap entries to a List
+		        List<Map.Entry<Integer, Float>> entryList = new ArrayList<>(gammaPerStrike.entrySet());
+
+		        // Sort the List by value in ascending order
+		        Collections.sort(entryList, (entry1, entry2) -> entry1.getValue().compareTo(entry2.getValue()));
+
+		        // Create a LinkedHashMap to store the sorted entries
+		        LinkedHashMap<Integer, Float> sortedMap = new LinkedHashMap<>();
+		        for (Map.Entry<Integer, Float> entry : entryList) {
+		            sortedMap.put(entry.getKey(), entry.getValue());
+		        }
+		        
+		        float minGammaExposure = Float.MAX_VALUE;
+		        float maxGammaExposure = Float.MIN_VALUE;
+		        float netGammaExposure = 0f;
+				Iterator<Integer> iter = sortedMap.keySet().iterator();
+				while (iter.hasNext()) {
+					int strike = iter.next();
+					if (gammaPerStrike.get(strike) < -1000 || gammaPerStrike.get(strike) > 1000) {
+						if (gammaPerStrike.get(strike) < minGammaExposure) minGammaExposure = gammaPerStrike.get(strike);
+						if (gammaPerStrike.get(strike) > maxGammaExposure) maxGammaExposure = gammaPerStrike.get(strike);
+						//fileLogTelegramWriter.write(" For Strike " + strike + " gamma exposure " + gammaPerStrike.get(strike));
+					}
+					netGammaExposure = netGammaExposure + gammaPerStrike.get(strike);
+				}
+				retMap.put("minGammaExposure", Math.abs(minGammaExposure));
+				retMap.put("maxGammaExposure",maxGammaExposure);
+				retMap.put("netGammaExposure",netGammaExposure);
+				
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -755,6 +801,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				}
 			}
 		return retMap;
+	}
+	
+	private int getStrike(String optionname) {
+		int retVal = 0;
+		String strikename = optionname.substring(optionname.length()-7, optionname.length()-2);
+		//System.out.println(strikename);
+		retVal = Integer.parseInt(strikename);
+		return retVal;
 	}
 	
 	private OptionGreek[] getExactATMQuandrangle(float baseDelta) {
@@ -1064,6 +1118,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ ", dr19WholeStrikeCEAvgIV, dr19WholeStrikePEAvgIV"
 						+ ", totalChangeInCEIV, totalChangeInPEIV"
+						+ ", minGammaExposure, maxGammaExposure, netGammaExposure"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1207,8 +1262,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikeCEAvgIV")
 						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikePEAvgIV")
-						+ " ," + deltaRangeGreeksDetails.get("totalChangeInCEIV")
-						+ " ," + deltaRangeGreeksDetails.get("totalChangeInPEIV")
+						+ " ," + deltaRangeGreeksDetails.get("totalChangeInCEIV") + " ," + deltaRangeGreeksDetails.get("totalChangeInPEIV")
+						+ " ," + deltaRangeGreeksDetails.get("minGammaExposure") + " ," + deltaRangeGreeksDetails.get("maxGammaExposure") + " ," + deltaRangeGreeksDetails.get("netGammaExposure")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1309,7 +1364,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-08-22 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-09-23 09:17:00");
 		
 		
 	}
