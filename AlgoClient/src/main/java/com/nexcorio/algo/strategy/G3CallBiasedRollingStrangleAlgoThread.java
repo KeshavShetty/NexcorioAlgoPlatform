@@ -21,6 +21,10 @@ public class G3CallBiasedRollingStrangleAlgoThread extends G3BaseClass implement
 	public boolean maintainBias = false;
 	public float oppositeDeltaDiff= 0.2f;
 		
+	public boolean wait4IdealPremium = Boolean.FALSE;
+	
+	private float idealPremium = 0f;
+	
 	public G3CallBiasedRollingStrangleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -43,6 +47,31 @@ public class G3CallBiasedRollingStrangleAlgoThread extends G3BaseClass implement
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
 			printFields(this);
+			
+			boolean isitFirstAttempt = true;
+			if (this.wait4IdealPremium) {
+				
+				boolean foundIdealpremium = false;
+				do {
+					float currentPremium = getStradlePremium();
+					if (idealPremium==0f) {
+						this.idealPremium = getIdealPremiumBasedOnPreviousStradlePremium();
+					}
+					if (currentPremium >= idealPremium) foundIdealpremium = true; 
+					else {
+						fileLogTelegramWriter.write("currentPremium="+currentPremium+" idealStraddlePremium="+idealPremium+" sleep");
+						sleep(10);
+						checkExitSignals();
+						isitFirstAttempt = false;
+					}
+				} while(foundIdealpremium==false && exitThread==false);
+				if (isitFirstAttempt==false) sleep(120);
+				
+			}
+			
+			if (exitThread==true) {
+				return;
+			}
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();

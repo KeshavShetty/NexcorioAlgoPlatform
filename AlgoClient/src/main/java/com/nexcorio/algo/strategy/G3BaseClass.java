@@ -794,4 +794,87 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 		return retVal;
 	}
+	
+	protected float getStradlePremium() {
+		float retVal =0f;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data WHERE record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " AND f_main_instrument=" + this.mainInstrument.getId() 
+					+ " ORDER BY record_time DESC LIMIT 1";
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while(rs.next()) {
+				retVal = rs.getFloat("premium");
+			}
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retVal;
+	}
+	
+	protected float getIdealPremiumBasedOnPreviousStradlePremium() {
+		float retVal =0f;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(getCurrentTime());
+			
+			
+			int noOfDaysPassed = 0;
+			float premium = 0f;
+			do {
+				cal.set(Calendar.HOUR_OF_DAY, 15);
+				cal.set(Calendar.MINUTE, 20);
+				cal.add(Calendar.DATE, -1);
+				noOfDaysPassed++;
+				
+				String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data"
+						+ " WHERE record_time <= '" + postgresLongDateFormat.format(cal.getTime()) + "'"
+						//+ " AND record_time > ('" + postgresLongDateFormat.format(getCurrentTime()) + "' - '1 miniute'::interval)"
+						+ " AND record_time > (DATE_ADD('" + postgresLongDateFormat.format(cal.getTime()) + "',INTERVAL '-1 minute')) "
+						+ " AND f_main_instrument=" + this.mainInstrument.getId() 
+						+ " ORDER BY record_time DESC LIMIT 1";
+				fileLogTelegramWriter.write(fetchSql);
+				
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					premium = rs.getFloat("premium");
+				}
+				fileLogTelegramWriter.write(" premium found="+premium);
+				
+				rs.close();
+			} while(premium==0f);
+			
+			retVal = premium - noOfDaysPassed*12f;
+			
+			stmt.close();
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
 }

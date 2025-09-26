@@ -16,6 +16,10 @@ public class G3DynamicRollingStrangleAlgoThread extends G3BaseClass implements R
 	public float baseDelta = 0.5f;
 	
 	public float  indexRollingPts = 50f;
+	
+	public boolean wait4IdealPremium = Boolean.FALSE;
+	
+	private float idealPremium = 0f;
 		
 	public G3DynamicRollingStrangleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -39,6 +43,33 @@ public class G3DynamicRollingStrangleAlgoThread extends G3BaseClass implements R
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 			
 			printFields(this);
+			
+			boolean isitFirstAttempt = true;
+			if (this.wait4IdealPremium) {
+				
+				boolean foundIdealpremium = false;
+				do {
+					float currentPremium = getStradlePremium();
+					if (idealPremium==0f) {
+						this.idealPremium = getIdealPremiumBasedOnPreviousStradlePremium();
+					}
+					if (currentPremium >= idealPremium) foundIdealpremium = true; 
+					else {
+						fileLogTelegramWriter.write("currentPremium="+currentPremium+" idealStraddlePremium="+idealPremium+" sleep");
+						sleep(10);
+						checkExitSignals();
+						isitFirstAttempt = false;
+					}
+				} while(foundIdealpremium==false && exitThread==false);
+				if (isitFirstAttempt==false) sleep(120);
+				
+			}
+			
+			if (exitThread==true) {
+				return;
+			}
+			
+			
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();

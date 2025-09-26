@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -29,6 +30,10 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 	
 	public int avoidCeOutliersAbove = 0;
 	public int avoidPeOutliersAbove = 0;
+	
+	public boolean wait4IdealPremium = Boolean.FALSE;
+	
+	private float idealPremium = 0f;
 	
 	public G3FollowStraddlePremiumAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -60,6 +65,31 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
+			
+			boolean isitFirstAttempt = true;
+			if (this.wait4IdealPremium) {
+				
+				boolean foundIdealpremium = false;
+				do {
+					float currentPremium = getStradlePremium();
+					if (idealPremium==0f) {
+						this.idealPremium = getIdealPremiumBasedOnPreviousStradlePremium();
+					}
+					if (currentPremium >= idealPremium) foundIdealpremium = true; 
+					else {
+						fileLogTelegramWriter.write("currentPremium="+currentPremium+" idealStraddlePremium="+idealPremium+" sleep");
+						sleep(10);
+						checkExitSignals();
+						isitFirstAttempt = false;
+					}
+				} while(foundIdealpremium==false && exitThread==false);
+				if (isitFirstAttempt==false) sleep(120);
+				
+			}
+			
+			if (exitThread==true) {
+				return;
+			}
 			
 			float straddlePremiumWhenFormed = 0f;
 			float straddlePremiumMinReached = 0f;
@@ -336,6 +366,7 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 			fileLogTelegramWriter.write( " " + logString);
 			// exit all positions
 			if (this.placeActualOrder) exitStraddle(ceDbId, peDbId);
+		
 			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
 			
 		} catch (Exception e) {			
@@ -345,36 +376,6 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 		} finally {
 			fileLogTelegramWriter.close();
 		}
-	}
-	
-	private float getStradlePremium() {
-		float retVal =0f;
-		
-		Connection conn = null;
-		try {
-			conn = HDataSource.getConnection();
-			Statement stmt = conn.createStatement();
-			
-			String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data WHERE record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
-					+ " AND f_main_instrument=" + this.mainInstrument.getId() 
-					+ " ORDER BY record_time DESC LIMIT 1";
-			
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			while(rs.next()) {
-				retVal = rs.getFloat("premium");
-			}
-			stmt.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			log.error("Error"+e.getMessage(),e);
-		} finally {
-			try {
-				if (conn!=null) conn.close();
-			} catch (SQLException e) {
-				log.error(e);
-			}
-		}
-		return retVal;
 	}
 	
 	private int getOutlierCount(String optionType, int allowedCount) {

@@ -19,6 +19,9 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 	
 	public boolean adjustEntryExit = false;
 	public boolean matchDelta = false;
+	public boolean wait4IdealPremium = false;
+	
+	private float idealPremium = 0f;
 	
 	public G3AutoDirectionByIndexPtsStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -41,6 +44,28 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 			float maxLowestpointReached = 0f;
 			Date maxLowestpointReachedAt = getCurrentTime();
 			float maxTrailingProfit = 0f;
+			
+			if (this.wait4IdealPremium) {
+				
+				boolean foundIdealpremium = false;
+				do {
+					float currentPremium = getStradlePremium();
+					if (idealPremium==0f) {
+						this.idealPremium = getIdealPremiumBasedOnPreviousStradlePremium();
+					}
+					if (currentPremium >= idealPremium) foundIdealpremium = true; 
+					else {
+						fileLogTelegramWriter.write("currentPremium="+currentPremium+" idealStraddlePremium="+idealPremium+" sleep");
+						sleep(10);
+						checkExitSignals();
+					}
+				} while(foundIdealpremium==false && exitThread==false);
+				sleep(120);
+			}
+			
+			if (exitThread==true) {
+				return;
+			}
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			
