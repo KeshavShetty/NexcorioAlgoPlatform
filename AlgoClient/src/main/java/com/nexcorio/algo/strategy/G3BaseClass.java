@@ -14,6 +14,7 @@ import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -877,4 +878,12 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 		return retVal;
 	}
+}
+
+class SortbyOI implements Comparator<OptionGreek> {
+    public int compare(OptionGreek a, OptionGreek b) { 
+    	if (a.getOi() > b.getOi()) return -1;
+    	else if (a.getOi() < b.getOi()) return 1;
+    	else return 0;
+    } 
 }
