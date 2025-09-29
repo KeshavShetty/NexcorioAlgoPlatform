@@ -804,13 +804,14 @@ public abstract class G3BaseClass extends BaseClass {
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data WHERE record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+			String fetchSql = "SELECT celtp+peltp as premium, adjustedCEATMLtp+adjustedPEATMLtp as adjustedPremium FROM nexcorio_option_atm_movement_data WHERE record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " AND f_main_instrument=" + this.mainInstrument.getId() 
 					+ " ORDER BY record_time DESC LIMIT 1";
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while(rs.next()) {
-				retVal = rs.getFloat("premium");
+				retVal = rs.getFloat("adjustedPremium");
+				if (retVal<5f) retVal = rs.getFloat("premium");
 			}
 			stmt.close();
 		} catch (Exception e) {
@@ -846,7 +847,7 @@ public abstract class G3BaseClass extends BaseClass {
 				cal.add(Calendar.DATE, -1);
 				noOfDaysPassed++;
 				
-				String fetchSql = "SELECT celtp+peltp as premium FROM nexcorio_option_atm_movement_data"
+				String fetchSql = "SELECT celtp+peltp as premium, adjustedCEATMLtp+adjustedPEATMLtp as adjustedPremium FROM nexcorio_option_atm_movement_data"
 						+ " WHERE record_time <= '" + postgresLongDateFormat.format(cal.getTime()) + "'"
 						//+ " AND record_time > ('" + postgresLongDateFormat.format(getCurrentTime()) + "' - '1 miniute'::interval)"
 						+ " AND record_time > (DATE_ADD('" + postgresLongDateFormat.format(cal.getTime()) + "',INTERVAL '-1 minute')) "
@@ -856,7 +857,8 @@ public abstract class G3BaseClass extends BaseClass {
 				
 				ResultSet rs = stmt.executeQuery(fetchSql);
 				while (rs.next()) {
-					premium = rs.getFloat("premium");
+					premium = rs.getFloat("adjustedPremium");
+					if (premium<5f) premium = rs.getFloat("premium");
 				}
 				fileLogTelegramWriter.write(" premium found="+premium);
 				
