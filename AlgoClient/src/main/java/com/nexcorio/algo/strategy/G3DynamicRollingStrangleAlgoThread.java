@@ -64,12 +64,9 @@ public class G3DynamicRollingStrangleAlgoThread extends G3BaseClass implements R
 				if (isitFirstAttempt==false) sleep(120);
 				
 			}
-			
 			if (exitThread==true) {
 				return;
 			}
-			
-			
 			
 			float maxProfitReached = 0f;
 			Date maxProfitReachedAt = getCurrentTime();
