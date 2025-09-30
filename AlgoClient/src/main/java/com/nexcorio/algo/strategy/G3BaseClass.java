@@ -810,7 +810,7 @@ public abstract class G3BaseClass extends BaseClass {
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while(rs.next()) {
-				retVal = rs.getFloat("adjustedPremium");
+				//retVal = rs.getFloat("adjustedPremium"); // We found adjusted atm ltp has some erretic numbers, so switch back to use premium
 				if (retVal<5f) retVal = rs.getFloat("premium");
 			}
 			stmt.close();
@@ -857,7 +857,7 @@ public abstract class G3BaseClass extends BaseClass {
 				
 				ResultSet rs = stmt.executeQuery(fetchSql);
 				while (rs.next()) {
-					premium = rs.getFloat("adjustedPremium");
+					//premium = rs.getFloat("adjustedPremium");
 					if (premium<5f) premium = rs.getFloat("premium");
 				}
 				fileLogTelegramWriter.write(" premium found="+premium);
