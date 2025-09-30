@@ -1395,8 +1395,5 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	public static void main(String[] args) {
 		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-09-23 09:17:00");
-		
-		
 	}
-
 }
