@@ -41,6 +41,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	String futuresTradingSymbol;
 	
+	private List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
+	private List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
+	
 	public ATMMovementAnalyzerThreadAlgoThread(String instrumentName, String backDateStr) {
 		super();
 		
@@ -789,6 +792,31 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("maxGammaExposure",maxGammaExposure);
 				retMap.put("netGammaExposure",netGammaExposure);
 				
+				
+				float changein5secCeIV = 0;
+				float changein5secPeIV = 0;
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					for(OptionGreek prevGreek: prevCeOptionGreeks) {
+						if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+							changein5secCeIV = changein5secCeIV + (aGreek.getIv() - prevGreek.getIv());
+							break;
+						}
+					}
+				}
+				for(OptionGreek aGreek: peOptionGreeks) {
+					for(OptionGreek prevGreek: prevPeOptionGreeks) {
+						if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+							changein5secPeIV = changein5secPeIV + (aGreek.getIv() - prevGreek.getIv());
+							break;
+						}
+					}
+				}
+				prevCeOptionGreeks = ceOptionGreeks;
+				prevPeOptionGreeks = peOptionGreeks;
+				
+				retMap.put("changein5secCeIV",changein5secCeIV);
+				retMap.put("changein5secPeIV",changein5secPeIV);
+				
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -1119,6 +1147,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", dr19WholeStrikeCEAvgIV, dr19WholeStrikePEAvgIV"
 						+ ", totalChangeInCEIV, totalChangeInPEIV"
 						+ ", minGammaExposure, maxGammaExposure, netGammaExposure"
+						+ ", changein5secCeIV, changein5secPeIV"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1264,6 +1293,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("dr19WholeStrikePEAvgIV")
 						+ " ," + deltaRangeGreeksDetails.get("totalChangeInCEIV") + " ," + deltaRangeGreeksDetails.get("totalChangeInPEIV")
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposure") + " ," + deltaRangeGreeksDetails.get("maxGammaExposure") + " ," + deltaRangeGreeksDetails.get("netGammaExposure")
+						+ " ," + deltaRangeGreeksDetails.get("changein5secCeIV") + "," + deltaRangeGreeksDetails.get("changein5secPeIV")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
