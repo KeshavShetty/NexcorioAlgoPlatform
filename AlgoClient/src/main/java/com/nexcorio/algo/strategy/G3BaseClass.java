@@ -882,7 +882,7 @@ public abstract class G3BaseClass extends BaseClass {
 		return retVal;
 	}
 	
-	protected int getTimeDiffMinute(Date date1, Date date2) {
+	protected int getTimeDiffMinute(Date date1, Date date2) { 
 		int retVal = 0;
 		long mili = date1.getTime() - date2.getTime();
 		retVal =  (int) TimeUnit.MILLISECONDS.toMinutes(mili);
