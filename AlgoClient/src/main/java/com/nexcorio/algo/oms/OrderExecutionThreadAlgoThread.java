@@ -601,7 +601,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();	
 			String updateSql = "UPDATE nexcorio_option_algo_orders set " + (transactionType.equals("BUY")?"buy_price=":"sell_price=") + avgPrice + " WHERE id="+algoOrderId +" and option_name = '" + optionName + "'";
-			fileLogTelegramWriter.write(updateSql);
+			//fileLogTelegramWriter.write(updateSql);
 			stmt.executeUpdate(updateSql);
 			stmt.close();
 		} catch (Exception e) {
