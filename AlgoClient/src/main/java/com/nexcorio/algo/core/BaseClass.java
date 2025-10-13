@@ -307,7 +307,7 @@ public class BaseClass {
 		return expiryDate;
 	}
 	
-	private float getGreekValue(String greekname, OptionGreek optionGreek) {
+	protected float getGreekValue(String greekname, OptionGreek optionGreek) {
 		if (greekname.equalsIgnoreCase("delta")) return Math.abs(optionGreek.getDelta());
 		if (greekname.equalsIgnoreCase("vega"))  return Math.abs(optionGreek.getVega());
 		if (greekname.equalsIgnoreCase("theta")) return Math.abs(optionGreek.getTheta());
@@ -698,6 +698,189 @@ public class BaseClass {
 		
 	}
 
+	protected String[] getStraddleOptionNamesByGreekOptimisedNew(String greekname, float requiredDelta, int hedgeDistance) {
+		String[] retStr = null;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> ceOptionGreeks = new ArrayList<OptionGreek>();
+			List<OptionGreek> peOptionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				for(OptionGreek aGreek: getSnapshotGreeksFromCache()) {
+					if (aGreek.getTradingSymbol().endsWith("CE")) {
+						ceOptionGreeks.add(aGreek);
+					} else { // PE
+						peOptionGreeks.add(aGreek);
+					}
+				}
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						if (optionname.endsWith("CE")) {
+							ceOptionGreeks.add(aGreek);
+						} else {
+							peOptionGreeks.add(aGreek);
+						}
+					}
+				}
+			}
+			
+			// First search CE matching required delta
+			OptionGreek ceOptionGreekDeltaMatching = null;
+			float minDeltaGap = 1f;
+			for(OptionGreek aGreek: ceOptionGreeks) {
+				float deltaGap = Math.abs(Math.abs(aGreek.getDelta())-requiredDelta);
+				if (deltaGap < minDeltaGap) {
+					minDeltaGap = deltaGap;
+					ceOptionGreekDeltaMatching = aGreek;
+				}
+			}
+			
+			// Next search PE matching required delta
+			OptionGreek peOptionGreekDeltaMatching = null;
+			minDeltaGap = 1f;
+			for(OptionGreek aGreek: peOptionGreeks) {
+				float deltaGap = Math.abs(Math.abs(aGreek.getDelta())-requiredDelta);
+				if (deltaGap < minDeltaGap) {
+					minDeltaGap = deltaGap;
+					peOptionGreekDeltaMatching = aGreek;
+				}
+			}
+			
+			OptionGreek ceOptionGreekMatchingLeg1 = null;
+			OptionGreek peOptionGreekMatchingLeg1 = null;
+			OptionGreek ceOptionGreekMatchingLeg2 = null;
+			OptionGreek peOptionGreekMatchingLeg2 = null;
+			
+			if(!greekname.equals("delta")) {
+				// Leg 1
+				float requiredValueLeg1 = getGreekValue(greekname, ceOptionGreekDeltaMatching);
+				// First search CE matching required delta
+				
+				float minGreekDiff = Float.MAX_VALUE;
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float greekDiff = Math.abs(getGreekValue(greekname, aGreek)-requiredValueLeg1);
+					if (greekDiff < minGreekDiff) {
+						minGreekDiff = greekDiff;
+						ceOptionGreekMatchingLeg1 = aGreek;
+					}
+				}
+				
+				minGreekDiff = Float.MAX_VALUE;
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float greekDiff = Math.abs(getGreekValue(greekname, aGreek)-requiredValueLeg1);
+					if (greekDiff < minGreekDiff) {
+						minGreekDiff = greekDiff;
+						peOptionGreekMatchingLeg1 = aGreek;
+					}
+				}
+				
+				// Leg2
+				float requiredValueLeg2 = getGreekValue(greekname, peOptionGreekDeltaMatching);
+				// First search CE matching required delta
+				
+				minGreekDiff = Float.MAX_VALUE;
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float greekDiff = Math.abs(getGreekValue(greekname, aGreek)-requiredValueLeg2);
+					if (greekDiff < minGreekDiff) {
+						minGreekDiff = greekDiff;
+						ceOptionGreekMatchingLeg2 = aGreek;
+					}
+				}
+				
+				minGreekDiff = Float.MAX_VALUE;
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float greekDiff = Math.abs(getGreekValue(greekname, aGreek)-requiredValueLeg2);
+					if (greekDiff < minGreekDiff) {
+						minGreekDiff = greekDiff;
+						peOptionGreekMatchingLeg2 = aGreek;
+					}
+				}
+			}
+			List<OptionGreek> ceAvailableList = new ArrayList<OptionGreek>();
+			List<OptionGreek> peAvailableList = new ArrayList<OptionGreek>();
+			
+			if (ceOptionGreekDeltaMatching != null) ceAvailableList.add(ceOptionGreekDeltaMatching);
+			if (ceOptionGreekMatchingLeg1 != null)  ceAvailableList.add(ceOptionGreekMatchingLeg1);
+			if (ceOptionGreekMatchingLeg2 != null)  ceAvailableList.add(ceOptionGreekMatchingLeg2);
+			
+			if (peOptionGreekDeltaMatching != null) peAvailableList.add(peOptionGreekDeltaMatching);
+			if (peOptionGreekMatchingLeg1 != null)  peAvailableList.add(peOptionGreekMatchingLeg1);
+			if (peOptionGreekMatchingLeg2 != null)  peAvailableList.add(peOptionGreekMatchingLeg2);
+			
+			OptionGreek selectedCeOptionGreek = null;
+			OptionGreek selectedPeOptionGreek = null;
+			float minGreekDiff = Float.MAX_VALUE;
+			for(OptionGreek ceGreek: ceAvailableList) {
+				for(OptionGreek peGreek: peAvailableList) {
+					float greekDiff = Math.abs(getGreekValue(greekname, ceGreek)-getGreekValue(greekname, peGreek));
+					if (greekDiff < minGreekDiff) {
+						minGreekDiff = greekDiff;
+						selectedCeOptionGreek = ceGreek;
+						selectedPeOptionGreek = peGreek;
+					}
+				}
+			}
+			String localCeHedgeOptionName =  "";
+			String localPeHedgeOptionName =  "";
+			if (hedgeDistance>0) {
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				int centerStrike = getOptionCenterStrike(optionnamePrefix);
+				localCeHedgeOptionName =  optionnamePrefix + (centerStrike+hedgeDistance) + "CE";
+				localPeHedgeOptionName =  optionnamePrefix + (centerStrike-hedgeDistance) + "PE";
+			}
+			retStr = new String[]{selectedCeOptionGreek.getTradingSymbol(), selectedPeOptionGreek.getTradingSymbol(), localCeHedgeOptionName, localPeHedgeOptionName};
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retStr;
+	}
+		
 	protected String[] getStraddleOptionNamesByDeltaOptimised(float requiredDelta, int hedgeDistance) {
 		
 		 if (backtestDate != null ) {
