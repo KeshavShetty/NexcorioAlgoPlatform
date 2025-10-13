@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -467,7 +468,7 @@ public abstract class G3BaseClass extends BaseClass {
 				Statement stmt = conn.createStatement();
 							
 				String updateSql = "UPDATE nexcorio_option_algo_orders set buy_price=" + optionPrice+", exit_time='" + postgresLongDateFormat.format(getCurrentTime()) +"' WHERE id=" + orderDbId ;
-				fileLogTelegramWriter.write(updateSql);
+				//fileLogTelegramWriter.write(updateSql);
 				stmt.execute(updateSql);
 				
 				stmt.close();
@@ -492,7 +493,7 @@ public abstract class G3BaseClass extends BaseClass {
 				Statement stmt = conn.createStatement();
 							
 				String updateSql = "UPDATE nexcorio_option_algo_orders set sell_price=" + optionPrice+", exit_time='" + postgresLongDateFormat.format(getCurrentTime()) +"' WHERE id=" + orderDbId ;
-				fileLogTelegramWriter.write(updateSql);
+				//fileLogTelegramWriter.write(updateSql);
 				stmt.execute(updateSql);
 				
 				stmt.close();
@@ -880,10 +881,28 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 		return retVal;
 	}
+	
+	protected int getTimeDiffMinute(Date date1, Date date2) {
+		int retVal = 0;
+		long mili = date1.getTime() - date2.getTime();
+		retVal =  (int) TimeUnit.MILLISECONDS.toMinutes(mili);
+		fileLogTelegramWriter.write("date1="+date1+" date2="+date2+" retVal="+retVal);
+		return retVal;
+	}
 }
 
 class SortbyOI implements Comparator<OptionGreek> {
     public int compare(OptionGreek a, OptionGreek b) { 
+    	if (a.getOi() > b.getOi()) return -1;
+    	else if (a.getOi() < b.getOi()) return 1;
+    	else return 0;
+    } 
+}
+
+class SortbyOiDesc implements Comparator<OptionGreek> { 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
     	if (a.getOi() > b.getOi()) return -1;
     	else if (a.getOi() < b.getOi()) return 1;
     	else return 0;
