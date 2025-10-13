@@ -284,6 +284,10 @@ public class G3GreekDirectedTrendRollingStrangleAlgoThread extends G3BaseClass i
 				fieldname = "outliercemedianiv-outlierceminiv as ceGreek, outlierpemedianiv-outlierpeminiv as peGreek";
 			} else if (greekname.equalsIgnoreCase("dr19WholeStrikeAvgIV")) {
 				fieldname = "dr19WholeStrikeCEAvgIV as ceGreek, dr19WholeStrikePEAvgIV as peGreek";
+			} else if (greekname.equalsIgnoreCase("gammaExposure")) {
+				fieldname = "wholeStrikePEDeltaOI as ceGreek, wholeStrikeCEDeltaOI as peGreek";
+			} else if (greekname.equalsIgnoreCase("accmltd5secIVChg")) {
+				fieldname = "accumulatedChangein5secCeIV as ceGreek, accumulatedChangein5secPeIV as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();

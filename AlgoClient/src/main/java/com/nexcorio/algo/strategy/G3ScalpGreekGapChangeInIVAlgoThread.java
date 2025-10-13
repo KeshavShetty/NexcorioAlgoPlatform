@@ -21,7 +21,7 @@ public class G3ScalpGreekGapChangeInIVAlgoThread extends G3BaseClass implements 
 	private String ceBuyOptionname = "";
 	private String peBuyOptionname = "";
 	
-	
+	public String greekname = "totalChangeInIV";
 	public float baseDelta = 0.5f;
 	public boolean adjustPosition = false; // Adjust position after steep fall
 	
@@ -212,7 +212,9 @@ public class G3ScalpGreekGapChangeInIVAlgoThread extends G3BaseClass implements 
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "totalChangeInCEIV as ceGreek, totalChangeInPEIV as peGreek";
-			
+			if (greekname.equals("changein5secIV") ) {
+				fieldname = "changein5secCeIV as ceGreek, changein5secPeIV as peGreek";
+			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {

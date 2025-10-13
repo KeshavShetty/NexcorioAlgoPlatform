@@ -19,6 +19,7 @@ public class G3GreekGapChangeInIVAlgoThread extends G3BaseClass implements Runna
 	private static final Logger log = LogManager.getLogger(G3GreekGapChangeInIVAlgoThread.class);
 	
 	public float baseDelta = 0.5f;
+	public String greekname = "totalChangeInIV";
 	public boolean adjustPosition = false; // Adjust position after steep fall
 	
 	public Integer dependentInstrumentId = null;
@@ -53,9 +54,14 @@ public class G3GreekGapChangeInIVAlgoThread extends G3BaseClass implements Runna
 			float soldPrice = 0f;
 			String currentTrend = null;
 			do {
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
+				currentTrend = getSellerDirectionBy5MATMGreekGap(lastKnownTrend);
+				//currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
 				if (currentTrend.equals("Unknown")) sleep(15);
-			} while (currentTrend.equals(lastKnownTrend));
+				checkExitSignals();
+			} while (currentTrend.equals(lastKnownTrend) && exitThread==false);
+			if (exitThread==true) {
+				return;
+			}
 			
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			if (currentTrend.equals("CE")) {
@@ -126,8 +132,8 @@ public class G3GreekGapChangeInIVAlgoThread extends G3BaseClass implements Runna
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
-				
+				currentTrend = getSellerDirectionBy5MATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
+				//currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
 				if (!currentTrend.equals(lastKnownTrend)) {
 				
 					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
@@ -293,7 +299,9 @@ public class G3GreekGapChangeInIVAlgoThread extends G3BaseClass implements Runna
 			Statement stmt = conn.createStatement();
 			
 			String fieldname = "totalChangeInCEIV as ceGreek, totalChangeInPEIV as peGreek";
-			
+			if(this.greekname.equals("changein5seciv")) {
+				fieldname = "changein5secceiv as ceGreek, changein5secpeiv as peGreek";
+			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {
@@ -328,6 +336,56 @@ public class G3GreekGapChangeInIVAlgoThread extends G3BaseClass implements Runna
 			if (peCount==5) retVal = "PE";
 			
 			fileLogTelegramWriter.write("totalCEIV="+totalCEIV+" totalPEIV="+totalPEIV+" retVal="+retVal);
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			
+		return retVal;
+	}
+	
+	private String getSellerDirectionBy5MATMGreekGap( String lastKnownTrend) {
+		String retVal = lastKnownTrend;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+					
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select sum(changein5secceiv) as ceGreek, sum(changein5secpeiv) as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+							+ " and record_time > '" + postgresLongDateFormat.format(getCurrentTime(-5)) + "'";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			float ceGreekNow = 0f;
+			float peGreekNow = 0f;
+			while (rs.next()) {
+				ceGreekNow = rs.getFloat("ceGreek");
+				peGreekNow = rs.getFloat("peGreek");
+			}
+			rs.close();
+			
+			fileLogTelegramWriter.write("ceGreekNow="+ceGreekNow+" peGreekNow="+peGreekNow);
+			float gapDiff = 200f;
+			
+			if (peGreekNow < -gapDiff) retVal = "CE";
+			else if (ceGreekNow < -gapDiff) retVal = "PE";
+			else if (peGreekNow > gapDiff) retVal = "PE";
+			else if (ceGreekNow > gapDiff) retVal = "CE";
+			stmt.close();
+			
 		} catch(Exception ex) {
 			ex.printStackTrace();
 		}finally {

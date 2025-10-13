@@ -4,7 +4,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -24,6 +28,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	public float adjustGap = 0.0f;
 	public boolean adjustPosition = false; // Adjust position after steep fall
 	
+	public boolean oiWorthDirection = false;
 	public Integer dependentInstrumentId = null;
 	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
@@ -56,7 +61,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			do {
 				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
 				if (currentTrend.equals("Unknown")) sleep(15);
-			} while (currentTrend.equals(lastKnownTrend));
+				checkExitSignals();
+			} while (currentTrend.equals(lastKnownTrend) && this.exitThread==false);
+			if (exitThread==true) {
+				return;
+			}
 			
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			if (currentTrend.equals("CE")) {
@@ -208,6 +217,23 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 						} else {
 							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 						}
+					} else { // Uncertain, exit
+						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
+							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+							// Exit CE
+							if (this.placeActualOrder) {
+								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							ceStraddleOptionName = "";
+						}
+						if (!peStraddleOptionName.equals("")) { // Exit and re enter
+							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+							if (this.placeActualOrder) {
+								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							peStraddleOptionName = "";
+						}
+						
 					}
 					lastKnownTrend = currentTrend;
 				} else {
@@ -288,6 +314,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
+		if (this.oiWorthDirection) {
+			String oiWorthSellerDirection = getOiWorthSellerDirection();
+			if (oiWorthSellerDirection.equals("CE") || oiWorthSellerDirection.equals("PE")) return oiWorthSellerDirection;
+		}
+		
 		Connection conn = null;
 		try {
 			conn = HDataSource.getReadOnlyConnection();
@@ -332,6 +363,10 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "dr19WholeStrikeCEAvgIV as ceGreek, dr19WholeStrikePEAvgIV as peGreek";
 			} else if (greekname.equalsIgnoreCase("gammaExposure")) {
 				fieldname = "maxGammaExposure as ceGreek, minGammaExposure as peGreek";
+			} else if (greekname.equalsIgnoreCase("netGammaExposure")) {
+				fieldname = "netGammaExposure as ceGreek, netGammaExposure as peGreek";
+			} else if (greekname.equalsIgnoreCase("accmltd5secIVChg")) {
+				fieldname = "accumulatedChangein5secCeIV as ceGreek, accumulatedChangein5secPeIV as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -350,8 +385,13 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
-				if (ceGreek+adjustGap>=peGreek) {
-					gapCount++;
+				
+				if (greekname.equalsIgnoreCase("netGammaExposure")) {
+					if (ceGreek>0) gapCount++;
+				} else {
+					if (ceGreek+adjustGap>=peGreek) {
+						gapCount++;
+					}
 				}
 			}
 			rs.close();			
@@ -390,6 +430,102 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}
 			
 		return retVal;
+	}
+	
+	private String getOiWorthSellerDirection() {
+		String retStr = "Neutral";
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				optionGreeks = getSnapshotGreeksFromCache();
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
+				}
+			}
+			stmt.close();
+			
+			Collections.sort(optionGreeks, new SortbyOI());
+			
+			int ceCount = 0;
+			int peCount = 0;
+			float ceWorth =0f;
+			float peWorth =0f;
+			StringBuffer topOptions = new StringBuffer();
+			for(OptionGreek aGreek: optionGreeks) {
+				if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+					
+					topOptions.append(aGreek.getTradingSymbol()+" " + aGreek.getOi() + " ");
+					if (aGreek.getTradingSymbol().endsWith("CE")) {
+						ceCount++;
+						ceWorth = ceWorth + aGreek.getOi()*aGreek.getLtp()/10000000f;
+					} else {
+						peCount++;
+						peWorth = peWorth + aGreek.getOi()*aGreek.getLtp()/10000000f;
+					}
+					if(ceCount+peCount>=7 ) break; 
+				}
+			}
+			
+			if (ceWorth-peWorth>=50) {
+				retStr = "CE";
+			} else if (peWorth-ceWorth>=50) {
+				retStr = "PE";
+			}
+			fileLogTelegramWriter.write("topOptions="+topOptions + " retStr="+retStr);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}	
+		return retStr;
 	}
 	
 	public static void main(String[] args) {
