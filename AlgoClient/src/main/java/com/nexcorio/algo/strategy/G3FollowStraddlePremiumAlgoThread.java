@@ -31,6 +31,8 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 	public int avoidCeOutliersAbove = 0;
 	public int avoidPeOutliersAbove = 0;
 	
+	public boolean checkStraddleSpike = Boolean.FALSE;
+	
 	public boolean wait4IdealPremium = Boolean.FALSE;
 	
 	private float idealPremium = 0f;
@@ -76,6 +78,7 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 						this.idealPremium = getIdealPremiumBasedOnPreviousStradlePremium();
 					}
 					if (currentPremium >= idealPremium) foundIdealpremium = true; 
+					else if (idealPremium > 100f + currentPremium) foundIdealpremium = true; // Check for last day expiry
 					else {
 						fileLogTelegramWriter.write("currentPremium="+currentPremium+" idealStraddlePremium="+idealPremium+" sleep");
 						sleep(10);
@@ -158,6 +161,27 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 					if (actualATMThetaDecay-capturedThetaDecay > diffFromAtmPremium) {
 						fileLogTelegramWriter.write(" Realigning 1.0, actualATMThetaDecay="+actualATMThetaDecay+" capturedThetaDecay="+capturedThetaDecay+" (Diff)="+(actualATMThetaDecay-capturedThetaDecay));
 						needRepositioning = true;	
+					}
+					if (checkStraddleSpike == true && actualATMThetaDecay < -10f) { // Volatile exit and stay out for 15 minutes
+						if (!ceStraddleOptionName.equals("")) { 
+							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+							// Exit CE
+							if (this.placeActualOrder) {
+								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							ceStraddleOptionName = "";
+							ignoredOrders++;
+						}
+						if (!peStraddleOptionName.equals("")) { 
+							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+							if (this.placeActualOrder) {
+								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							peStraddleOptionName = "";
+							ignoredOrders++;
+						}
+						sleep(60*15);
+						needRepositioning = true;
 					}
 				} 
 				if (needRepositioning==false && useMinReached && !ceStraddleOptionName.equals("")) { // Check spike in premium
@@ -250,6 +274,7 @@ public class G3FollowStraddlePremiumAlgoThread extends G3BaseClass implements Ru
 					}
 					
 				} else if (needRepositioning) {
+					//String[] entryStraddleOptionNames = getStraddleOptionNamesByGreekOptimisedNew("delta", this.baseDelta, this.optimalHedgeDistance);
 					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 					
 					String ceOptionname = entryStraddleOptionNames[0];
