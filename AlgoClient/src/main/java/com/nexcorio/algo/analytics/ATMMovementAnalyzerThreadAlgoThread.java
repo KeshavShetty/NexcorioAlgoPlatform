@@ -44,6 +44,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	private List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
 	private List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
 	
+	private float accumulatedChangein5secCeIV = 0f;
+	private float accumulatedChangein5secPeIV = 0f;
+	
 	public ATMMovementAnalyzerThreadAlgoThread(String instrumentName, String backDateStr) {
 		super();
 		
@@ -814,8 +817,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				prevCeOptionGreeks = ceOptionGreeks;
 				prevPeOptionGreeks = peOptionGreeks;
 				
+				accumulatedChangein5secCeIV = accumulatedChangein5secCeIV + changein5secCeIV;
+				accumulatedChangein5secPeIV = accumulatedChangein5secPeIV + changein5secPeIV;
+				
 				retMap.put("changein5secCeIV",changein5secCeIV);
 				retMap.put("changein5secPeIV",changein5secPeIV);
+				
+				retMap.put("accumulatedChangein5secCeIV",accumulatedChangein5secCeIV);
+				retMap.put("accumulatedChangein5secPeIV",accumulatedChangein5secPeIV);
 				
 				stmt.close();
 			} catch (Exception e) {
@@ -1148,6 +1157,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", totalChangeInCEIV, totalChangeInPEIV"
 						+ ", minGammaExposure, maxGammaExposure, netGammaExposure"
 						+ ", changein5secCeIV, changein5secPeIV"
+						+ ", accumulatedChangein5secCeIV, accumulatedChangein5secPeIV"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1294,6 +1304,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("totalChangeInCEIV") + " ," + deltaRangeGreeksDetails.get("totalChangeInPEIV")
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposure") + " ," + deltaRangeGreeksDetails.get("maxGammaExposure") + " ," + deltaRangeGreeksDetails.get("netGammaExposure")
 						+ " ," + deltaRangeGreeksDetails.get("changein5secCeIV") + "," + deltaRangeGreeksDetails.get("changein5secPeIV")
+						+ " ," + deltaRangeGreeksDetails.get("accumulatedChangein5secCeIV") + "," + deltaRangeGreeksDetails.get("accumulatedChangein5secPeIV")  
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1394,6 +1405,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-09-23 09:17:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-10-01 09:16:00");
 	}
 }
