@@ -31,6 +31,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	public boolean oiWorthDirection = false;
 	public Integer dependentInstrumentId = null;
 	
+	public int peCheckCEOutlier = 0;
+	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -367,6 +369,10 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "netGammaExposure as ceGreek, netGammaExposure as peGreek";
 			} else if (greekname.equalsIgnoreCase("accmltd5secIVChg")) {
 				fieldname = "accumulatedChangein5secCeIV as ceGreek, accumulatedChangein5secPeIV as peGreek";
+			} else if (greekname.equalsIgnoreCase("dr1-6AvgIv")) {
+				fieldname = "dr1_6CEAvgIv as ceGreek, dr1_6PEAvgIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("gammaExposureWthStrk")) {
+				fieldname = "maxGammaExposureWithStrike as ceGreek, minGammaExposureWithStrike as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -374,30 +380,34 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				instrumentIdToUse = dependentInstrumentId;
 			}
 			
-			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+			String fetchSql = "select " + fieldname + ", countceoutlier from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
 			int gapCount = 0;
-			
+			int gapCountWithoutAdjust = 0;
+			int ceOutlierCount = 0;
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
-				
+				ceOutlierCount = rs.getInt("countceoutlier");
 				if (greekname.equalsIgnoreCase("netGammaExposure")) {
 					if (ceGreek>0) gapCount++;
 				} else {
 					if (ceGreek+adjustGap>=peGreek) {
 						gapCount++;
 					}
+					if (ceGreek>=peGreek) {
+						gapCountWithoutAdjust++;
+					}
 				}
 			}
 			rs.close();			
 			stmt.close();
 			
-			fileLogTelegramWriter.write("gapCpunt="+gapCount);
+			fileLogTelegramWriter.write("gapCpunt=" + gapCount + " gapCountWithoutAdjust=" + gapCountWithoutAdjust + " ceOutlierCount="+ceOutlierCount);
 			
 			if (this.greekname.contains("gamma") || this.greekname.contains("Gamma")) gapCount = 5-gapCount;
 			
@@ -415,6 +425,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				if (gapCount < 2 ) {
 					retVal = "PE";
 				} else if (gapCount > 3 ) {
+					retVal = "CE";
+				}
+			}
+			if(this.peCheckCEOutlier > 0) {
+				if (retVal.equals("PE")  && ceOutlierCount >= peCheckCEOutlier) { // && gapCountWithoutAdjust==5
 					retVal = "CE";
 				}
 			}

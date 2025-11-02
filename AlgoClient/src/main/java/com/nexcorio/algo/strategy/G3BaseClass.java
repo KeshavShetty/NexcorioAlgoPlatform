@@ -908,3 +908,13 @@ class SortbyOiDesc implements Comparator<OptionGreek> {
     	else return 0;
     } 
 }
+
+class SortbyIV implements Comparator<OptionGreek> { 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
+    	if (a.getIv() < b.getIv()) return -1;
+    	else if (a.getIv() > b.getIv()) return 1;
+    	else return 0;
+    } 
+}

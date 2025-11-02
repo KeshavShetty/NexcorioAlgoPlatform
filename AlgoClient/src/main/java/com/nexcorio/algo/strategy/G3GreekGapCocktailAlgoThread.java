@@ -99,7 +99,7 @@ public class G3GreekGapCocktailAlgoThread extends G3BaseClass implements Runnabl
 			updateAlgoStatus("Running");
 			
 			do {
-				sleep(15); // Every 10sec
+				sleep(5); // Every 10sec
 				
 				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 				

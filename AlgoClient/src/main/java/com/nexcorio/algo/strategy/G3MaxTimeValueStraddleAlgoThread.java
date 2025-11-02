@@ -201,8 +201,8 @@ public class G3MaxTimeValueStraddleAlgoThread extends G3BaseClass implements Run
 					}
 					ceOptionGreeks = !ceStraddleOptionName.equals("")?getOptionGreeks(ceStraddleOptionName):null;
 					peOptionGreeks = !peStraddleOptionName.equals("")?getOptionGreeks(peStraddleOptionName):null;
-					ceIvWhenStraddleFormed = ceOptionGreeks.getIv();
-					peIvWhenStraddleFormed = peOptionGreeks.getIv();
+					ceIvWhenStraddleFormed = !ceStraddleOptionName.equals("")?ceOptionGreeks.getIv():0f;
+					peIvWhenStraddleFormed = !peStraddleOptionName.equals("")?peOptionGreeks.getIv():0f;
 				}
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
