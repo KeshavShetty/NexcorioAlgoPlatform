@@ -480,7 +480,8 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 								String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
 										KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
 								if (placedKiteOrderId == null) { // Mostly socket/network exception, Try one more time
-									Thread.sleep(1000);
+									fileLogTelegramWriter.write("placedKiteOrderId is null, retry after few second");
+									Thread.sleep(5000);
 									placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
 											KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
 								}

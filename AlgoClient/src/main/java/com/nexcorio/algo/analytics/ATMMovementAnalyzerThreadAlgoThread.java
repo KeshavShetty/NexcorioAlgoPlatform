@@ -10,10 +10,12 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,6 +33,17 @@ class SortbyIV implements Comparator<OptionGreek>
     { 
     	if (a.getIv() < b.getIv()) return -1;
     	else if (a.getIv() > b.getIv()) return 1;
+    	else return 0;
+    } 
+}
+
+class SortbyOiDesc implements Comparator<OptionGreek> 
+{ 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
+    	if (a.getOi() > b.getOi()) return -1;
+    	else if (a.getOi() < b.getOi()) return 1;
     	else return 0;
     } 
 }
@@ -876,6 +889,45 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("accumulatedChangein5secCeIV",accumulatedChangein5secCeIV);
 				retMap.put("accumulatedChangein5secPeIV",accumulatedChangein5secPeIV);
 				
+				
+				// Top 5 strike Gamma Exposure
+				List<OptionGreek> optionGreeks = new ArrayList<>();
+				optionGreeks.addAll(ceOptionGreeks);
+				optionGreeks.addAll(peOptionGreeks);
+				
+				Collections.sort(optionGreeks, new SortbyOiDesc());				
+				Set<Integer> top5Strikes = new HashSet<Integer>();
+				int recProcessed = 0;
+				for(OptionGreek aGreek: optionGreeks) {
+					if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+						recProcessed++;
+						top5Strikes.add(getStrike(aGreek.getTradingSymbol()));
+					}
+					if (recProcessed>=5) break;
+				}
+				
+				float minGammaExposureTopN = Float.MAX_VALUE;
+		        float maxGammaExposureTopN = Float.MIN_VALUE;
+		        float netGammaExposureTopN = 0f;
+		        
+				iter = sortedMap2.keySet().iterator();
+				while (iter.hasNext()) {
+					int strike = iter.next();
+					if (top5Strikes.contains(strike)) {
+						if (gammaPerStrikeDistance.get(strike) < minGammaExposureTopN) {
+							minGammaExposureTopN = gammaPerStrikeDistance.get(strike);
+						}
+						if (gammaPerStrikeDistance.get(strike) > maxGammaExposureTopN) {
+							maxGammaExposureTopN = gammaPerStrikeDistance.get(strike);
+						}
+						fileLogTelegramWriter.write(" For Strike " + strike + " strike distance gamma exposure " + gammaPerStrikeDistance.get(strike));
+						netGammaExposureTopN = netGammaExposureTopN + gammaPerStrikeDistance.get(strike);
+					}	
+				}
+				retMap.put("minGammaExposureTopN", Math.abs(minGammaExposureTopN)/1000f);
+				retMap.put("maxGammaExposureTopN",maxGammaExposureTopN/1000f);
+				retMap.put("netGammaExposureTopN",netGammaExposureTopN/1000f);
+				
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -1209,6 +1261,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", changein5secCeIV, changein5secPeIV"
 						+ ", accumulatedChangein5secCeIV, accumulatedChangein5secPeIV"
 						+ ", minGammaExposureWithStrike, maxGammaExposureWithStrike, netGammaExposureWithStrike"
+						+ ", minGammaExposureTopN, maxGammaExposureTopN, netGammaExposureTopN"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1357,6 +1410,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("changein5secCeIV") + "," + deltaRangeGreeksDetails.get("changein5secPeIV")
 						+ " ," + deltaRangeGreeksDetails.get("accumulatedChangein5secCeIV") + "," + deltaRangeGreeksDetails.get("accumulatedChangein5secPeIV") 
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("netGammaExposureWithStrike")
+						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("netGammaExposureTopN")
 						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
@@ -1458,6 +1512,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-10-31 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-11-18 09:16:00");
 	}
 }
