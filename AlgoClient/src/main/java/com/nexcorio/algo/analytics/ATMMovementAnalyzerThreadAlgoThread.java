@@ -26,6 +26,9 @@ import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
+/**
+ * Top N Gamma exposure included
+ */
 class SortbyIV implements Comparator<OptionGreek> 
 { 
     // Comparator 
