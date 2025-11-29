@@ -17,6 +17,8 @@ public class OptionGreek {
 	private float oi;
 	private float changeInIv=0f;
 	
+	private int strike=0; 
+	
 	private float underlyingValue;
 	
 	public OptionGreek(String tradingSymbol, float iv, float delta, float vega, float theta, float gamma) {
@@ -138,6 +140,17 @@ public class OptionGreek {
 
 	public void setChangeInIv(float changeInIv) {
 		this.changeInIv = changeInIv;
+	}
+
+	public int getStrike() {
+		if (strike==0) {
+			strike = Integer.parseInt(this.tradingSymbol .substring(this.tradingSymbol.length()-7, this.tradingSymbol.length()-2));
+		}
+		return strike;
+	}
+
+	public void setStrike(int strike) {
+		this.strike = strike;
 	}
 }
 

@@ -28,6 +28,8 @@ public class G3GreekGapMultiIndexAlgoThread extends G3BaseClass implements Runna
 	public String idxIds = "2,3,4";
 	public String idxAdjGaps = "500,500,200";
 	
+	public boolean inverse = false;
+	
 	public G3GreekGapMultiIndexAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -371,6 +373,10 @@ public class G3GreekGapMultiIndexAlgoThread extends G3BaseClass implements Runna
 			fileLogTelegramWriter.write("gapCpunt=" + gapCount + " gapCountWithoutAdjust=" + gapCountWithoutAdjust + " ceOutlierCount="+ceOutlierCount+ " peOutlierCount="+peOutlierCount);
 			
 			if (this.greekname.contains("gamma") || this.greekname.contains("Gamma")) gapCount = 5-gapCount;
+			
+			if(this.inverse) {
+				gapCount = 5-gapCount;
+			}
 			
 			if (gapCount == 0) {
 				retVal = "PE";

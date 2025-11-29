@@ -51,6 +51,17 @@ class SortbyOiDesc implements Comparator<OptionGreek>
     } 
 }
 
+class SortbyStrike implements Comparator<OptionGreek> 
+{ 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
+    	if (a.getStrike() < b.getStrike()) return -1;
+    	else if (a.getStrike() > b.getStrike()) return 1;
+    	else return 0;
+    } 
+}
+
 public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass implements Runnable {
 
 	private static final Logger log = LogManager.getLogger(ATMMovementAnalyzerThreadAlgoThread.class);
@@ -931,6 +942,57 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("maxGammaExposureTopN",maxGammaExposureTopN/1000f);
 				retMap.put("netGammaExposureTopN",netGammaExposureTopN/1000f);
 				
+				// Cumulative IV diff between sequqntial strikes 
+				Collections.sort(ceOptionGreeks, new SortbyStrike());
+				Collections.sort(peOptionGreeks, new SortbyStrike());
+				Collections.reverse(peOptionGreeks);
+				
+				lowerDelta = 0.1f;
+				upperDelta = 0.5f;
+				
+				float prevIv = 0f;
+				float cumulativeCEAvgIVDiff = 0f;
+				recCount = 0;
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					if (delta >= lowerDelta && delta <= upperDelta) {
+						if (prevIv > 0.01f) {
+							
+							float ivDiff = aGreek.getIv()-prevIv;
+							if (ivDiff > -1.5f && ivDiff < 1.5f) {
+								recCount++;
+								//cumulativeCEAvgIVDiff = cumulativeCEAvgIVDiff + ivDiff;
+								cumulativeCEAvgIVDiff = cumulativeCEAvgIVDiff + aGreek.getIv();
+								fileLogTelegramWriter.write("CE Strike "+ aGreek.getStrike()+" Iv Diff " + ivDiff + " delta="+delta + " Iv="+aGreek.getIv());
+							}
+						}
+						prevIv = aGreek.getIv();
+					}
+				}
+				if (recCount==0) recCount=1;
+				retMap.put("cumulativeCEAvgIVDiff", cumulativeCEAvgIVDiff/(float)recCount);
+				fileLogTelegramWriter.write("cumulativeCEAvgIVDiff="+cumulativeCEAvgIVDiff+" recCount="+recCount);
+				prevIv = 0f;
+				recCount = 0;
+				float cumulativePEAvgIVDiff = 0f;
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					if (delta >= lowerDelta && delta <= upperDelta) {
+						if (prevIv > 0.01f) {
+							float ivDiff = aGreek.getIv()-prevIv;
+							if (ivDiff > -1.5f && ivDiff < 1.5f) {
+								recCount++;
+								cumulativePEAvgIVDiff = cumulativePEAvgIVDiff + aGreek.getIv();
+								fileLogTelegramWriter.write("PE Strike "+ aGreek.getStrike()+" Iv Diff " + ivDiff + " delta="+delta+ " Iv="+aGreek.getIv());
+							}
+						}
+						prevIv = aGreek.getIv();
+					}
+				}
+				if (recCount==0) recCount=1;
+				retMap.put("cumulativePEAvgIVDiff", cumulativePEAvgIVDiff/(float)recCount);
+				fileLogTelegramWriter.write("cumulativePEAvgIVDiff="+cumulativePEAvgIVDiff+" recCount="+recCount);
+				
 				stmt.close();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -1265,6 +1327,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", accumulatedChangein5secCeIV, accumulatedChangein5secPeIV"
 						+ ", minGammaExposureWithStrike, maxGammaExposureWithStrike, netGammaExposureWithStrike"
 						+ ", minGammaExposureTopN, maxGammaExposureTopN, netGammaExposureTopN"
+						+ ", cumulativeCEAvgIVDiff, cumulativePEAvgIVDiff"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -1414,7 +1477,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("accumulatedChangein5secCeIV") + "," + deltaRangeGreeksDetails.get("accumulatedChangein5secPeIV") 
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("netGammaExposureWithStrike")
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("netGammaExposureTopN")
-						
+						+ " ," + deltaRangeGreeksDetails.get("cumulativeCEAvgIVDiff") + " ," + deltaRangeGreeksDetails.get("cumulativePEAvgIVDiff") 
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1515,6 +1578,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-11-18 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-11-26 09:16:00");
 	}
 }

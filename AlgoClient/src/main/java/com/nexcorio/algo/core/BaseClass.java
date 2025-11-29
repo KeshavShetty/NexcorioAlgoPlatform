@@ -124,7 +124,7 @@ public class BaseClass {
 			String fetchSql = "select quote_time, last_traded_price from nexcorio_tick_data where trading_symbol = '" + instrumentName +"'"
 					+ (backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(backtestDate.getTime() )+ "'") : "")
 					+ " order by quote_time desc limit 1";
-			fileLogTelegramWriter.write(fetchSql);
+			//fileLogTelegramWriter.write(fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retVal = rs.getFloat("last_traded_price");
@@ -285,7 +285,7 @@ public class BaseClass {
 					+ " and fno_segment='" + fnoExchange + "' "
 					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
 					+ " ORDER BY expiry_date ASC LIMIT 1";
-			fileLogTelegramWriter.write("Fetch sql="+fetchSql);
+			//fileLogTelegramWriter.write("Fetch sql="+fetchSql);
 			
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
@@ -303,7 +303,7 @@ public class BaseClass {
 				e.printStackTrace();
 			}
 		}
-		fileLogTelegramWriter.write("In getOptionCurrentWeekExpiryDate retStr="+expiryDate);
+		//fileLogTelegramWriter.write("In getOptionCurrentWeekExpiryDate retStr="+expiryDate);
 		return expiryDate;
 	}
 	
