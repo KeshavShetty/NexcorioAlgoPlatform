@@ -111,7 +111,8 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			ceDbId = createAlgoSellOrder(soldCEOptionname, cePrice, noOfBatches*lotsPerBatch*lotSize*2); // 0.5 delta two sets = 1delta to match net delta with Synthetic future delta
 			if (this.placeActualOrder) {
 				placeRealOrder( hedge4SoldCEOptionname, noOfBatches*lotsPerBatch*lotSize*2, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE); // Additional hedge for option sold
-				placeRealOrder( ceDbId, soldCEOptionname, noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				placeRealOrder( ceDbId, soldCEOptionname, (noOfBatches-1)*lotsPerBatch*lotSize*2, "SELL", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				placeRealOrder( ceDbId, soldCEOptionname, lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE); // This order split into 2 so that margin error wont come
 			}
 			
 			float currentDeltaPtr = 0.5f;
