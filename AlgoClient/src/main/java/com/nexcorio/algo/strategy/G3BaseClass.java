@@ -16,8 +16,10 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
@@ -887,6 +889,43 @@ public abstract class G3BaseClass extends BaseClass {
 		long mili = date1.getTime() - date2.getTime();
 		retVal =  (int) TimeUnit.MILLISECONDS.toMinutes(mili);
 		fileLogTelegramWriter.write("date1="+date1+" date2="+date2+" retVal="+retVal);
+		return retVal;
+	}
+	
+	protected float setCoeveredMarginRequired(Map<String, Integer> orderPositions, float defaultReturnInCaseofError) {
+		float retVal = defaultReturnInCaseofError;
+		try {
+	    	// Check margin required
+    		List<MarginCalculationParams> params = new ArrayList<MarginCalculationParams>();
+    		
+    		String exchangeToUse = "NFO";
+			if (this.mainInstrument.getExchange().equals("BSE")) exchangeToUse = "BFO";
+			
+			Iterator<String> iter = orderPositions.keySet().iterator();
+			while(iter.hasNext()) {
+				String nextKey = iter.next();
+				int qty = orderPositions.get(nextKey);
+				MarginCalculationParams aMarginParam = new MarginCalculationParams();
+	    		aMarginParam.exchange = exchangeToUse; 
+	    		aMarginParam.variety = Constants.VARIETY_REGULAR;
+	    		aMarginParam.orderType = Constants.ORDER_TYPE_MARKET;
+	    		aMarginParam.product = Constants.PRODUCT_MIS;
+	    		aMarginParam.quantity = Math.abs(qty);
+	    		aMarginParam.tradingSymbol = nextKey;			
+	    		aMarginParam.transactionType = qty>0?"BUY":"SELL";
+				params.add(aMarginParam);
+				fileLogTelegramWriter.write(nextKey + " " + qty + " " + aMarginParam.transactionType);
+			}
+			
+    		KiteConnect kiteconnect = getKiteConnect(this.userId);
+    		CombinedMarginData marginData = kiteconnect.getCombinedMarginCalculation(params, true, false);
+    		fileLogTelegramWriter.write("In MarginRequired for 1 batch -> initialMargin " + marginData.initialMargin.total+" finalMargin "+marginData.finalMargin.total);
+						
+    		retVal = (float) marginData.finalMargin.total;
+		} catch (Exception | KiteException e) {			
+			e.printStackTrace();
+			log.error("Error in checkDailyMarginUsed"+e.getMessage(), e);
+		}
 		return retVal;
 	}
 }

@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -62,6 +64,24 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 			String hedge4FutureShortCE = entryStraddleOptionNames[2];	
 			int qtyOfHedge4FutureShortCE = 0;
 			
+			// Coevered options
+			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+			
+			String soldPEOptionname = entryStraddleOptionNames[1];	
+			String hedge4SoldPEOptionname = entryStraddleOptionNames[3];
+			
+			noOfBatches = this.noOfLots; // Override
+			fileLogTelegramWriter.write( "noOfBatches set to "+noOfBatches);
+			//if (this.placeActualOrder) {
+				Map<String, Integer> orderPositions = new LinkedHashMap<String, Integer>();
+				orderPositions.put(syntheticFutureLongPE, lotsPerBatch*lotSize); // Buy
+				orderPositions.put(hedge4FutureShortCE, lotsPerBatch*lotSize); // Buy
+				orderPositions.put(hedge4SoldPEOptionname, lotsPerBatch*lotSize*2); // Buy
+				orderPositions.put(syntheticFutureShortCE, -lotsPerBatch*lotSize); // Short
+				orderPositions.put(soldPEOptionname, -lotsPerBatch*lotSize*2); // Sell
+				setCoeveredMarginRequired(orderPositions, 800000f);
+			//}
+							
 			fileLogTelegramWriter.write( "Taking syntheticFuture  BUY="+syntheticFutureLongPE+"@"+syntheticFutureLongPEGreek.getLtp()+" SELL="+syntheticFutureShortCE+"@"+syntheticFutureShortCEGreek.getLtp());
 			
 			List<Long> syntheticFutureShortOrderIds = new ArrayList<Long>();
@@ -80,11 +100,9 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 				placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortCE, noOfBatches*lotsPerBatch*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
 			this.noOfOrders = this.noOfOrders-8;
-			// Coevered options
-			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			
-			String soldPEOptionname = entryStraddleOptionNames[1];	
-			String hedge4SoldPEOptionname = entryStraddleOptionNames[3];	
+				
+				
 			float pePrice = getPriceFromTicks(soldPEOptionname);
 			fileLogTelegramWriter.write( "Sold PE " + soldPEOptionname + "@" +pePrice+" Qty=" + (noOfBatches*lotsPerBatch*lotSize*2));
 			peDbId = createAlgoSellOrder(soldPEOptionname, pePrice, noOfBatches*lotsPerBatch*lotSize*2); // 0.5 delta two sets = 1delta to match net delta with Synthetic future delta

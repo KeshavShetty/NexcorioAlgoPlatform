@@ -6,8 +6,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,23 +17,17 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
-import com.zerodhatech.kiteconnect.KiteConnect;
-import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
-import com.zerodhatech.kiteconnect.utils.Constants;
-import com.zerodhatech.models.CombinedMarginData;
-import com.zerodhatech.models.MarginCalculationParams;
 
-public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
+public class G3GenericCoveredCallAlgoThread extends G3BaseClass implements Runnable{
 
-	private static final Logger log = LogManager.getLogger(G3CoveredCallAlgoThread.class);
+	private static final Logger log = LogManager.getLogger(G3GenericCoveredCallAlgoThread.class);
 	
-	private int lotsPerBatch = 5;
+	public float futuresDelta = 0.5f;
+	public float ceWriteDelta = 0.6f;
 	
 	public int noOfBatches = 1;
-	public float baseDelta = 0.5f;
 	
-	
-	public G3CoveredCallAlgoThread(Long napAlgoId, String backTestDateStr) {
+	public G3GenericCoveredCallAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
 		
@@ -49,12 +41,17 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	@Override
 	public void run() {
 		try {
+			if (this.placeActualOrder) setLotBasedonAvailableMarginHalfStraddle();
+			
 			long ceDbId = -1;
+			
+			int lotsPerBatch = 5;
+			int futureLotsPerBatch = (int) (ceWriteDelta*10f);
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 	
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
+			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(futuresDelta, this.optimalHedgeDistance);
 			
 			String syntheticFutureLongCE = entryStraddleOptionNames[0]; // CALL Buy
 			OptionGreek syntheticFutureLongCEGreek = getOptionGreeks(syntheticFutureLongCE);
@@ -70,7 +67,7 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			int qtyOfHedge4FutureShortPE = 0;
 			
 			// Coevered options
-			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(ceWriteDelta, this.optimalHedgeDistance);
 			
 			String soldCEOptionname = entryStraddleOptionNames[0];	
 			String hedge4SoldCEOptionname = entryStraddleOptionNames[2];
@@ -86,12 +83,12 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				orderPositions.put(soldCEOptionname, -lotsPerBatch*lotSize*2); // Sell
 				setCoeveredMarginRequired(orderPositions, 800000f);
 			//}
-			 
+							
 			fileLogTelegramWriter.write( "Taking syntheticFuture  BUY="+syntheticFutureLongCE+"@"+syntheticFutureLongCEGreek.getLtp()+" SELL="+syntheticFutureShortPE+"@"+syntheticFutureShortPEGreek.getLtp());
 			
 			List<Long> syntheticFutureShortOrderIds = new ArrayList<Long>();
 			List<Long> syntheticFutureLongOrderIds = new ArrayList<Long>();
-			for(int i=0;i<lotsPerBatch;i++) {
+			for(int i=0;i<futureLotsPerBatch;i++) {
 				Long longOrderDbId = createAlgoBuyOrder(syntheticFutureLongCE, syntheticFutureLongCEGreek.getLtp(),  noOfBatches*lotSize);
 				syntheticFutureLongOrderIds.add(longOrderDbId);
 				
@@ -99,12 +96,13 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				syntheticFutureShortOrderIds.add(shortOrderDbId);
 			}
 			if (this.placeActualOrder) {
-				placeRealOrder( syntheticFutureLongOrderIds.get(0),  syntheticFutureLongCE,  noOfBatches*lotsPerBatch*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-				placeRealOrder( hedge4FutureShortPE, noOfBatches*lotsPerBatch*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE); // Hedge for short leg of Synthetic future
-				qtyOfHedge4FutureShortPE = lotsPerBatch;
-				placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortPE, noOfBatches*lotsPerBatch*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				placeRealOrder( syntheticFutureLongOrderIds.get(0),  syntheticFutureLongCE,  noOfBatches*futureLotsPerBatch*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				placeRealOrder( hedge4FutureShortPE, noOfBatches*futureLotsPerBatch*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE); // Hedge for short leg of Synthetic future
+				qtyOfHedge4FutureShortPE = futureLotsPerBatch;
+				placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortPE, noOfBatches*futureLotsPerBatch*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
 			this.noOfOrders = this.noOfOrders-8;
+			
 				
 			float cePrice = getPriceFromTicks(soldCEOptionname);
 			fileLogTelegramWriter.write( "Sold CE " + soldCEOptionname + "@" +cePrice+" Qty=" + (noOfBatches*lotsPerBatch*lotSize*2));
@@ -114,7 +112,7 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				placeRealOrder( ceDbId, soldCEOptionname, noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
 			
-			float currentDeltaPtr = 0.5f;
+			float currentDeltaPtr = ceWriteDelta;
 			float lowerDelta = currentDeltaPtr - 0.1f;
 			float upperDelta = currentDeltaPtr + 0.1f;
 			
@@ -262,9 +260,11 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 		}
 		return retVal;
 	}
-	
+
 	public static void main(String[] args) {
-		new G3CoveredCallAlgoThread(23L, null);
-	}	
+		new G3GenericCoveredCallAlgoThread(23L, null);
+	}
+
+	
 
 }
