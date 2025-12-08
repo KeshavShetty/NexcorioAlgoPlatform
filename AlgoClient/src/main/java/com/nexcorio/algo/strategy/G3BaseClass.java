@@ -928,6 +928,47 @@ public abstract class G3BaseClass extends BaseClass {
 		}
 		return retVal;
 	}
+	
+	public void updateOrderPrice(Long fromOrderId, Long toOrderId, String transactionType) {
+		Connection conn = null;
+		try {
+			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			float buyPrice = 0f;
+			float sellPrice = 0f;
+			String fetchNextSeq = "select buy_price, sell_price from nexcorio_option_algo_orders where id = " + fromOrderId;
+			
+			ResultSet rs = stmt.executeQuery(fetchNextSeq);
+	    	while (rs.next()) {
+	    		buyPrice = rs.getFloat("buy_price");
+	    		sellPrice = rs.getFloat("sell_price");
+	    	}
+	    	rs.close();
+			
+	    	fileLogTelegramWriter.write("fetchNextSeq="+fetchNextSeq + " buyPrice="+buyPrice+" sellPrice="+sellPrice);
+	    	
+			String filedToUpdate = transactionType.equals("BUY")?"buy_price":"sell_price";
+			float priceToUse = transactionType.equals("BUY")?buyPrice:sellPrice;
+			
+			if (priceToUse>0f) {
+				String updateSql = "UPDATE nexcorio_option_algo_orders set " + filedToUpdate + "=" + priceToUse + " WHERE id="+toOrderId ;
+				fileLogTelegramWriter.write("updateSql="+updateSql);
+				stmt.executeUpdate(updateSql);
+			}
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+	}
 }
 
 class SortbyOI implements Comparator<OptionGreek> {

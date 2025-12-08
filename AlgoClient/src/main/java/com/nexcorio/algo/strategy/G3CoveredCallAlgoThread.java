@@ -114,6 +114,14 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				placeRealOrder( ceDbId, soldCEOptionname, noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
 			
+			if (this.placeActualOrder) { // Update all order price
+				sleep(5);
+				for(int i=1;i<syntheticFutureLongOrderIds.size();i++) {
+					updateOrderPrice(syntheticFutureLongOrderIds.get(0), syntheticFutureLongOrderIds.get(i), "BUY");
+					updateOrderPrice(syntheticFutureShortOrderIds.get(0), syntheticFutureShortOrderIds.get(i), "SELL");
+				}
+			}
+			
 			float currentDeltaPtr = 0.5f;
 			float lowerDelta = currentDeltaPtr - 0.1f;
 			float upperDelta = currentDeltaPtr + 0.1f;
