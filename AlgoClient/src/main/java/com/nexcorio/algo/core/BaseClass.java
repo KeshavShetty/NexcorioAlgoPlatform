@@ -97,6 +97,16 @@ public class BaseClass {
 		return retVal;
 	}
 	
+	protected boolean timein(int hour, int minute, int second) {
+		boolean retVal = false;
+		
+		Date refernceDateTime = new Date();
+		if (backtestDate!=null) refernceDateTime = backtestDate.getTime();
+		if (refernceDateTime.before(getDailyCustomTime(hour, minute, second)) ) retVal = true;
+		
+		return retVal;
+	}
+	
 	public void prepareExit(String exitMessage) {
 		fileLogTelegramWriter.write( "Winding up for the day, "+exitMessage);
 		this.exitReason = exitMessage;

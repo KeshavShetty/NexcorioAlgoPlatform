@@ -34,6 +34,8 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	public int noOfBatches = 1;
 	public float baseDelta = 0.5f;
 	
+	public float quickGainExitProfit = 1000f;
+	public String quickGainExitTime = "15:15";
 	
 	public G3CoveredCallAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -240,6 +242,22 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			fileLogTelegramWriter.close();
 		}
 	}
+	
+	protected void checkExitSignals() {
+		super.checkExitSignals();
+		if (this.quickGainExitProfit != 0 && this.currentProfitPerUnit > this.quickGainExitProfit) { 
+			
+			String[] exitTimeParts = quickGainExitTime.split(":");
+			int quickGainExitHour = Integer.parseInt(exitTimeParts[0]);
+			int quickGainExitMinute = Integer.parseInt(exitTimeParts[1]);
+			
+			fileLogTelegramWriter.write( "quickGainExitHour="+quickGainExitHour+" quickGainExitMinute="+quickGainExitMinute+" timeout "+timeout(quickGainExitHour, quickGainExitMinute, 0));
+			if (timein(quickGainExitHour, quickGainExitMinute, 0)) {
+				prepareExit("Quick Target acheived");
+			}
+		}
+	}
+	
 	
 	public float getProfitFromDB() {
 		
