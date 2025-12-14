@@ -61,6 +61,7 @@ public abstract class G3BaseClass extends BaseClass {
 	protected int noOfOrders = 0;
 	protected boolean nonDirectional = true;
 	
+	protected int noOfBatches = 1;
 	protected float currentProfitPerUnit = 0f;
 	protected float trailingProfit = 0f;
 	
@@ -920,8 +921,33 @@ public abstract class G3BaseClass extends BaseClass {
     		KiteConnect kiteconnect = getKiteConnect(this.userId);
     		CombinedMarginData marginData = kiteconnect.getCombinedMarginCalculation(params, true, false);
     		fileLogTelegramWriter.write("In MarginRequired for 1 batch -> initialMargin " + marginData.initialMargin.total+" finalMargin "+marginData.finalMargin.total);
-						
-    		retVal = (float) marginData.finalMargin.total;
+			
+			this.requiredMargin = (float) ((marginData.initialMargin.total + marginData.finalMargin.total)/2f);
+			float availableMargin = getAvailableMargin(getKiteConnect(this.userId), KiteUtil.SEGMENT_EQUITY);
+			
+			fileLogTelegramWriter.write("requiredMargin based on Avg = "+requiredMargin+" actual availableMargin=" +availableMargin);
+			availableMargin = availableMargin - 150000f; // Reserve 1.5lakh for adjustments
+			fileLogTelegramWriter.write("availableMargin after reserve=" +availableMargin);
+			
+			if (availableMargin == 0) availableMargin = maxFundAllocated; // In case zeordha api fails to fetch
+			
+			float maxFundCanUse = this.maxFundAllocated>availableMargin?availableMargin:this.maxFundAllocated;
+			
+			int maxPossibleLots = (requiredMargin>0f)?((int) (maxFundCanUse/requiredMargin)):0;
+			
+			fileLogTelegramWriter.write("maxFundCanUse"+maxFundCanUse+" maxPossibleLots=" +maxPossibleLots+" maxFundAllocated="+maxFundAllocated+" initial this.noOfLots ="+this.noOfLots );
+			
+			if (this.noOfLots > maxPossibleLots) {
+				this.noOfLots = maxPossibleLots;
+			}
+			
+			if (this.noOfLots==0) {
+				this.placeActualOrder=false;
+				this.noOfLots=1;
+			}
+			this.noOfBatches = this.noOfLots;
+			retVal = requiredMargin;
+			fileLogTelegramWriter.write("Final this.noOfLots ="+this.noOfLots );
 		} catch (Exception | KiteException e) {			
 			e.printStackTrace();
 			log.error("Error in checkDailyMarginUsed"+e.getMessage(), e);

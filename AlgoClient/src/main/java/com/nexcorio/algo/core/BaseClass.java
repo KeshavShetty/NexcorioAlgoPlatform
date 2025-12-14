@@ -1343,6 +1343,7 @@ public class BaseClass {
 	    	}
 	    	
 	    	float hedgeTargetPrice = dailyMaxHedgeCostPerLeg*getWorkingDaysTillNextExpiry(new Date(),  getOptionCurrentWeekExpiryDate());
+	    	if (hedgeTargetPrice>4f) hedgeTargetPrice = 4f; // Todo: This 4 is hardcoded for Nifty purpose
 	    	fileLogTelegramWriter.write("hedgeTargetPrice="+hedgeTargetPrice);
 	    	
 			for (int i=0;i<=500;i+=100) {

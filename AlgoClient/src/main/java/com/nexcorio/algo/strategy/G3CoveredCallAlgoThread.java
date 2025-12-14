@@ -31,7 +31,6 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	
 	private int lotsPerBatch = 5;
 	
-	public int noOfBatches = 1;
 	public float baseDelta = 0.5f;
 	
 	public float quickGainExitProfit = 1000f;
@@ -77,9 +76,7 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			String soldCEOptionname = entryStraddleOptionNames[0];	
 			String hedge4SoldCEOptionname = entryStraddleOptionNames[2];
 			
-			noOfBatches = this.noOfLots; // Override
-			fileLogTelegramWriter.write( "noOfBatches set to "+noOfBatches);
-			//if (this.placeActualOrder) {
+			if (this.placeActualOrder) {
 				Map<String, Integer> orderPositions = new LinkedHashMap<String, Integer>();
 				orderPositions.put(syntheticFutureLongCE, lotsPerBatch*lotSize); // Buy
 				orderPositions.put(hedge4FutureShortPE, lotsPerBatch*lotSize); // Buy
@@ -87,8 +84,10 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				orderPositions.put(syntheticFutureShortPE, -lotsPerBatch*lotSize); // Short
 				orderPositions.put(soldCEOptionname, -lotsPerBatch*lotSize*2); // Sell
 				setCoeveredMarginRequired(orderPositions, 800000f);
-			//}
-			 
+			}
+			noOfBatches = this.noOfLots; // Override
+			fileLogTelegramWriter.write( "noOfBatches set to "+noOfBatches);
+			
 			fileLogTelegramWriter.write( "Taking syntheticFuture  BUY="+syntheticFutureLongCE+"@"+syntheticFutureLongCEGreek.getLtp()+" SELL="+syntheticFutureShortPE+"@"+syntheticFutureShortPEGreek.getLtp());
 			
 			List<Long> syntheticFutureShortOrderIds = new ArrayList<Long>();
