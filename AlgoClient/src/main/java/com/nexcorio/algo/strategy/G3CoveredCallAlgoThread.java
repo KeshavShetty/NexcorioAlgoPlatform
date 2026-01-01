@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.ibm.icu.util.Calendar;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
@@ -36,6 +38,12 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	public float quickGainExitProfit = 1000f;
 	public String quickGainExitTime = "15:15";
 	
+	public float decayPoints = 0f;
+	
+	private float openingStraddlePremium = -1f;
+	
+	private SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
 	public G3CoveredCallAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -53,7 +61,7 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			long ceDbId = -1;
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
-			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
+			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp+" isExpiryToday() "+isExpiryToday());
 	
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
 			
@@ -244,17 +252,67 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	
 	protected void checkExitSignals() {
 		super.checkExitSignals();
-		if (this.quickGainExitProfit != 0 && this.currentProfitPerUnit > this.quickGainExitProfit) { 
-			
-			String[] exitTimeParts = quickGainExitTime.split(":");
-			int quickGainExitHour = Integer.parseInt(exitTimeParts[0]);
-			int quickGainExitMinute = Integer.parseInt(exitTimeParts[1]);
-			
-			fileLogTelegramWriter.write( "quickGainExitHour="+quickGainExitHour+" quickGainExitMinute="+quickGainExitMinute+" timeout "+timeout(quickGainExitHour, quickGainExitMinute, 0));
-			if (timein(quickGainExitHour, quickGainExitMinute, 0)) {
-				prepareExit("Quick Target acheived");
+		if (this.quickGainExitProfit != 0 && this.currentProfitPerUnit > this.quickGainExitProfit) {
+			if (!isExpiryToday()) {
+				String[] exitTimeParts = quickGainExitTime.split(":");
+				int quickGainExitHour = Integer.parseInt(exitTimeParts[0]);
+				int quickGainExitMinute = Integer.parseInt(exitTimeParts[1]);
+				
+				fileLogTelegramWriter.write( "quickGainExitHour="+quickGainExitHour+" quickGainExitMinute="+quickGainExitMinute+" timeout "+timeout(quickGainExitHour, quickGainExitMinute, 0));
+				if (timein(quickGainExitHour, quickGainExitMinute, 0)) {
+					prepareExit("Quick Target acheived");
+				}
 			}
 		}
+		if (this.decayPoints > 0f ) {
+			if (this.openingStraddlePremium < 0f) { // First time, set the morning straddle premium 
+				this.openingStraddlePremium =  getStraddlePremium(9,20);
+			}
+			float currentStraddlePremium =  getStraddlePremium(0,0);
+			if (this.openingStraddlePremium - currentStraddlePremium > this.decayPoints) {
+				prepareExit("Premium Decay over");
+			}
+		}
+	}
+	
+	private float getStraddlePremium(int hourOfTheDay, int minuteOfTheDay) {
+		float retVal = 0f;
+		Connection conn = null;
+		try {			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(getCurrentTime());
+			if (hourOfTheDay > 0) {
+				cal.set(Calendar.HOUR_OF_DAY, hourOfTheDay);
+			}
+			if (minuteOfTheDay > 0) {
+				cal.set(Calendar.MINUTE, minuteOfTheDay);
+			}
+			
+			String fetchSql = "SELECT celtp+peltp as stradlePremium FROM nexcorio_option_atm_movement_data WHERE f_main_instrument=" + this.mainInstrument.getId() + " AND record_time <= '" + postgresLongDateFormat.format(cal.getTime())+ "' ORDER BY record_time desc LIMIT 1";
+			fileLogTelegramWriter.write( fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+	    		retVal  = rs.getFloat("stradlePremium");
+			}
+			rs.close();
+			stmt.close(); 
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		
+		return retVal;
 	}
 	
 	
