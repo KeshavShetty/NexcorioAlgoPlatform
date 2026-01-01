@@ -27,6 +27,8 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 	public int noOfBatches = 1;
 	public float baseDelta = 0.5f;
 	
+	public float quickGainExitProfit = 1000f;
+	public String quickGainExitTime = "15:15";
 	
 	public G3CoveredPutAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -51,10 +53,12 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 	
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
 			
-			String syntheticFutureLongPE = entryStraddleOptionNames[1]; // PUT Buy
-			OptionGreek syntheticFutureLongPEGreek = getOptionGreeks(syntheticFutureLongPE);
+			String syntheticFutureShortCE = entryStraddleOptionNames[0]; // PUT Buy
 			
-			String syntheticFutureShortCE  = entryStraddleOptionNames[1].replace("PE", "CE"); // Call sell
+			
+			String  syntheticFutureLongPE = entryStraddleOptionNames[0].replace("CE", "PE"); // Call sell
+			
+			OptionGreek syntheticFutureLongPEGreek = getOptionGreeks(syntheticFutureLongPE);
 			OptionGreek syntheticFutureShortCEGreek = getOptionGreeks(syntheticFutureShortCE);
 			
 			fileLogTelegramWriter.write( "Synthetix future greeks Begn-----"); 
@@ -99,9 +103,7 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 				qtyOfHedge4FutureShortCE = lotsPerBatch;
 				placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortCE, noOfBatches*lotsPerBatch*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
-			this.noOfOrders = this.noOfOrders-8;
-			
-				
+			this.noOfOrders = this.noOfOrders-8;	
 				
 			float pePrice = getPriceFromTicks(soldPEOptionname);
 			fileLogTelegramWriter.write( "Sold PE " + soldPEOptionname + "@" +pePrice+" Qty=" + (noOfBatches*lotsPerBatch*lotSize*2));
@@ -228,6 +230,22 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 			fileLogTelegramWriter.write("Error " + ExceptionUtils.getStackTrace(e));
 		} finally {
 			fileLogTelegramWriter.close();
+		}
+	}
+	
+	protected void checkExitSignals() {
+		super.checkExitSignals();
+		if (this.quickGainExitProfit != 0 && this.currentProfitPerUnit > this.quickGainExitProfit) {
+			if (!isExpiryToday()) {
+				String[] exitTimeParts = quickGainExitTime.split(":");
+				int quickGainExitHour = Integer.parseInt(exitTimeParts[0]);
+				int quickGainExitMinute = Integer.parseInt(exitTimeParts[1]);
+				
+				fileLogTelegramWriter.write( "quickGainExitHour="+quickGainExitHour+" quickGainExitMinute="+quickGainExitMinute+" timeout "+timeout(quickGainExitHour, quickGainExitMinute, 0));
+				if (timein(quickGainExitHour, quickGainExitMinute, 0)) {
+					prepareExit("Quick Target acheived");
+				}
+			}
 		}
 	}
 	
