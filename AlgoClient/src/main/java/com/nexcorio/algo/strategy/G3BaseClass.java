@@ -380,7 +380,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	protected long createAlgoSellOrder(String optionName, float optionPrice, int quantity) {
-		
+		fileLogTelegramWriter.write( "Create Algo order SELL " + optionName + "@" +optionPrice + " qty=" + quantity);
 		long retId = -1;
 		Connection conn = null;
 		try {
@@ -422,7 +422,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	protected long createAlgoBuyOrder(String optionName, float optionPrice, int quantity) {
-		
+		fileLogTelegramWriter.write( "Create Algo order BUY " + optionName + "@" +optionPrice + " qty=" + quantity);
 		long retId = -1;
 		Connection conn = null;
 		try {
@@ -575,7 +575,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	public void placeRealOrder(Long dbOrderId, String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal) {
-		log.debug("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
+		fileLogTelegramWriter.write( "In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		
 		Connection conn = null;
 		try {
@@ -606,7 +606,7 @@ public abstract class G3BaseClass extends BaseClass {
 	}
 	
 	public void placeRealOrder(String optionname, int quantity, String transactionType, boolean waitForPositionFill, boolean useNormal) {
-		log.debug("In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
+		fileLogTelegramWriter.write( "In Base class transactOption(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal);
 		
 		Connection conn = null;
 		try {
@@ -922,7 +922,7 @@ public abstract class G3BaseClass extends BaseClass {
     		CombinedMarginData marginData = kiteconnect.getCombinedMarginCalculation(params, true, false);
     		fileLogTelegramWriter.write("In MarginRequired for 1 batch -> initialMargin " + marginData.initialMargin.total+" finalMargin "+marginData.finalMargin.total);
 			
-			this.requiredMargin = (float) ((marginData.initialMargin.total + marginData.finalMargin.total)/2f);
+			this.requiredMargin = (float) marginData.finalMargin.total; //(float) ((marginData.initialMargin.total + marginData.finalMargin.total)/2f);
 			float availableMargin = getAvailableMargin(getKiteConnect(this.userId), KiteUtil.SEGMENT_EQUITY);
 			
 			fileLogTelegramWriter.write("requiredMargin based on Avg = "+requiredMargin+" actual availableMargin=" +availableMargin);
