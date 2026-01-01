@@ -317,6 +317,61 @@ public class BaseClass {
 		return expiryDate;
 	}
 	
+	protected boolean isExpiryToday() {
+		boolean isEexpiryToday = false;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fnoExchange = "NFO-OPT";
+			if (mainInstrument.getExchange().equalsIgnoreCase("BSE")) fnoExchange = "BFO-OPT";
+			
+			Calendar cal = Calendar.getInstance();
+			if (backtestDate!=null) cal.setTime(backtestDate.getTime());
+			cal.add(Calendar.DATE, -1);
+			
+			String fetchSql = "SELECT expiry_date from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrument.getId()+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
+					+ " ORDER BY expiry_date ASC LIMIT 1";
+			//fileLogTelegramWriter.write("Fetch sql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			Date expiryDate = null;
+			while (rs.next()) {
+				expiryDate = rs.getDate("expiry_date");
+			}
+			rs.close();
+			stmt.close();
+			
+			if (expiryDate!=null) {
+				Calendar curDay = Calendar.getInstance();
+				if (backtestDate!=null) curDay.setTime(backtestDate.getTime());
+				
+				Calendar expiryDay = Calendar.getInstance();
+				expiryDay.setTime(expiryDate);
+				fileLogTelegramWriter.write("Next expiryDate="+expiryDate);
+				if (curDay.get(Calendar.DATE)==expiryDay.get(Calendar.DATE)
+						&& curDay.get(Calendar.MONTH)==expiryDay.get(Calendar.MONTH)
+						&& curDay.get(Calendar.YEAR)==expiryDay.get(Calendar.YEAR) ) {
+					isEexpiryToday = true;
+				}
+			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
+			log.error("Error"+ex.getMessage(),ex);
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		//fileLogTelegramWriter.write("In getOptionCurrentWeekExpiryDate retStr="+expiryDate);
+		return isEexpiryToday;
+	}
+	
 	protected float getGreekValue(String greekname, OptionGreek optionGreek) {
 		if (greekname.equalsIgnoreCase("delta")) return Math.abs(optionGreek.getDelta());
 		if (greekname.equalsIgnoreCase("vega"))  return Math.abs(optionGreek.getVega());
