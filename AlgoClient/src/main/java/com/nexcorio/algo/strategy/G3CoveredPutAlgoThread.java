@@ -51,11 +51,21 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
 	
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
+			String[] entryStraddleOptionNames = null;
+			
+			float deltaDiff = 1f;
+			do { // Wait till get delta near exact baseDelta
+				entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+				OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
+				deltaDiff = Math.abs(ceOptionGreek.getDelta() - baseDelta);
+				if (deltaDiff>0.02f) {
+					sleep(5);
+				}
+			} while(deltaDiff>0.02f);
+			
+			//String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
 			
 			String syntheticFutureShortCE = entryStraddleOptionNames[0]; // PUT Buy
-			
-			
 			String  syntheticFutureLongPE = entryStraddleOptionNames[0].replace("CE", "PE"); // Call sell
 			
 			OptionGreek syntheticFutureLongPEGreek = getOptionGreeks(syntheticFutureLongPE);
@@ -69,7 +79,7 @@ public class G3CoveredPutAlgoThread extends G3BaseClass implements Runnable{
 			int qtyOfHedge4FutureShortCE = 0;
 			
 			// Coevered options
-			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+			//entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			
 			String soldPEOptionname = entryStraddleOptionNames[1];	
 			String hedge4SoldPEOptionname = entryStraddleOptionNames[3];

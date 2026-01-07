@@ -63,7 +63,18 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp+" isExpiryToday() "+isExpiryToday());
 	
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.1f, this.optimalHedgeDistance);
+			
+			String[] entryStraddleOptionNames = null;
+			
+			float deltaDiff = 1f;
+			do { // Wait till get delta near exact baseDelta
+				entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+				OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
+				deltaDiff = Math.abs(ceOptionGreek.getDelta() - baseDelta);
+				if (deltaDiff>0.02f) {
+					sleep(5);
+				}
+			} while(deltaDiff>0.02f);
 			
 			String syntheticFutureLongCE = entryStraddleOptionNames[0]; // CALL Buy
 			OptionGreek syntheticFutureLongCEGreek = getOptionGreeks(syntheticFutureLongCE);
@@ -79,16 +90,6 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			int qtyOfHedge4FutureShortPE = 0;
 			
 			// Coevered options
-			float deltaDiff = 1f;
-			do { // Wait till get delta near exact baseDelta
-				entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-				OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
-				deltaDiff = Math.abs(ceOptionGreek.getDelta() - baseDelta);
-				if (deltaDiff>0.02f) {
-					sleep(5);
-				}
-			} while(deltaDiff>0.02f);
-
 			String soldCEOptionname = entryStraddleOptionNames[0];	
 			String hedge4SoldCEOptionname = entryStraddleOptionNames[2];
 			
