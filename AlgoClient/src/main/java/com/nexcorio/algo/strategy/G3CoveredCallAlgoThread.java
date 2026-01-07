@@ -79,8 +79,16 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			int qtyOfHedge4FutureShortPE = 0;
 			
 			// Coevered options
-			entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-			
+			float deltaDiff = 1f;
+			do { // Wait till get delta near exact baseDelta
+				entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+				OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
+				deltaDiff = Math.abs(ceOptionGreek.getDelta() - baseDelta);
+				if (deltaDiff>0.02f) {
+					sleep(5);
+				}
+			} while(deltaDiff>0.02f);
+
 			String soldCEOptionname = entryStraddleOptionNames[0];	
 			String hedge4SoldCEOptionname = entryStraddleOptionNames[2];
 			
@@ -151,6 +159,7 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				
 				// Update open position prices
 				OptionGreek ceOptionGreeks = getOptionGreeks(soldCEOptionname);
+				print(ceOptionGreeks);
 				float runningCePrice = ceOptionGreeks==null?0: ceOptionGreeks.getLtp();
 				updateCurrentOrderBuyPrice(soldCEOptionname, ceDbId, runningCePrice);
 				
