@@ -11,7 +11,7 @@ import com.nexcorio.algo.util.db.HDataSource;
 
 public class ATMProcessorMain {
 
-	private static String forDate = "2025-08-13";
+	private static String forDate = "2025-08-22";
 	
 	private static List<String> getOptionnames() {
 		List<String> retList = new ArrayList<>();

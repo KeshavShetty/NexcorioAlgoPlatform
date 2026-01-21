@@ -70,10 +70,12 @@ public class TriggerAlgo {
 	
 	public static void main(String[] args) {
 	
-		String forDate = "2025-08-01";
-		String toDate  = "2025-08-01";
+		String forDate = "2025-09-01";
+		String toDate  = "2026-01-21";
 		
-		triggerAlgo(275L, forDate + " 09:20:00", toDate + " 09:21:00");
+		//triggerAlgo(362L, forDate + " 09:20:00", toDate + " 09:21:00");
+		triggerAlgo(377L, forDate + " 09:20:00", toDate + " 09:21:00");
+		
 //		
 //		triggerAlgo(246L, forDate + " 09:20:00", toDate + " 09:21:00");
 //		triggerAlgo(247L, forDate + " 09:20:00", toDate + " 09:21:00");

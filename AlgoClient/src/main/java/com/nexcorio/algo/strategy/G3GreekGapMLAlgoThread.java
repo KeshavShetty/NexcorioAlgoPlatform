@@ -9,7 +9,10 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -267,26 +270,99 @@ public class G3GreekGapMLAlgoThread extends G3BaseClass implements Runnable{
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
+			List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
 			
-			String fetchSql = "select deltaRangeCEAvgIv, deltaRangePEAvgIv, deltaRangeCEAvgGamma, deltaRangePEAvgGamma,deltaRangeCEAvgVega, deltaRangePEAvgVega,deltarangeceworth, deltarangepeworth"
-					+ ",selectivestrike_avgceiv, selectivestrike_avgpeiv,deltaRangeCEFullAvgIv, deltaRangePEFullAvgIv,dr4_9CEAvgIv, dr4_9PEAvgIv,countCEOutlier, countPEOutlier"
-					+ ",dr1_6CEAvgIv, dr1_6PEAvgIv,dr19WholeStrikeCEAvgIV, dr19WholeStrikePEAvgIV,minGammaExposure, maxGammaExposure, netGammaExposure,accumulatedChangein5secCeIV, accumulatedChangein5secPeIV"
-					+ ",minGammaExposureWithStrike, maxGammaExposureWithStrike, netGammaExposureWithStrike,cumulativeCEAvgIVDiff, cumulativePEAvgIVDiff"
-					+ " from nexcorio_option_atm_movement_data where f_main_instrument=" + this.mainInstrument.getId()
-					+ " AND record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "' order by record_time desc limit 1";
-			//System.out.println(fetchSql);
-			String inputString = "";
-			ResultSet rs = stmt.executeQuery(fetchSql);
-			while (rs.next()) {
-				for(int i=0;i<30;i++) {
-					if (i!=0) inputString = inputString + ","; 
-					inputString = inputString + rs.getFloat(i+1);	
+			if (this.backtestDate == null) { // Live
+				optionGreeks = getSnapshotGreeksFromCache();
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
 				}
 			}
-			rs.close();			
 			stmt.close();
 			
-			String mlDecision = getMLDecision(inputString);
+			Collections.sort(optionGreeks, new SortbyOI());
+			
+			int recProcessed = 0;
+			float prevOI = 0f;
+			List<OptionGreek> ceOptionGreeks = new ArrayList<OptionGreek>();
+			List<OptionGreek> peOptionGreeks = new ArrayList<OptionGreek>();
+			StringBuffer inputString = new StringBuffer();
+			for(OptionGreek aGreek: optionGreeks) {
+				if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+					recProcessed++;
+					
+					String tradingSymbol = aGreek.getTradingSymbol();
+					int oiType = 0;
+					
+					float distance4mIndex = 0f;
+					if (tradingSymbol.endsWith("CE")) {
+						oiType = 0;
+						distance4mIndex = aGreek.getStrike() - this.instrumentLtp;
+						ceOptionGreeks.add(aGreek);
+					} else {
+						oiType = 1;
+						distance4mIndex = this.instrumentLtp - aGreek.getStrike();
+						peOptionGreeks.add(aGreek);
+					}
+					if (recProcessed!=1) inputString.append(",");
+					inputString.append(oiType+"," + distance4mIndex + "," + aGreek.getGamma() + "," + Math.abs(aGreek.getDelta()));
+					if (recProcessed!=1) {
+						inputString.append("," + (prevOI!=0?aGreek.getOi()/prevOI:0));
+					}
+					prevOI = aGreek.getOi();
+				}
+				if (recProcessed>=5) break;
+			}
+			if (ceOptionGreeks.size()>1) {
+				inputString.append("," + (ceOptionGreeks.get(0).getStrike()-ceOptionGreeks.get(1).getStrike()));
+			} else {
+				inputString.append(",2000");
+			}
+			
+			if (peOptionGreeks.size()>1) {
+				inputString.append("," + (peOptionGreeks.get(1).getStrike()-peOptionGreeks.get(0).getStrike()));
+			} else {
+				inputString.append(",2000");
+			}
+			fileLogTelegramWriter.write("features="+inputString);
+			
+			String mlDecision = getMLDecision(inputString.toString());
 			fileLogTelegramWriter.write("mlDecision=" + mlDecision );
 			if (mlDecision !=null && mlDecision.length()>0) {
 				retVal = mlDecision;
