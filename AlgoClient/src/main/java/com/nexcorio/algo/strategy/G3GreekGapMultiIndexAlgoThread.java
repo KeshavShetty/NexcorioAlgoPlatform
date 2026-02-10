@@ -65,7 +65,7 @@ public class G3GreekGapMultiIndexAlgoThread extends G3BaseClass implements Runna
 			if (exitThread==true) {
 				return;
 			}
-			
+			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			if (currentTrend.equals("CE")) {
 				ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -339,6 +339,20 @@ public class G3GreekGapMultiIndexAlgoThread extends G3BaseClass implements Runna
 				fieldname = "netgammaexposurewithstrike as ceGreek, netgammaexposurewithstrike as peGreek";
 			} else if (greekname.equalsIgnoreCase("netGameXpTopN")) {
 				fieldname = "netgammaexposuretopn as ceGreek, netgammaexposuretopn as peGreek";
+			} else if (greekname.equalsIgnoreCase("drITMWhlStrkAvgIv")) {
+				fieldname = "drITMWhlStrkSameSizeCEAvgIv as ceGreek, drITMWhlStrkSameSizePEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("above5WhlStrkAvgIv")) {
+				fieldname = "above5WhlStrkCEAvgIv as ceGreek, above5WhlStrkPEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("altAbov5WhlStrkAvgIv")) {
+				fieldname = "altabove5WhlStrkCEAvgIv as ceGreek, altabove5WhlStrkPEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("abv5WhlStrkCEAvgGama")) {
+				fieldname = "altAbove5WhlStrkCEAvgGama as ceGreek, altAbove5WhlStrkPEAvgGama as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("altAbov5WhlStrkAvgIv")) {
+				fieldname = "altabove5WhlStrkCEAvgIv as ceGreek, altabove5WhlStrkPEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlTheta")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpetheta as peGreek, drWhlStrkaccumulatedchangein5seccetheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("dr19fixedSizeAvgIV")) {
+				fieldname = "dr19fixedSizeCEAvgIV as ceGreek, dr19fixedSizePEAvgIV as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
 			}
 			
 			String fetchSql = "select " + fieldname + ", countceoutlier, countpeoutlier from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""

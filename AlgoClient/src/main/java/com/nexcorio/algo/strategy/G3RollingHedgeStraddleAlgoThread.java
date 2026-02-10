@@ -1,5 +1,6 @@
 package com.nexcorio.algo.strategy;
 
+import java.io.FileWriter;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -51,7 +52,18 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 			
 			updateAlgoStatus("Running");
 			
-			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, 200);
+			String[] entryStraddleOptionNames = null;
+			
+			float deltaDiff = 1f;
+			do { // Wait till get delta near exact baseDelta
+				entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, initialHedgeDistance/2);
+				OptionGreek ceOptionGreek = getOptionGreeks(entryStraddleOptionNames[0]);
+				OptionGreek peOptionGreek = getOptionGreeks(entryStraddleOptionNames[1]);
+				deltaDiff = Math.abs(ceOptionGreek.getDelta() - Math.abs(peOptionGreek.getDelta()));
+				if (deltaDiff>0.02f) {
+					sleep(5);
+				}
+			} while(deltaDiff>0.02f);
 			
 			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
 			int centerStrike = getOptionCenterStrike(optionnamePrefix);
@@ -80,17 +92,14 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 				placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 			}
 			
-			String originalCEHedgeOptionName = ceHedgeOptionName;  
-			String originalPEHedgeOptionName = peHedgeOptionName;
-			
 			float pullCEHedgeAt = this.instrumentLtp + indexPoints;
 			float pushCEHedgeAt = this.instrumentLtp - indexPoints;
 			
 			float pullPEHedgeAt = this.instrumentLtp - indexPoints;
 			float pushPEHedgeAt = this.instrumentLtp + indexPoints;
 			
-			int currentCEHedgeDistance = 200;
-			int currentPEHedgeDistance = 200;
+			int currentCEHedgeDistance = initialHedgeDistance/2;
+			int currentPEHedgeDistance = initialHedgeDistance/2;
 			
 			do {
 				sleep(5); // Every 10sec 
@@ -150,7 +159,7 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 						pullCEHedgeAt = this.instrumentLtp + indexPoints;
 						pushCEHedgeAt = this.instrumentLtp - indexPoints;
 					} else {
-						prepareExit("Overflow future contracts");
+						prepareExit("Too many orders");
 					}
 				}
 				if (this.instrumentLtp < pushCEHedgeAt && currentCEHedgeDistance < initialHedgeDistance) {
@@ -173,7 +182,7 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 						pushCEHedgeAt = this.instrumentLtp - indexPoints;
 						pullCEHedgeAt = this.instrumentLtp + indexPoints;
 					} else {
-						prepareExit("Overflow future contracts");
+						prepareExit("Too many orders");
 					}
 				}
 				if (this.instrumentLtp < pullPEHedgeAt && currentPEHedgeDistance > 50) {
@@ -196,7 +205,7 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 						pullPEHedgeAt = this.instrumentLtp - indexPoints;
 						pushPEHedgeAt = this.instrumentLtp + indexPoints;
 					} else {
-						prepareExit("Overflow future contracts");
+						prepareExit("Too many orders");
 					}
 				}
 				if (this.instrumentLtp > pushPEHedgeAt && currentPEHedgeDistance < initialHedgeDistance) {
@@ -219,15 +228,24 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 						pushPEHedgeAt = this.instrumentLtp + indexPoints;
 						pullPEHedgeAt = this.instrumentLtp - indexPoints;
 					} else {
-						prepareExit("Overflow future contracts");
+						prepareExit("Too many orders");
 					}
 				}
-				if (ceOptionGreeks.getLtp()<2.5f || peOptionGreeks.getLtp()<2.5f) { // || Math.abs(ceOptionGreeks.getDelta())<0.1f || Math.abs(peOptionGreeks.getDelta())<0.1f || Math.abs(ceOptionGreeks.getDelta())>0.9f || Math.abs(peOptionGreeks.getDelta())>0.9f) {
-					if (!ceStraddleOptionName.equals("")) {
+				
+				float currentATMStraddlePremium = getStradlePremium();
+				
+				float remainingStraddleTimeValue = getTotalTimeValue(ceOptionGreeks, peOptionGreeks);
+				
+				float diffPercent = (currentATMStraddlePremium-remainingStraddleTimeValue)*100f/currentATMStraddlePremium;
+				
+				fileLogTelegramWriter.write( "currentATMStraddlePremium="+currentATMStraddlePremium+" remainingStraddleTimeValue="+remainingStraddleTimeValue+" diffPercent="+diffPercent);
+				
+				if (ceOptionGreeks.getLtp()<2.5f || peOptionGreeks.getLtp()<2.5f ) {//|| diffPercent>50f || Math.abs(ceOptionGreeks.getDelta())<0.1f || Math.abs(peOptionGreeks.getDelta())<0.1f || Math.abs(ceOptionGreeks.getDelta())>0.9f || Math.abs(peOptionGreeks.getDelta())>0.9f) { // 
+					if (this.placeActualOrder && !ceStraddleOptionName.equals("")) {
 						placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-						placeRealOrder( ceHedgeOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-						placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						placeRealOrder(ceHedgeDbId, ceHedgeOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						placeRealOrder(peHedgeDbId,  peHedgeOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 					}
 					ceStraddleOptionName = "";
 					peStraddleOptionName="";
@@ -235,7 +253,7 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 					peHedgeOptionName="";
 					
 					
-					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, 400);
+					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised( baseDelta, initialHedgeDistance);
 					
 					if (getPriceFromTicks(entryStraddleOptionNames[0]) > 25f) { // Resetting
 						
@@ -267,9 +285,6 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 							placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
 						
-						originalCEHedgeOptionName = ceHedgeOptionName;  
-						originalPEHedgeOptionName = peHedgeOptionName;
-						
 						pullCEHedgeAt = this.instrumentLtp + indexPoints;
 						pushCEHedgeAt = this.instrumentLtp - indexPoints;
 						
@@ -278,7 +293,6 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 						
 						currentCEHedgeDistance = initialHedgeDistance;
 						currentPEHedgeDistance = initialHedgeDistance;
-					
 						
 					} else {
 						prepareExit("Nothing much left");
@@ -306,6 +320,25 @@ public class G3RollingHedgeStraddleAlgoThread extends G3BaseClass implements Run
 		}
 	}
 	
+	private float getTotalTimeValue(OptionGreek ceGreek, OptionGreek peGreek) {
+		float retVal = 0;
+		
+		int ceStrike = getStrikePriceFromOptionName(ceGreek.getTradingSymbol());
+		int peStrike = getStrikePriceFromOptionName(peGreek.getTradingSymbol());
+		
+		float ceIntrinsicValue =  ceStrike<this.instrumentLtp?(this.instrumentLtp-ceStrike):0f;
+		float peIntrinsicValue =  this.instrumentLtp<peStrike?(peStrike-this.instrumentLtp):0f;
+		
+		float ceTimevalue = ceGreek.getLtp() - ceIntrinsicValue;
+		float peTimevalue = peGreek.getLtp() - peIntrinsicValue;
+		
+		retVal = ceTimevalue + peTimevalue;
+		
+		fileLogTelegramWriter.write("this.instrumentLtp="+this.instrumentLtp+" " + ceGreek.getTradingSymbol() + " " + peGreek.getTradingSymbol()
+			+ " ceIntrinsicValue="+ceIntrinsicValue+" peIntrinsicValue="+ peIntrinsicValue+" ceTimevalue=" + ceTimevalue+ " peTimevalue="+peTimevalue);
+				
+		return retVal;
+	}
 	public static void main(String[] args) {
 		
 	}

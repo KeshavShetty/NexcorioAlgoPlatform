@@ -4,16 +4,27 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import com.nexcorio.algo.util.db.HDataSource;
 
 public class ATMProcessorMain {
 
-	private static String forDate = "2025-08-22";
+	private String forDate ;
+	private String indShortPrefix ; 
+	private long mainInstrumentId ; 
 	
-	private static List<String> getOptionnames() {
+	public ATMProcessorMain(String forDate, String indShortPrefix, long mainInstrumentId) {
+		super();
+		this.forDate = forDate;
+		this.indShortPrefix = indShortPrefix;
+		this.mainInstrumentId = mainInstrumentId;
+	}
+	
+	private List<String> getOptionnames() {
 		List<String> retList = new ArrayList<>();
 		System.out.println("getOptionnames Begin");
 		Connection conn = null;
@@ -23,7 +34,7 @@ public class ATMProcessorMain {
 			
 			// First try to fetch from Snapshot table
 			String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
-					+ " where trading_symbol like 'NIFTY%' "
+					+ " where trading_symbol like '" + indShortPrefix + "%' "
 					+ " and record_date = '" + forDate + "'";
 						
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -34,8 +45,8 @@ public class ATMProcessorMain {
 			
 			if (retList.size()==0) {
 				fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
-					+ " where trading_symbol like 'NIFTY%' "
-					+ " and f_main_instrument=2"
+					+ " where trading_symbol like '" + indShortPrefix + "%' "
+					+ " and f_main_instrument=" + mainInstrumentId
 					+ " and quote_time > '" + forDate + " 09:15:00'"
 					+ " and quote_time < '" + forDate + " 09:20:00'";
 			
@@ -60,20 +71,23 @@ public class ATMProcessorMain {
 		return retList;
 	}
 	
-	private static void processAtm(List<String> optionnames) {
+	private void processAtm() {
+		
+		List<String> optionnames = getOptionnames();
+		System.out.println(optionnames.size());
 		
 		Connection conn = null;
 		try {			
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=2"
-					+ " AND record_time >= '" + forDate + " 09:15:00' AND record_time <= '" + forDate + " 15:30:00' order by id";
+			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=" + mainInstrumentId
+					+ " AND record_time >= '" + forDate + " 09:15:10' AND record_time <= '" + forDate + " 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				Long aId = rs.getLong("id");
-				System.out.println("Processing "+aId);
-				ATMThread aThread = new ATMThread(aId, rs.getFloat("instrumentltp"), optionnames, rs.getTimestamp("record_time"));
+				//System.out.println("Processing "+aId);
+				ATMThread aThread = new ATMThread(aId, rs.getFloat("instrumentltp"), optionnames, rs.getTimestamp("record_time"), mainInstrumentId);
 				
 				while (Thread.activeCount()>=150) {
 					System.out.println("Sleeping, thread count "+Thread.activeCount());
@@ -96,10 +110,28 @@ public class ATMProcessorMain {
 	
 	public static void main(String[] args) {
 		
-		List<String> optionnames = getOptionnames();
-		System.out.println(optionnames.size());
-		//Long atmId = 1218756L;
-		processAtm(optionnames);
+//		new ATMProcessorMain("2025-12-01", "NIFTY", 2L).processAtm();
 		
+		String fromDate = "2026-02-06";
+		String toDate   = "2026-02-06";
+		
+		SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+		
+		try {
+			Calendar cal = Calendar.getInstance();		
+			cal.setTime(postgresShortDateFormat.parse(fromDate));
+			
+			do {
+				System.out.println("Launching for day " + postgresShortDateFormat.format(cal.getTime()));
+				new ATMProcessorMain(postgresShortDateFormat.format(cal.getTime()), "NIFTY", 2L).processAtm();
+				cal.add(Calendar.DATE, 1);
+			} while(cal.getTime().before(postgresShortDateFormat.parse(toDate)) || cal.getTime().equals(postgresShortDateFormat.parse(toDate)));
+			
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}
 	}
+
+	
 }

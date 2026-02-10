@@ -172,7 +172,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
+			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
 					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(backtestDate.getTime())+ "'") : "" )
 					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
@@ -180,6 +180,7 @@ public class BaseClass {
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retVal = new OptionGreek(optionName, rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"), rs.getFloat("oi"));
+				retVal.setUnderlyingValue(rs.getFloat("underlying_value"));
 			}
 			rs.close();
 			stmt.close();
@@ -945,7 +946,75 @@ public class BaseClass {
 		}
 		return retStr;
 	}
+	
+	protected String[] getStraddleOptionNamesForSyntheticFutureByMaxTimevalue(float requiredDelta, int hedgeDistance) {
 		
+		 if (backtestDate != null ) {
+			 return getStraddleOptionNamesByDeltaOptimisedFromOptionGreeks(requiredDelta, hedgeDistance) ;
+		 } else {
+			String[] retStr = null;
+			Connection conn = null;
+			try {
+				List<OptionGreek> greekList = getSnapshotGreeksFromCache();
+			
+				// First search CE matching required delta
+				String optionname = "";
+				float minDeltaGap = 1f;
+				for(OptionGreek aGreek: greekList) {
+					if (aGreek.getTradingSymbol().endsWith("CE")) {
+						float deltaGap = Math.abs(Math.abs(aGreek.getDelta())-requiredDelta);
+						if (deltaGap < minDeltaGap) {
+							minDeltaGap = deltaGap;
+							optionname = aGreek.getTradingSymbol();
+						}
+					}
+				}
+				String ceTradingSymbol = optionname;
+				
+				// Next search PE matching required delta
+				optionname = "";
+				minDeltaGap = 1f;
+				for(OptionGreek aGreek: greekList) {
+					if (aGreek.getTradingSymbol().endsWith("PE")) {
+						float deltaGap = Math.abs(Math.abs(aGreek.getDelta())-requiredDelta);
+						if (deltaGap < minDeltaGap) {
+							minDeltaGap = deltaGap;
+							optionname = aGreek.getTradingSymbol();
+						}
+					}
+				}
+				String peTradingSymbol = optionname;
+								
+				String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+				
+				String localCeStraddleOptionName =  ceTradingSymbol;
+				String localPeStraddleOptionName =  peTradingSymbol;
+				
+				String localCeHedgeOptionName =  "";
+				String localPeHedgeOptionName =  "";
+				if (hedgeDistance>0) {
+					int centerStrike = getOptionCenterStrike(optionnamePrefix);
+					localCeHedgeOptionName =  optionnamePrefix + (centerStrike+hedgeDistance) + "CE";
+					localPeHedgeOptionName =  optionnamePrefix + (centerStrike-hedgeDistance) + "PE";
+				} 	
+				
+				retStr = new String[]{localCeStraddleOptionName, localPeStraddleOptionName, localCeHedgeOptionName, localPeHedgeOptionName};
+				fileLogTelegramWriter.write(" for requiredDelta "+requiredDelta +" CE " +ceTradingSymbol +", " + peTradingSymbol);
+			} catch(Exception ex) {
+				ex.printStackTrace();
+				log.error("Error"+ex.getMessage(),ex);
+			}finally {
+				try {
+					if (conn!=null) conn.close();
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			return retStr;
+		 }
+	}
+	
 	protected String[] getStraddleOptionNamesByDeltaOptimised(float requiredDelta, int hedgeDistance) {
 		
 		 if (backtestDate != null ) {

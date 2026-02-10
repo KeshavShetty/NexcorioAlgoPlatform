@@ -40,6 +40,8 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	
 	public float decayPoints = 0f;
 	
+	public boolean useVolSpikeProtection = false;
+	
 	private float openingStraddlePremium = -1f;
 	
 	private SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -62,6 +64,13 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp+" isExpiryToday() "+isExpiryToday());
+			
+			String[] volProtectionOptions = null;
+			Long ceProtictionOrderId = null;
+			Long peProtictionOrderId = null;
+			if (this.useVolSpikeProtection) {
+				volProtectionOptions = getStraddleOptionNamesByDeltaOptimised(baseDelta-0.2f, this.optimalHedgeDistance);
+			}
 	
 			
 			String[] entryStraddleOptionNames = null;
@@ -173,6 +182,13 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 					updateCurrentOrderBuyPrice(syntheticFutureShortPE, syntheticFutureShortOrderIds.get(i), aOptionGreeks.getLtp());
 				}
 				
+				// Vol protection
+				if (ceProtictionOrderId!=null) {
+					updateCurrentOrderSellPrice(volProtectionOptions[0], ceProtictionOrderId, getPriceFromTicks(volProtectionOptions[0]));
+				}
+				if (peProtictionOrderId!=null) {
+					updateCurrentOrderSellPrice(volProtectionOptions[1], peProtictionOrderId, getPriceFromTicks(volProtectionOptions[1]));
+				}
 				currentProfitPerUnit = getProfitFromDB();
 				if (currentProfitPerUnit>maxProfitReached) {
 					maxProfitReached=currentProfitPerUnit;
@@ -230,6 +246,37 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 						prepareExit("Too many future position exist");
 					}
 				}
+				if (this.useVolSpikeProtection) {
+					String outlierDirection = getOutlierBuyerDirection();
+					if (outlierDirection.equals("CE")) {
+						if (peProtictionOrderId!=null) { // PE exist, exit
+							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							peProtictionOrderId = null;
+						}
+						if (ceProtictionOrderId==null) { // No Long position exist 
+							ceProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[0], getPriceFromTicks(volProtectionOptions[0]),  noOfBatches*lotsPerBatch*lotSize*2);
+							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+					} else if (outlierDirection.equals("PE")) {
+						if (ceProtictionOrderId!=null) { // CE exist, exit
+							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							ceProtictionOrderId = null;
+						}
+						if (peProtictionOrderId==null) { // No Long position exist 
+							peProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[1], getPriceFromTicks(volProtectionOptions[1]),  noOfBatches*lotsPerBatch*lotSize*2);
+							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+					} else {
+						if (peProtictionOrderId!=null) { // PE exist, exit
+							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							peProtictionOrderId = null;
+						}
+						if (ceProtictionOrderId!=null) { // CE exist, exit
+							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							ceProtictionOrderId = null;
+						}
+					}
+				}
 				checkExitSignals();
 				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
 			} while(!exitThread);
@@ -248,6 +295,12 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 					placeRealOrder(syntheticFutureLongCE, syntheticFutureLongOrderIds.size()*noOfBatches*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 				}
 				placeRealOrder(hedge4FutureShortPE, qtyOfHedge4FutureShortPE*noOfBatches*lotSize, "SELL", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				if (peProtictionOrderId!=null) { // PE exist, exit
+					placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				}
+				if (ceProtictionOrderId!=null) { // CE exist, exit
+					placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+				}
 			}
 			
 			fileLogTelegramWriter.write( " noOfOrders="+noOfOrders + " ROI=" + (currentProfitPerUnit*this.lotSize*100f)/requiredMargin + "% (Max profit/lot reached to "+ (maxProfitReached) +"@" + maxProfitReachedAt+ "\n and Lowest reached to " + (maxLowestpointReached) + "@" + maxLowestpointReachedAt + ")");
@@ -283,6 +336,54 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				prepareExit("Premium Decay over");
 			}
 		}
+	}
+	
+	private String getOutlierBuyerDirection() {
+		String retVal = "Neutral";
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			
+			String fetchSql = "select countCEOutlier as ceGreek, countPEOutlier as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int ceGapCount = 0;
+			int peGapCount = 0;
+			
+			while (rs.next()) {
+				float ceGreek = rs.getFloat("ceGreek");
+				float peGreek = rs.getFloat("peGreek");
+				if (ceGreek > 6) {
+					ceGapCount++;
+				}
+				if (peGreek > 10) {
+					peGapCount++;
+				}
+			}
+			rs.close();			
+			stmt.close();
+			fileLogTelegramWriter.write("ceGapCount="+ceGapCount+" peGapCount="+peGapCount);
+			if (ceGapCount == 5 ) {
+				retVal = "PE";
+			} else if (peGapCount == 5 ) {				
+				retVal = "CE";
+			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
 	}
 	
 	private float getStraddlePremium(int hourOfTheDay, int minuteOfTheDay) {

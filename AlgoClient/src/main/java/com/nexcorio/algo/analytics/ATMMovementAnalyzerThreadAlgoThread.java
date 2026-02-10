@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -74,6 +75,75 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	
 	private float accumulatedChangein5secCeIV = 0f;
 	private float accumulatedChangein5secPeIV = 0f;
+	
+	private float drResAccumulatedChangein5secCeIV = 0f;
+	private float drResAccumulatedChangein5secPeIV = 0f;
+	
+	private float dr49AccumulatedChangein5secCeGamma = 0f;
+	private float dr49AccumulatedChangein5secPeGamma = 0f;
+	
+	private float otm250x750AccmlCeTheta = 0f;
+	private float otm250x750AccmlPeTheta = 0f;
+	
+	private float dr49AccumulatedChangein5secCeDelta = 0f;
+	private float dr49AccumulatedChangein5secPeDelta = 0f;
+	
+	private float dr49AccumulatedChangein5secCeVega = 0f;
+	private float dr49AccumulatedChangein5secPeVega = 0f;
+	
+	private float dr49AccumulatedChangein5secCeTheta = 0f;
+	private float dr49AccumulatedChangein5secPeTheta = 0f;
+	
+	private float dr49AccumulatedChangein5secCeIv = 0f;
+	private float dr49AccumulatedChangein5secPeIv = 0f;
+	
+	private float dr49AccumulatedChangein5secCeLtp = 0f;
+	private float dr49AccumulatedChangein5secPeLtp = 0f;
+	
+	private float dr16AccumulatedChangein5secCeGamma = 0f;
+	private float dr16AccumulatedChangein5secPeGamma = 0f;
+	
+	private float dr16AccumulatedChangein5secCeDelta = 0f;
+	private float dr16AccumulatedChangein5secPeDelta = 0f;
+	
+	private float dr16AccumulatedChangein5secCeVega = 0f;
+	private float dr16AccumulatedChangein5secPeVega = 0f;
+	
+	private float dr16AccumulatedChangein5secCeTheta = 0f;
+	private float dr16AccumulatedChangein5secPeTheta = 0f;
+	
+	private float dr16AccumulatedChangein5secCeIv = 0f;
+	private float dr16AccumulatedChangein5secPeIv = 0f;
+	
+	private float dr16AccumulatedChangein5secCeLtp = 0f;
+	private float dr16AccumulatedChangein5secPeLtp = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeGamma = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeGamma = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeDelta = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeDelta = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeVega = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeVega = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeTheta = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeTheta = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeIv = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeIv = 0f;
+	
+	private float drWhlStrkAccumulatedChangein5secCeLtp = 0f;
+	private float drWhlStrkAccumulatedChangein5secPeLtp = 0f;
+	
+	private float pt200AccumulatedChangein5secCeTheta = 0f;
+	private float pt200AccumulatedChangein5secPeTheta = 0f;
+	
+	private float altAbove5WhlStrkAccmltCETheta = 0f;
+	private float altAbove5WhlStrkAccmltPETheta = 0f;
+	
+	private float dr19fixedSizeAccmlCETheta = 0f;
+	private float dr19fixedSizeAccmlPETheta = 0f;
 	
 	public ATMMovementAnalyzerThreadAlgoThread(String instrumentName, String backDateStr) {
 		super();
@@ -499,10 +569,200 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				Collections.sort(ceOptionGreeks, new SortbyIV());
 				Collections.sort(peOptionGreeks, new SortbyIV());
 				
+				Map<String, OptionGreek> prevCeOptionGreeksMap = prevCeOptionGreeks.stream().collect(Collectors.toMap(OptionGreek::getTradingSymbol, item -> item));
+				Map<String, OptionGreek> prevPeOptionGreeksMap = prevPeOptionGreeks.stream().collect(Collectors.toMap(OptionGreek::getTradingSymbol, item -> item));
+				
+				// 1-9 Delta Fixed size 
+				List<OptionGreek> selectedCEGreeks = new ArrayList<OptionGreek>();
+				float lastIvRead = 0f;
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					
+					if (delta >= 0.1f && delta <= 0.9f) {				
+						float curIv = aGreek.getIv();				
+						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+							selectedCEGreeks.add(0,aGreek);
+							//lastIvRead = curIv;
+						}
+					}
+				}
+				List<OptionGreek> selectedPEGreeks = new ArrayList<OptionGreek>();
+				lastIvRead = 0f;
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					
+					if (delta >= 0.1f && delta <= 0.9f) {				
+						float curIv = aGreek.getIv();				
+						if (lastIvRead<0.1f || curIv < lastIvRead + 5f) {
+							selectedPEGreeks.add(0,aGreek);
+							//lastIvRead = curIv;
+						}
+					}
+				}
+				while(selectedCEGreeks.size() != selectedPEGreeks.size()) {
+					if (selectedCEGreeks.size() > selectedPEGreeks.size() ) {
+						selectedCEGreeks.remove(0);
+					} else {
+						selectedPEGreeks.remove(0);
+					}
+				}
+				retMap.put("dr19fixedSizeCEAvgIV", (float) selectedCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				retMap.put("dr19fixedSizePEAvgIV", (float) selectedPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				
+				
+				float changeInCETheta = 0f;
+				float changeInPETheta = 0f;
+				
+				for(OptionGreek aGreek : selectedCEGreeks) {
+					changeInCETheta = changeInCETheta +  (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null?aGreek.getTheta()-prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta():0f);
+				}
+				for(OptionGreek aGreek : selectedPEGreeks) {
+					changeInPETheta = changeInPETheta +  (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null?aGreek.getTheta()-prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta():0f);
+				}
+				dr19fixedSizeAccmlCETheta = dr19fixedSizeAccmlCETheta + changeInCETheta;
+				dr19fixedSizeAccmlPETheta = dr19fixedSizeAccmlPETheta + changeInPETheta;
+				
+				retMap.put("dr19fixedSizeAccmlCETheta", dr19fixedSizeAccmlCETheta);
+				retMap.put("dr19fixedSizeAccmlPETheta", dr19fixedSizeAccmlPETheta);
+				
+				// ITM till 0.9 delta  Avg IV of same number of strikes
+				List<OptionGreek> drITMWhlStrkCEIvs = new ArrayList<OptionGreek>();
+				List<OptionGreek> drITMWhlStrkPEIvs = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> above5WhlStrkCEIvs = new ArrayList<OptionGreek>();
+				List<OptionGreek> above5WhlStrkPEIvs = new ArrayList<OptionGreek>();
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					
+					if (aGreek.getStrike()%100==0) {
+						drITMWhlStrkCEIvs.add(aGreek);
+						if (delta > 0.5f) above5WhlStrkCEIvs.add(aGreek);
+					}
+				}
+				for(OptionGreek aGreek: peOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					
+					if (aGreek.getStrike()%100==0) {
+						drITMWhlStrkPEIvs.add(aGreek);
+						if (delta > 0.5f) above5WhlStrkPEIvs.add(aGreek);
+					}
+				}
+				int optimalLength =  drITMWhlStrkCEIvs.size() < drITMWhlStrkPEIvs.size() ?	drITMWhlStrkCEIvs.size() : drITMWhlStrkPEIvs.size();	
+				
+				int above5OptimalLength =  above5WhlStrkCEIvs.size() < above5WhlStrkPEIvs.size() ?	above5WhlStrkCEIvs.size() : above5WhlStrkPEIvs.size();
+				
+				float drITMWhlStrkCEAvgIv = 0f;
+				float drITMWhlStrkPEAvgIv = 0f;
+				
+				for(int i=0;i<optimalLength;i++) {
+					drITMWhlStrkCEAvgIv = drITMWhlStrkCEAvgIv + drITMWhlStrkCEIvs.get(i).getIv();
+					drITMWhlStrkPEAvgIv = drITMWhlStrkPEAvgIv + drITMWhlStrkPEIvs.get(i).getIv();
+				}
+				
+				float above5WhlStrkCEAvgIv = 0f;
+				float above5WhlStrkPEAvgIv = 0f;
+				for(int i=0;i<above5OptimalLength;i++) {
+					above5WhlStrkCEAvgIv = above5WhlStrkCEAvgIv + above5WhlStrkCEIvs.get(i).getIv();
+					above5WhlStrkPEAvgIv = above5WhlStrkPEAvgIv + above5WhlStrkPEIvs.get(i).getIv();		
+				}
+				
+				drITMWhlStrkCEAvgIv = drITMWhlStrkCEAvgIv/optimalLength;
+				drITMWhlStrkPEAvgIv = drITMWhlStrkPEAvgIv/optimalLength;
+				
+				above5WhlStrkCEAvgIv = above5WhlStrkCEAvgIv/above5OptimalLength;
+				above5WhlStrkPEAvgIv = above5WhlStrkPEAvgIv/above5OptimalLength;
+				
+				retMap.put("drITMWhlStrkSameSizeCEAvgIv", drITMWhlStrkCEAvgIv);
+				retMap.put("drITMWhlStrkSameSizePEAvgIv", drITMWhlStrkPEAvgIv);
+				
+				retMap.put("above5WhlStrkCEAvgIv", above5WhlStrkCEAvgIv);
+				retMap.put("above5WhlStrkPEAvgIv", above5WhlStrkPEAvgIv);
+				
+				float altAbove5WhlStrkCEAvgIv = 0f;
+				float altAbove5WhlStrkPEAvgIv = 0f;
+				
+				while(above5WhlStrkCEIvs.size() != above5WhlStrkPEIvs.size()) {
+					if (above5WhlStrkCEIvs.size() > above5WhlStrkPEIvs.size() ) {
+						above5WhlStrkCEIvs.remove(0);
+					} else {
+						above5WhlStrkPEIvs.remove(0);
+					}
+				}
+				
+				float altAbove5WhlStrk5secCETheta = 0f;
+				float altAbove5WhlStrk5secPETheta = 0f;
+				for(int i=0;i<above5WhlStrkPEIvs.size();i++) {
+					altAbove5WhlStrkCEAvgIv = altAbove5WhlStrkCEAvgIv + above5WhlStrkCEIvs.get(i).getIv();
+					altAbove5WhlStrkPEAvgIv = altAbove5WhlStrkPEAvgIv + above5WhlStrkPEIvs.get(i).getIv();
+					
+					for(OptionGreek prevGreek: prevCeOptionGreeks) {
+						if (above5WhlStrkCEIvs.get(i).getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+							altAbove5WhlStrk5secCETheta = altAbove5WhlStrk5secCETheta + (Math.abs(above5WhlStrkCEIvs.get(i).getTheta()) - Math.abs(prevGreek.getTheta()));
+						}
+					}
+					for(OptionGreek prevGreek: prevPeOptionGreeks) {
+						if (above5WhlStrkPEIvs.get(i).getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+							altAbove5WhlStrk5secPETheta = altAbove5WhlStrk5secPETheta + (Math.abs(above5WhlStrkPEIvs.get(i).getTheta()) - Math.abs(prevGreek.getTheta()));
+						}
+					}
+				}
+				altAbove5WhlStrkCEAvgIv = altAbove5WhlStrkCEAvgIv/(float)above5WhlStrkPEIvs.size();
+				altAbove5WhlStrkPEAvgIv = altAbove5WhlStrkPEAvgIv/(float)above5WhlStrkPEIvs.size();
+				retMap.put("altAbove5WhlStrkCEAvgIv", altAbove5WhlStrkCEAvgIv);
+				retMap.put("altAbove5WhlStrkPEAvgIv", altAbove5WhlStrkPEAvgIv);
+				
+				altAbove5WhlStrkAccmltCETheta = altAbove5WhlStrkAccmltCETheta + altAbove5WhlStrk5secCETheta;
+				altAbove5WhlStrkAccmltPETheta = altAbove5WhlStrkAccmltPETheta + altAbove5WhlStrk5secPETheta;
+				
+				retMap.put("altAbove5WhlStrkAccmltCETheta", altAbove5WhlStrkAccmltCETheta);
+				retMap.put("altAbove5WhlStrkAccmltPETheta", altAbove5WhlStrkAccmltPETheta);
+				
+				// otm250x750 Accml Theta & itm1000x500 Avg IV
+				
+				float otm250x750Changein5secCeTheta = 0f;
+				float otm250x750Changein5secPeTheta = 0f;
+				
+				List<OptionGreek> itm1000x500CeIvs = new ArrayList<OptionGreek>();
+				List<OptionGreek> itm1000x500PeIvs = new ArrayList<OptionGreek>();
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					if (aGreek.getStrike()%100==0) {
+						if (aGreek.getStrike() > this.instrumentLtp + 250 && aGreek.getStrike() < this.instrumentLtp + 750) {
+							if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) otm250x750Changein5secCeTheta = otm250x750Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+							
+						}
+						if (aGreek.getStrike() > this.instrumentLtp - 1000 && aGreek.getStrike() < this.instrumentLtp - 500 ) {					
+							if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) itm1000x500CeIvs.add(aGreek);
+						}
+					}
+				}
+				for(OptionGreek aGreek: peOptionGreeks) {
+					if (aGreek.getStrike()%100==0) {
+						if (aGreek.getStrike() < this.instrumentLtp - 250 && aGreek.getStrike() > this.instrumentLtp - 750 ) {
+							if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) otm250x750Changein5secPeTheta = otm250x750Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+						}
+						if (aGreek.getStrike() < this.instrumentLtp + 1000 && aGreek.getStrike() > this.instrumentLtp + 500 ) {
+							if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) itm1000x500PeIvs.add(aGreek);
+						}
+					}
+					
+				}
+				
+				otm250x750AccmlCeTheta = otm250x750AccmlCeTheta + otm250x750Changein5secCeTheta;
+				otm250x750AccmlPeTheta = otm250x750AccmlPeTheta + otm250x750Changein5secPeTheta;
+				
+				retMap.put("otm250x750AccmlCeTheta", otm250x750AccmlCeTheta);
+				retMap.put("otm250x750AccmlPeTheta", otm250x750AccmlPeTheta);
+				
+				retMap.put("itm1000x500AvgCeIv", (float) itm1000x500CeIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				retMap.put("itm1000x500AvgPeIv", (float) itm1000x500PeIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+								
 				float lowerDelta = 0.1f;
 				float upperDelta = 0.9f;
 				
-				float lastIvRead = 0f;
+				lastIvRead = 0f;
 				int recCount = 0;
 				int fullcount = 0;
 				float deltaRangeCEAvgLtp = 0f;
@@ -876,11 +1136,110 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				
 				float changein5secCeIV = 0;
 				float changein5secPeIV = 0;
+				
+				float drResChangein5secCeIV = 0;
+				float drResChangein5secPeIV = 0;
+				
+				float dr49Changein5secCeGamma = 0;
+				float dr49Changein5secPeGamma = 0;
+				float dr49Changein5secCeTheta = 0f; 
+				float dr49Changein5secCeDelta = 0f; 
+				float dr49Changein5secCeVega  = 0f;
+				float dr49Changein5secCeIv  = 0f;
+				float dr49Changein5secCeLtp = 0f;
+				float dr49Changein5secPeTheta = 0f; 
+				float dr49Changein5secPeDelta = 0f; 
+				float dr49Changein5secPeVega  = 0f;
+				float dr49Changein5secPeIv  = 0f;
+				float dr49Changein5secPeLtp = 0f;
+				
+				float dr16Changein5secCeGamma = 0;
+				float dr16Changein5secPeGamma = 0;
+				float dr16Changein5secCeTheta = 0f; 
+				float dr16Changein5secCeDelta = 0f; 
+				float dr16Changein5secCeVega  = 0f;
+				float dr16Changein5secCeIv  = 0f;
+				float dr16Changein5secCeLtp = 0f;
+				float dr16Changein5secPeTheta = 0f; 
+				float dr16Changein5secPeDelta = 0f; 
+				float dr16Changein5secPeVega  = 0f;
+				float dr16Changein5secPeIv  = 0f;
+				float dr16Changein5secPeLtp = 0f;
+				
+				float drWhlStrkChangein5secCeGamma = 0;
+				float drWhlStrkChangein5secPeGamma = 0;
+				float drWhlStrkChangein5secCeTheta = 0f; 
+				float drWhlStrkChangein5secCeDelta = 0f; 
+				float drWhlStrkChangein5secCeVega  = 0f;
+				float drWhlStrkChangein5secCeIv  = 0f;
+				float drWhlStrkChangein5secCeLtp = 0f;
+				float drWhlStrkChangein5secPeTheta = 0f; 
+				float drWhlStrkChangein5secPeDelta = 0f; 
+				float drWhlStrkChangein5secPeVega  = 0f;
+				float drWhlStrkChangein5secPeIv  = 0f;
+				float drWhlStrkChangein5secPeLtp = 0f;
+				
+				float pt200Changein5secCeTheta = 0l;
+				float pt200Changein5secPeTheta = 0l;
+				
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					for(OptionGreek prevGreek: prevCeOptionGreeks) {
 						if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
 							changein5secCeIV = changein5secCeIV + (aGreek.getIv() - prevGreek.getIv());
-							break;
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.25f && Math.abs(aGreek.getDelta()) <= 0.75f) { 
+						for(OptionGreek prevGreek: prevCeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								drResChangein5secCeIV = drResChangein5secCeIV + (aGreek.getIv() - prevGreek.getIv());
+							}
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.4f && Math.abs(aGreek.getDelta()) <= 0.9f) { 
+						for(OptionGreek prevGreek: prevCeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								dr49Changein5secCeGamma = dr49Changein5secCeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								dr49Changein5secCeTheta = dr49Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								dr49Changein5secCeDelta = dr49Changein5secCeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								dr49Changein5secCeVega = dr49Changein5secCeVega + (aGreek.getVega() - prevGreek.getVega());
+								dr49Changein5secCeIv = dr49Changein5secCeIv + (aGreek.getIv() - prevGreek.getIv());
+								dr49Changein5secCeLtp = dr49Changein5secCeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+							}
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.1f && Math.abs(aGreek.getDelta()) <= 0.6f) { 
+						for(OptionGreek prevGreek: prevCeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								dr16Changein5secCeGamma = dr16Changein5secCeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								dr16Changein5secCeTheta = dr16Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								dr16Changein5secCeDelta = dr16Changein5secCeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								dr16Changein5secCeVega = dr16Changein5secCeVega + (aGreek.getVega() - prevGreek.getVega());
+								dr16Changein5secCeIv = dr16Changein5secCeIv + (aGreek.getIv() - prevGreek.getIv());
+								dr16Changein5secCeLtp = dr16Changein5secCeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+							}
+						}
+					}
+					
+					if (aGreek.getStrike() > this.instrumentLtp + 500 && aGreek.getStrike() < this.instrumentLtp + 750 ) {
+						
+						for(OptionGreek prevGreek: prevCeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								drWhlStrkChangein5secCeDelta = drWhlStrkChangein5secCeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								drWhlStrkChangein5secCeGamma = drWhlStrkChangein5secCeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								drWhlStrkChangein5secCeVega = drWhlStrkChangein5secCeVega + (aGreek.getVega() - prevGreek.getVega());
+								drWhlStrkChangein5secCeTheta = drWhlStrkChangein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								drWhlStrkChangein5secCeIv = drWhlStrkChangein5secCeIv + (aGreek.getIv() - prevGreek.getIv());
+								drWhlStrkChangein5secCeLtp  = drWhlStrkChangein5secCeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+								break;
+							}
+						}
+					}
+					
+					if (aGreek.getStrike() < this.instrumentLtp + 200 && aGreek.getStrike() > this.instrumentLtp - 200 ) {						
+						for(OptionGreek prevGreek: prevCeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								pt200Changein5secCeTheta = pt200Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+							}
 						}
 					}
 				}
@@ -888,7 +1247,60 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					for(OptionGreek prevGreek: prevPeOptionGreeks) {
 						if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
 							changein5secPeIV = changein5secPeIV + (aGreek.getIv() - prevGreek.getIv());
-							break;
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.25f && Math.abs(aGreek.getDelta()) <= 0.75f) { 
+						for(OptionGreek prevGreek: prevPeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								drResChangein5secPeIV = drResChangein5secPeIV + (aGreek.getIv() - prevGreek.getIv());
+							}
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.4f && Math.abs(aGreek.getDelta()) <= 0.9f) { 
+						for(OptionGreek prevGreek: prevPeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								dr49Changein5secPeGamma = dr49Changein5secPeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								
+								dr49Changein5secPeTheta = dr49Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								dr49Changein5secPeDelta = dr49Changein5secPeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								dr49Changein5secPeVega = dr49Changein5secPeVega + (aGreek.getVega() - prevGreek.getVega());
+								dr49Changein5secPeIv = dr49Changein5secPeIv + (aGreek.getIv() - prevGreek.getIv());
+								dr49Changein5secPeLtp = dr49Changein5secPeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+							}
+						}
+					}
+					if (Math.abs(aGreek.getDelta()) >= 0.1f && Math.abs(aGreek.getDelta()) <= 0.6f) { 
+						for(OptionGreek prevGreek: prevPeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								dr16Changein5secPeGamma = dr16Changein5secPeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								
+								dr16Changein5secPeTheta = dr16Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								dr16Changein5secPeDelta = dr16Changein5secPeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								dr16Changein5secPeVega = dr16Changein5secPeVega + (aGreek.getVega() - prevGreek.getVega());
+								dr16Changein5secPeIv = dr16Changein5secPeIv + (aGreek.getIv() - prevGreek.getIv());
+								dr16Changein5secPeLtp = dr16Changein5secPeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+							}
+						}
+					}
+					if (aGreek.getStrike() < this.instrumentLtp -500 && aGreek.getStrike() > this.instrumentLtp -750) {
+						for(OptionGreek prevGreek: prevPeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								drWhlStrkChangein5secPeDelta = drWhlStrkChangein5secPeDelta + (Math.abs(aGreek.getDelta()) - Math.abs(prevGreek.getDelta()));
+								drWhlStrkChangein5secPeGamma = drWhlStrkChangein5secPeGamma + (aGreek.getGamma() - prevGreek.getGamma());
+								drWhlStrkChangein5secPeVega = drWhlStrkChangein5secPeVega + (aGreek.getVega() - prevGreek.getVega());
+								drWhlStrkChangein5secPeTheta = drWhlStrkChangein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+								drWhlStrkChangein5secPeIv = drWhlStrkChangein5secPeIv + (aGreek.getIv() - prevGreek.getIv());
+								drWhlStrkChangein5secPeLtp  = drWhlStrkChangein5secPeLtp + (aGreek.getLtp() - prevGreek.getLtp());
+								break;
+							}
+						}
+					}
+					
+					if (aGreek.getStrike() < this.instrumentLtp + 200 && aGreek.getStrike() > this.instrumentLtp - 200 ) {						
+						for(OptionGreek prevGreek: prevPeOptionGreeks) {
+							if (aGreek.getTradingSymbol().equals(prevGreek.getTradingSymbol())) {
+								pt200Changein5secPeTheta = pt200Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreek.getTheta()));
+							}
 						}
 					}
 				}
@@ -898,12 +1310,118 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				accumulatedChangein5secCeIV = accumulatedChangein5secCeIV + changein5secCeIV;
 				accumulatedChangein5secPeIV = accumulatedChangein5secPeIV + changein5secPeIV;
 				
+				drResAccumulatedChangein5secCeIV = drResAccumulatedChangein5secCeIV + drResChangein5secCeIV;
+				drResAccumulatedChangein5secPeIV = drResAccumulatedChangein5secPeIV + drResChangein5secPeIV;
+				
+				dr49AccumulatedChangein5secCeGamma = dr49AccumulatedChangein5secCeGamma + dr49Changein5secCeGamma;
+				dr49AccumulatedChangein5secPeGamma = dr49AccumulatedChangein5secPeGamma + dr49Changein5secPeGamma;
+				
+				dr49AccumulatedChangein5secCeTheta = dr49AccumulatedChangein5secCeTheta + dr49Changein5secCeTheta;
+				dr49AccumulatedChangein5secPeTheta = dr49AccumulatedChangein5secPeTheta + dr49Changein5secPeTheta;
+				
+				dr49AccumulatedChangein5secCeDelta = dr49AccumulatedChangein5secCeDelta + dr49Changein5secCeDelta;
+				dr49AccumulatedChangein5secPeDelta = dr49AccumulatedChangein5secPeDelta + dr49Changein5secPeDelta;
+				
+				dr49AccumulatedChangein5secCeVega = dr49AccumulatedChangein5secCeVega + dr49Changein5secCeVega;
+				dr49AccumulatedChangein5secPeVega = dr49AccumulatedChangein5secPeVega  + dr49Changein5secPeVega;
+				
+				dr49AccumulatedChangein5secCeIv = dr49AccumulatedChangein5secCeIv + dr49Changein5secCeIv;
+				dr49AccumulatedChangein5secPeIv = dr49AccumulatedChangein5secPeIv + dr49Changein5secPeIv;
+				
+				dr49AccumulatedChangein5secCeLtp = dr49AccumulatedChangein5secCeLtp + dr49Changein5secCeLtp;
+				dr49AccumulatedChangein5secPeLtp = dr49AccumulatedChangein5secPeLtp + dr49Changein5secPeLtp;
+				
+				
+				dr16AccumulatedChangein5secCeGamma = dr16AccumulatedChangein5secCeGamma + dr16Changein5secCeGamma;
+				dr16AccumulatedChangein5secPeGamma = dr16AccumulatedChangein5secPeGamma + dr16Changein5secPeGamma;
+				
+				dr16AccumulatedChangein5secCeTheta = dr16AccumulatedChangein5secCeTheta + dr16Changein5secCeTheta;
+				dr16AccumulatedChangein5secPeTheta = dr16AccumulatedChangein5secPeTheta + dr16Changein5secPeTheta;
+				
+				dr16AccumulatedChangein5secCeDelta = dr16AccumulatedChangein5secCeDelta + dr16Changein5secCeDelta;
+				dr16AccumulatedChangein5secPeDelta = dr16AccumulatedChangein5secPeDelta + dr16Changein5secPeDelta;
+				
+				dr16AccumulatedChangein5secCeVega = dr16AccumulatedChangein5secCeVega + dr16Changein5secCeVega;
+				dr16AccumulatedChangein5secPeVega = dr16AccumulatedChangein5secPeVega  + dr16Changein5secPeVega;
+				
+				dr16AccumulatedChangein5secCeIv = dr16AccumulatedChangein5secCeIv + dr16Changein5secCeIv;
+				dr16AccumulatedChangein5secPeIv = dr16AccumulatedChangein5secPeIv + dr16Changein5secPeIv;
+				
+				dr16AccumulatedChangein5secCeLtp = dr16AccumulatedChangein5secCeLtp + dr16Changein5secCeLtp;
+				dr16AccumulatedChangein5secPeLtp = dr16AccumulatedChangein5secPeLtp + dr16Changein5secPeLtp;
+				
+				drWhlStrkAccumulatedChangein5secCeGamma = drWhlStrkAccumulatedChangein5secCeGamma + drWhlStrkChangein5secCeGamma;
+				drWhlStrkAccumulatedChangein5secPeGamma = drWhlStrkAccumulatedChangein5secPeGamma + drWhlStrkChangein5secPeGamma;
+				
+				drWhlStrkAccumulatedChangein5secCeTheta = drWhlStrkAccumulatedChangein5secCeTheta + drWhlStrkChangein5secCeTheta;
+				drWhlStrkAccumulatedChangein5secPeTheta = drWhlStrkAccumulatedChangein5secPeTheta + drWhlStrkChangein5secPeTheta;
+				
+				drWhlStrkAccumulatedChangein5secCeDelta = drWhlStrkAccumulatedChangein5secCeDelta + drWhlStrkChangein5secCeDelta;
+				drWhlStrkAccumulatedChangein5secPeDelta = drWhlStrkAccumulatedChangein5secPeDelta + drWhlStrkChangein5secPeDelta;
+				
+				drWhlStrkAccumulatedChangein5secCeVega = drWhlStrkAccumulatedChangein5secCeVega + drWhlStrkChangein5secCeVega;
+				drWhlStrkAccumulatedChangein5secPeVega = drWhlStrkAccumulatedChangein5secPeVega  + drWhlStrkChangein5secPeVega;
+				
+				drWhlStrkAccumulatedChangein5secCeIv = drWhlStrkAccumulatedChangein5secCeIv + drWhlStrkChangein5secCeIv;
+				drWhlStrkAccumulatedChangein5secPeIv = drWhlStrkAccumulatedChangein5secPeIv + drWhlStrkChangein5secPeIv;
+				
+				drWhlStrkAccumulatedChangein5secCeLtp = drWhlStrkAccumulatedChangein5secCeLtp + drWhlStrkChangein5secCeLtp;
+				drWhlStrkAccumulatedChangein5secPeLtp = drWhlStrkAccumulatedChangein5secPeLtp + drWhlStrkChangein5secPeLtp;
+				
+				pt200AccumulatedChangein5secCeTheta = pt200AccumulatedChangein5secCeTheta + pt200Changein5secCeTheta;
+				pt200AccumulatedChangein5secPeTheta = pt200AccumulatedChangein5secPeTheta + pt200Changein5secPeTheta;
+								
 				retMap.put("changein5secCeIV",changein5secCeIV);
 				retMap.put("changein5secPeIV",changein5secPeIV);
 				
 				retMap.put("accumulatedChangein5secCeIV",accumulatedChangein5secCeIV);
 				retMap.put("accumulatedChangein5secPeIV",accumulatedChangein5secPeIV);
 				
+				retMap.put("drResAccumulatedChangein5secCeIV",drResAccumulatedChangein5secCeIV);
+				retMap.put("drResAccumulatedChangein5secPeIV",drResAccumulatedChangein5secPeIV);
+				
+				
+				retMap.put("dr49AccumulatedChangein5secCeGamma",dr49AccumulatedChangein5secCeGamma);
+				retMap.put("dr49AccumulatedChangein5secPeGamma",dr49AccumulatedChangein5secPeGamma);				
+				retMap.put("dr49AccumulatedChangein5secCeDelta",dr49AccumulatedChangein5secCeDelta);
+				retMap.put("dr49AccumulatedChangein5secPeDelta",dr49AccumulatedChangein5secPeDelta);				
+				retMap.put("dr49AccumulatedChangein5secCeVega",dr49AccumulatedChangein5secCeVega);
+				retMap.put("dr49AccumulatedChangein5secPeVega",dr49AccumulatedChangein5secPeVega);				
+				retMap.put("dr49AccumulatedChangein5secCeTheta",dr49AccumulatedChangein5secCeTheta);
+				retMap.put("dr49AccumulatedChangein5secPeTheta",dr49AccumulatedChangein5secPeTheta);				
+				retMap.put("dr49AccumulatedChangein5secCeIv",dr49AccumulatedChangein5secCeIv);
+				retMap.put("dr49AccumulatedChangein5secPeIv",dr49AccumulatedChangein5secPeIv);				
+				retMap.put("dr49AccumulatedChangein5secCeLtp",dr49AccumulatedChangein5secCeLtp);
+				retMap.put("dr49AccumulatedChangein5secPeLtp",dr49AccumulatedChangein5secPeLtp);
+				
+				retMap.put("dr16AccumulatedChangein5secCeGamma",dr16AccumulatedChangein5secCeGamma);
+				retMap.put("dr16AccumulatedChangein5secPeGamma",dr16AccumulatedChangein5secPeGamma);				
+				retMap.put("dr16AccumulatedChangein5secCeDelta",dr16AccumulatedChangein5secCeDelta);
+				retMap.put("dr16AccumulatedChangein5secPeDelta",dr16AccumulatedChangein5secPeDelta);				
+				retMap.put("dr16AccumulatedChangein5secCeVega",dr16AccumulatedChangein5secCeVega);
+				retMap.put("dr16AccumulatedChangein5secPeVega",dr16AccumulatedChangein5secPeVega);				
+				retMap.put("dr16AccumulatedChangein5secCeTheta",dr16AccumulatedChangein5secCeTheta);
+				retMap.put("dr16AccumulatedChangein5secPeTheta",dr16AccumulatedChangein5secPeTheta);				
+				retMap.put("dr16AccumulatedChangein5secCeIv",dr16AccumulatedChangein5secCeIv);
+				retMap.put("dr16AccumulatedChangein5secPeIv",dr16AccumulatedChangein5secPeIv);				
+				retMap.put("dr16AccumulatedChangein5secCeLtp",dr16AccumulatedChangein5secCeLtp);
+				retMap.put("dr16AccumulatedChangein5secPeLtp",dr16AccumulatedChangein5secPeLtp);
+				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeGamma",drWhlStrkAccumulatedChangein5secCeGamma);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeGamma",drWhlStrkAccumulatedChangein5secPeGamma);				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeDelta",drWhlStrkAccumulatedChangein5secCeDelta);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeDelta",drWhlStrkAccumulatedChangein5secPeDelta);				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeVega",drWhlStrkAccumulatedChangein5secCeVega);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeVega",drWhlStrkAccumulatedChangein5secPeVega);				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeTheta",drWhlStrkAccumulatedChangein5secCeTheta);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeTheta",drWhlStrkAccumulatedChangein5secPeTheta);				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeIv",drWhlStrkAccumulatedChangein5secCeIv);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeIv",drWhlStrkAccumulatedChangein5secPeIv);				
+				retMap.put("drWhlStrkAccumulatedChangein5secCeLtp",drWhlStrkAccumulatedChangein5secCeLtp);
+				retMap.put("drWhlStrkAccumulatedChangein5secPeLtp",drWhlStrkAccumulatedChangein5secPeLtp);
+				
+				retMap.put("pt200AccumulatedChangein5secCeTheta", pt200AccumulatedChangein5secCeTheta);
+				retMap.put("pt200AccumulatedChangein5secPeTheta", pt200AccumulatedChangein5secPeTheta);
 				
 				// Top 5 strike Gamma Exposure
 				List<OptionGreek> optionGreeks = new ArrayList<>();
@@ -1217,6 +1735,15 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			OptionGreek adjustedATMCEGreek = adjustedATMGreeks[0];
 			OptionGreek adjustedATMPEGreek = adjustedATMGreeks[1];
 			
+			float mlXgbPrediction = (float) (0.1364f * deltaRangeGreeksDetails.get("dr19fixedSizeAccmlCETheta") 
+					+ 0.1321 * deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeTheta")
+					+ 0.1308 * deltaRangeGreeksDetails.get("dr19fixedSizeCEAvgIV")
+					+ 0.1284 * deltaRangeGreeksDetails.get("dr19fixedSizePEAvgIV")
+					+ 0.1281 * deltaRangeGreeksDetails.get("dr19fixedSizeAccmlPETheta")
+					+ 0.1199 * deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeTheta")
+					+ 0.1146 * deltaRangeGreeksDetails.get("altAbove5WhlStrkCEAvgIv")
+					+ 0.1097 * deltaRangeGreeksDetails.get("altAbove5WhlStrkPEAvgIv")
+					+ 12.3456);
 			
 			if (ceOptionGreek!=null && peOptionGreek!=null) {
 				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, record_time, ceOptionname, peOptionname"
@@ -1329,7 +1856,67 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", minGammaExposureWithStrike, maxGammaExposureWithStrike, netGammaExposureWithStrike"
 						+ ", minGammaExposureTopN, maxGammaExposureTopN, netGammaExposureTopN"
 						+ ", cumulativeCEAvgIVDiff, cumulativePEAvgIVDiff"
+						+ ", drResAccumulatedChangein5secCeIV, drResAccumulatedChangein5secPeIV"
 						
+						
+						+ ", dr49AccumulatedChangein5secCeGamma"
+						+ ", dr49AccumulatedChangein5secPeGamma"				
+						+ ", dr49AccumulatedChangein5secCeDelta"
+						+ ", dr49AccumulatedChangein5secPeDelta"				
+						+ ", dr49AccumulatedChangein5secCeVega"
+						+ ", dr49AccumulatedChangein5secPeVega"				
+						+ ", dr49AccumulatedChangein5secCeTheta"
+						+ ", dr49AccumulatedChangein5secPeTheta"				
+						+ ", dr49AccumulatedChangein5secCeIv"
+						+ ", dr49AccumulatedChangein5secPeIv"				
+						+ ", dr49AccumulatedChangein5secCeLtp"
+						+ ", dr49AccumulatedChangein5secPeLtp"
+						
+						+ ", dr16AccumulatedChangein5secCeGamma"
+						+ ", dr16AccumulatedChangein5secPeGamma"				
+						+ ", dr16AccumulatedChangein5secCeDelta"
+						+ ", dr16AccumulatedChangein5secPeDelta"				
+						+ ", dr16AccumulatedChangein5secCeVega"
+						+ ", dr16AccumulatedChangein5secPeVega"				
+						+ ", dr16AccumulatedChangein5secCeTheta"
+						+ ", dr16AccumulatedChangein5secPeTheta"				
+						+ ", dr16AccumulatedChangein5secCeIv"
+						+ ", dr16AccumulatedChangein5secPeIv"				
+						+ ", dr16AccumulatedChangein5secCeLtp"
+						+ ", dr16AccumulatedChangein5secPeLtp"
+
+						+ ", drWhlStrkAccumulatedChangein5secCeGamma"
+						+ ", drWhlStrkAccumulatedChangein5secPeGamma"				
+						+ ", drWhlStrkAccumulatedChangein5secCeDelta"
+						+ ", drWhlStrkAccumulatedChangein5secPeDelta"				
+						+ ", drWhlStrkAccumulatedChangein5secCeVega"
+						+ ", drWhlStrkAccumulatedChangein5secPeVega"				
+						+ ", drWhlStrkAccumulatedChangein5secCeTheta"
+						+ ", drWhlStrkAccumulatedChangein5secPeTheta"				
+						+ ", drWhlStrkAccumulatedChangein5secCeIv"
+						+ ", drWhlStrkAccumulatedChangein5secPeIv"				
+						+ ", drWhlStrkAccumulatedChangein5secCeLtp"
+						+ ", drWhlStrkAccumulatedChangein5secPeLtp"
+						
+						+ ", pt200AccumulatedChangein5secCeTheta"
+						+ ", pt200AccumulatedChangein5secPeTheta"
+						
+						+ ", drITMWhlStrkSameSizeCEAvgIv"
+						+ ", drITMWhlStrkSameSizePEAvgIv"
+						
+						+ ", above5WhlStrkCEAvgIv, above5WhlStrkPEAvgIv"
+						
+						+ ", altAbove5WhlStrkCEAvgIv, altAbove5WhlStrkPEAvgIv"
+						
+						+ ", altAbove5WhlStrkAccmltCETheta, altAbove5WhlStrkAccmltPETheta"
+						
+						+ ", otm250x750AccmlCeTheta, otm250x750AccmlPeTheta"
+						+ ", itm1000x500AvgCeIv, itm1000x500AvgPeIv"
+						
+						+ ", dr19fixedSizeCEAvgIV, dr19fixedSizePEAvgIV"
+						+ ", dr19fixedSizeAccmlCETheta, dr19fixedSizeAccmlPETheta"
+						+ ", ml_xgb_prediction"
+
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
 						+ ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -1479,6 +2066,76 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureWithStrike") + " ," + deltaRangeGreeksDetails.get("netGammaExposureWithStrike")
 						+ " ," + deltaRangeGreeksDetails.get("minGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("maxGammaExposureTopN") + " ," + deltaRangeGreeksDetails.get("netGammaExposureTopN")
 						+ " ," + deltaRangeGreeksDetails.get("cumulativeCEAvgIVDiff") + " ," + deltaRangeGreeksDetails.get("cumulativePEAvgIVDiff") 
+						+ " ," + deltaRangeGreeksDetails.get("drResAccumulatedChangein5secCeIV") + "," + deltaRangeGreeksDetails.get("drResAccumulatedChangein5secPeIV") 
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeGamma")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeGamma")				
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeDelta")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeDelta")				
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeVega")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeVega")				
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeTheta")				
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeIv")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeIv")				
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secCeLtp")
+						+ " ," + deltaRangeGreeksDetails.get("dr49AccumulatedChangein5secPeLtp")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeGamma")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeGamma")				
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeDelta")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeDelta")				
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeVega")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeVega")				
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeTheta")				
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeIv")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeIv")				
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secCeLtp")
+						+ " ," + deltaRangeGreeksDetails.get("dr16AccumulatedChangein5secPeLtp")
+						
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeGamma")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeGamma")				
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeDelta")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeDelta")				
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeVega")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeVega")				
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeTheta")				
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeIv")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeIv")				
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secCeLtp")
+						+ " ," + deltaRangeGreeksDetails.get("drWhlStrkAccumulatedChangein5secPeLtp")
+						
+						+ " ," + deltaRangeGreeksDetails.get("pt200AccumulatedChangein5secCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("pt200AccumulatedChangein5secPeTheta")
+						
+						+ " ," + deltaRangeGreeksDetails.get("drITMWhlStrkSameSizeCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("drITMWhlStrkSameSizePEAvgIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("above5WhlStrkCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("above5WhlStrkPEAvgIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkPEAvgIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkAccmltCETheta")
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkAccmltPETheta")
+						
+						+ " ," + deltaRangeGreeksDetails.get("otm250x750AccmlCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("otm250x750AccmlPeTheta")
+						
+						+ " ," + deltaRangeGreeksDetails.get("itm1000x500AvgCeIv")
+						+ " ," + deltaRangeGreeksDetails.get("itm1000x500AvgPeIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("dr19fixedSizeCEAvgIV")
+						+ " ," + deltaRangeGreeksDetails.get("dr19fixedSizePEAvgIV")
+						
+						+ ", " + deltaRangeGreeksDetails.get("dr19fixedSizeAccmlCETheta")
+						+ ", " + deltaRangeGreeksDetails.get("dr19fixedSizeAccmlPETheta")
+						
+						+ ", " + mlXgbPrediction
+						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -1579,6 +2236,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2025-11-26 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-02-06 09:16:00");
 	}
 }

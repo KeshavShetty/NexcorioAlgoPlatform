@@ -344,7 +344,27 @@ public class G3GreekGapWithOutlierFilterAlgoThread extends G3BaseClass implement
 				fieldname = "dr4_9CEAvgIv as ceGreek, dr4_9PEAvgIv as peGreek";
 			} else if (greekname.equalsIgnoreCase("drTop5DeltaOI")) {
 				fieldname = "ceDeltaOIWorth as ceGreek, peDeltaOIWorth as peGreek";
-			}
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlGama")) {
+				fieldname = "drWhlStrkaccumulatedchangein5seccegamma as ceGreek, drWhlStrkaccumulatedchangein5secpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlVega")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpevega as peGreek, drWhlStrkaccumulatedchangein5seccevega as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlDelta")) {
+				fieldname = "drWhlStrkaccumulatedchangein5seccedelta as peGreek, drWhlStrkaccumulatedchangein5secpedelta as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlTheta")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpetheta as peGreek, drWhlStrkaccumulatedchangein5seccetheta as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlIv")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpeIv as peGreek, drWhlStrkaccumulatedchangein5secceIv as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlLtp")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secceLtp as ceGreek, drWhlStrkaccumulatedchangein5secpeLtp as peGreek";
+			} else if (greekname.equalsIgnoreCase("gammaExposure")) {
+				fieldname = "maxGammaExposure as ceGreek, minGammaExposure as peGreek";
+			}else if (greekname.equalsIgnoreCase("gammaExposureWthStrk")) {
+				fieldname = "maxGammaExposureWithStrike as ceGreek, minGammaExposureWithStrike as peGreek";
+			} else if (greekname.equalsIgnoreCase("dr19WholeStrikeAvgIV")) {
+				fieldname = "dr19WholeStrikeCEAvgIV as ceGreek, dr19WholeStrikePEAvgIV as peGreek";
+			} else if (greekname.equalsIgnoreCase("netGameXpTopN")) {
+				fieldname = "netgammaexposuretopn as ceGreek, netgammaexposuretopn as peGreek";
+			} 
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {

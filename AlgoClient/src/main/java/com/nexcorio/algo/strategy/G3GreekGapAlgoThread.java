@@ -35,6 +35,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	
 	public boolean resetAdjustGap = false;
 	
+	public boolean useScaledDelta = true;
+	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -318,9 +320,10 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	private String getSellerDirectionByATMGreekGap( String lastKnownTrend) {
 		String retVal = lastKnownTrend;
 		
-		if (this.oiWorthDirection) {
-			String oiWorthSellerDirection = getOiWorthSellerDirection();
-			if (oiWorthSellerDirection.equals("CE") || oiWorthSellerDirection.equals("PE")) return oiWorthSellerDirection;
+		if (greekname.equals("Top5OiWorth")) {
+			return getOptionTrendFromOIWorth(lastKnownTrend);
+		} else if (greekname.equals("deltaPrbltOiWorth")) {
+			return getOptionTrendFromDeltaProbablityAdjustedOIWorth(lastKnownTrend);
 		}
 		
 		Connection conn = null;
@@ -385,8 +388,90 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "adjustedceatmiv as ceGreek, adjustedpeatmiv as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("cumAvgIVDiff")) {
 				fieldname = "cumulativeCEAvgIVDiff as ceGreek, cumulativePEAvgIVDiff as peGreek";
-			}  
-			
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlGama")) {
+				fieldname = "dr49accumulatedchangein5seccegamma as ceGreek, dr49accumulatedchangein5secpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlVega")) {
+				fieldname = "dr49accumulatedchangein5seccevega as ceGreek, dr49accumulatedchangein5secpevega as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlDelta")) {
+				fieldname = "dr49accumulatedchangein5secpedelta as ceGreek, dr49accumulatedchangein5seccedelta as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlTheta")) {
+				fieldname = "dr49accumulatedchangein5seccetheta as ceGreek, dr49accumulatedchangein5secpetheta as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlIv")) {
+				fieldname = "dr49accumulatedchangein5secpeIv as ceGreek, dr49accumulatedchangein5secceIv as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr49accmlLtp")) {
+				fieldname = "dr49accumulatedchangein5secceLtp as ceGreek, dr49accumulatedchangein5secpeLtp as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlGama")) {
+				fieldname = "dr16accumulatedchangein5seccegamma as ceGreek, dr16accumulatedchangein5secpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlVega")) {
+				fieldname = "dr16accumulatedchangein5seccevega as ceGreek, dr16accumulatedchangein5secpevega as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlDelta")) {
+				fieldname = "dr16accumulatedchangein5seccedelta as ceGreek, dr16accumulatedchangein5secpedelta as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlTheta")) {
+				fieldname = "dr16accumulatedchangein5secpetheta as ceGreek, dr16accumulatedchangein5seccetheta as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlIv")) {
+				fieldname = "dr16accumulatedchangein5secpeIv as ceGreek, dr16accumulatedchangein5secceIv as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("dr16accmlLtp")) {
+				fieldname = "dr16accumulatedchangein5secceLtp as ceGreek, dr16accumulatedchangein5secpeLtp as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlGama")) {
+				fieldname = "drWhlStrkaccumulatedchangein5seccegamma as ceGreek, drWhlStrkaccumulatedchangein5secpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlVega")) {
+				fieldname = "drWhlStrkaccumulatedchangein5seccevega as ceGreek, drWhlStrkaccumulatedchangein5secpevega as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlDelta")) {
+				fieldname = "drWhlStrkaccumulatedchangein5seccedelta as ceGreek, drWhlStrkaccumulatedchangein5secpedelta as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlTheta")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpetheta as peGreek, drWhlStrkaccumulatedchangein5seccetheta as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlIv")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpeIv as peGreek, drWhlStrkaccumulatedchangein5secceIv as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlLtp")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secceLtp as ceGreek, drWhlStrkaccumulatedchangein5secpeLtp as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("strk250AvgIv")) {
+				fieldname = "strk250CEAvgIv as peGreek, strk250PEAvgIv as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("outlierStrkDist")) {
+				fieldname = "ceOutlierStrikeDistance as peGreek, peOutlierStrikeDistance as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("delta2_8Count")) {
+				fieldname = "ceDelta8_9Count as ceGreek, peDelta8_9Count as peGreek";
+			} else if (greekname.equalsIgnoreCase("gammaExposureTopN")) {
+				fieldname = "maxGammaExposureTopN as ceGreek, minGammaExposureTopN as peGreek";
+			} else if (greekname.equalsIgnoreCase("drITMWhlStrkAvgIv")) {
+				fieldname = "drITMWhlStrkSameSizeCEAvgIv as ceGreek, drITMWhlStrkSameSizePEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("above5WhlStrkAvgIv")) {
+				fieldname = "above5WhlStrkCEAvgIv as ceGreek, above5WhlStrkPEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("altAbov5WhlStrkAvgIv")) {
+				fieldname = "altabove5WhlStrkCEAvgIv as ceGreek, altabove5WhlStrkPEAvgIv as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("abv5WhlStrkCEAvgGama")) {
+				fieldname = "altAbove5WhlStrkCEAvgGama as ceGreek, altAbove5WhlStrkPEAvgGama as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("dr19fixedSizeAvgIV")) {
+				fieldname = "dr19fixedSizeCEAvgIV as ceGreek, dr19fixedSizePEAvgIV as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("whlStrkATMAccmlTheta")) {
+				fieldname = "whlStrkOTMAccmlCETheta as ceGreek, whlStrkOTMAccmlPETheta as peGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("otmX_YAvgIv")) {
+				fieldname = "otm250_0AccmlCeTheta as peGreek, "
+						+ " otm250_0AccmlPeTheta as ceGreek"; // fieldname = "dr49WhlStrkaccumulatedchangein5secceGamma as ceGreek, dr49WhlStrkaccumulatedchangein5secpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("1000_750AccmlTheta")) {
+				fieldname = "(otm1000_750avgCeiv+otm750_500avgCeiv)/2  as ceGreek, (otm1000_750avgpeiv+otm750_500avgpeiv)/2  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("750_500AccmlTheta")) {
+				fieldname = "otm750_500avgCeiv  as ceGreek, otm750_500avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("500_250AccmlTheta")) {
+				fieldname = "otm500_250avgCeiv  as ceGreek, otm500_250avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("250_0AccmlTheta")) {
+				fieldname = "otm250_0avgCeiv  as ceGreek, otm250_0avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("0_250AccmlTheta")) {
+				fieldname = "otm0_250avgCeiv  as ceGreek, otm0_250avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("250_500AccmlTheta")) {
+				fieldname = "otm250_500avgCeiv  as ceGreek, otm250_500avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("500_750AccmlTheta")) {
+				fieldname = "otm500_750avgCeiv  as ceGreek, otm500_750avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("750_1000AccmlTheta")) {
+				fieldname = "otm750_1000avgCeiv  as ceGreek, otm750_1000avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
+			} else if (greekname.equalsIgnoreCase("newGamaExpStrk")) {
+				fieldname = "maxGammaExposure0_250StrikeDistance as ceGreek, minGammaExposure0_250StrikeDistance as peGreek";
+			} else if (greekname.equalsIgnoreCase("otm250x750AccmlTheta")) {
+				fieldname = "otm250x750AccmlCeTheta as ceGreek, otm250x750AccmlPeTheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("itm1000x500AvgIv")) {
+				fieldname = "itm1000x500AvgCeIv as ceGreek, itm1000x500AvgPeIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("dr19fxdSizAccmlTheta")) {
+				fieldname = "dr19fixedSizeAccmlCETheta as ceGreek, dr19fixedSizeAccmlPETheta as peGreek";
+			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {
@@ -466,6 +551,229 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		return retVal;
 	}
 	
+	private String getOptionTrendFromOIWorth(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		String top4Options ="";
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				optionGreeks = getSnapshotGreeksFromCache();
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
+				}
+			}
+			stmt.close();
+			
+			Collections.sort(optionGreeks, new SortbyOI());
+			
+			float ceOIWorth = 0f;
+			float peOIWorth = 0f;
+			
+			float ceOICount = 0;
+			float peOICount = 0;
+			
+			int recProcessed = 0;
+			for(OptionGreek aGreek: optionGreeks) {
+				if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+					recProcessed++;
+					
+					String tradingSymbol = aGreek.getTradingSymbol();
+					float worthInCr = aGreek.getOi()*aGreek.getLtp()/10000000f;
+					float openInterest = aGreek.getOi();
+					top4Options = top4Options + tradingSymbol +" ";
+					if (tradingSymbol.endsWith("CE")) {
+						ceOIWorth = ceOIWorth + worthInCr;
+						ceOICount = ceOICount + openInterest;
+					} else {
+						peOIWorth = peOIWorth + worthInCr;
+						peOICount = peOICount + openInterest;
+					}
+				}
+				if (recProcessed >= 7) break;
+			}
+			
+			if (ceOIWorth-peOIWorth>10) {
+				retVal = "CE";
+			} else if (peOIWorth-ceOIWorth>10) {
+				retVal = "PE";
+			} else {
+				retVal = lastKnownOptiontrend;
+			}
+			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal+" top4Options="+top4Options;
+			fileLogTelegramWriter.write( logString);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	
+	private String getOptionTrendFromDeltaProbablityAdjustedOIWorth(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		String top4Options ="";
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String optionnamePrefix = getCurrentWeekExpiryOptionnamePrefix();
+			
+			float ceOIWorth = 0f;
+			float peOIWorth = 0f;
+			
+			if (backtestDate == null) {
+				String opOIFetch = "select trading_symbol, delta, oi as open_interest, oi*ltp/10000000 as worthInCr from nexcorio_option_snapshot where trading_symbol like '" + optionnamePrefix + "%' and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) +"' "
+						+ " and oi*ltp/10000000>10"  + " order by oi desc limit 7";
+				
+				fileLogTelegramWriter.write("opOIFetch="+opOIFetch);
+				ResultSet rs = stmt.executeQuery(opOIFetch);
+				
+				while (rs.next()) {
+					String tradingSymbol = rs.getString("trading_symbol");
+					float worthInCr = rs.getFloat("worthInCr");
+					float delta = rs.getFloat("delta");
+					top4Options = top4Options + tradingSymbol +" ";
+					
+					if (tradingSymbol.endsWith("CE")) {
+						if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCr*(1f-delta);				
+						else ceOIWorth = ceOIWorth + worthInCr*delta;
+					} else {
+						if (useScaledDelta) peOIWorth = peOIWorth + worthInCr*(1f+delta);
+						else peOIWorth = peOIWorth + worthInCr*-delta;
+					}
+				}
+				rs.close();
+			} else {
+				List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
+				}
+			
+				Collections.sort(optionGreeks, new SortbyOI());
+				
+				int recProcessed = 0;
+				for(OptionGreek aGreek: optionGreeks) {
+					if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+						recProcessed++;
+						float delta = aGreek.getDelta();
+						float worthInCr = aGreek.getOi()*aGreek.getLtp()/10000000f;
+						top4Options = top4Options + aGreek.getTradingSymbol() +" ";
+						
+						if (aGreek.getTradingSymbol().endsWith("CE")) {
+							if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCr*(1f-delta);				
+							else ceOIWorth = ceOIWorth + worthInCr*delta;
+						} else {
+							if (useScaledDelta) peOIWorth = peOIWorth + worthInCr*(1f+delta);
+							else peOIWorth = peOIWorth + worthInCr*-delta;
+						}
+					}
+					if (recProcessed>=7) break;
+				}
+			}
+			stmt.close();
+			if (ceOIWorth-peOIWorth>10) {
+				retVal = "CE";
+			} else if (peOIWorth-ceOIWorth>10) {
+				retVal = "PE";
+			} else {
+				retVal = lastKnownOptiontrend;
+			}
+			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal+" top4Options="+top4Options;
+			fileLogTelegramWriter.write( logString);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
 	private String getOiWorthSellerDirection() {
 		String retStr = "Neutral";
 		

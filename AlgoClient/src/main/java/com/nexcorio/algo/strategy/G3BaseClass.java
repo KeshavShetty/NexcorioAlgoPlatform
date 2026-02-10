@@ -679,7 +679,7 @@ public abstract class G3BaseClass extends BaseClass {
 				com.ibm.icu.text.NumberFormat format = com.ibm.icu.text.NumberFormat.getCurrencyInstance(new Locale("en", "in"));
 			    
 				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
-						+ " Exit with PnL="+CURRENCY_FORMAT.format(profit) +" ( "+ format.format((noOfLots*lotSize*profit)) + "/- )");
+						+ " Exit with PnL = "+CURRENCY_FORMAT.format(profit) +" ( "+ format.format((noOfLots*lotSize*profit)) + "/- )");
 			}
 		}
 	}
