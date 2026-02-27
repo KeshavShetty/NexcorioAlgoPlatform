@@ -131,12 +131,14 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 							if (this.placeActualOrder) {
 								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
+							updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
 							peStraddleOptionName = "";
 						} else {
 							fileLogTelegramWriter.write( "Volatality, Exiting ="+ceStraddleOptionName );
 							if (this.placeActualOrder) {
 								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
+							updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
 							ceStraddleOptionName = "";
 						}
 					} else {
@@ -150,6 +152,7 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 								if (this.placeActualOrder) {
 									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
+								updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
 								ceStraddleOptionName = "";
 								if (this.noOfOrders<maxAllowedNoOfOrders) {
 									ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -171,6 +174,7 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 								if (this.placeActualOrder) {
 									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
+								updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
 								peStraddleOptionName = "";
 								if (this.noOfOrders<maxAllowedNoOfOrders) {
 									peStraddleOptionName =  entryStraddleOptionNames[1];
@@ -219,11 +223,14 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 						}
 					} else {
 						if (volatilityDirection.equals("CE")) {
-							fileLogTelegramWriter.write( "Volatality, Exiting ="+peStraddleOptionName );
-							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							if (!peStraddleOptionName.equals("")) {
+								fileLogTelegramWriter.write( "Volatality, Exiting ="+peStraddleOptionName );
+								if (this.placeActualOrder) {
+									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								}
+								updateCurrentOrderStatus(peStraddleOptionName, peDbId, "LegClosed");
+								peStraddleOptionName = "";
 							}
-							peStraddleOptionName = "";
 							if (ceStraddleOptionName.equals("")) {
 								if (this.noOfOrders<maxAllowedNoOfOrders) {
 									ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -238,11 +245,14 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 								}
 							}
 						} else {
-							fileLogTelegramWriter.write( "Volatality, Exiting ="+ceStraddleOptionName );
-							if (this.placeActualOrder) {
-								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							if (!ceStraddleOptionName.equals("")) {
+								fileLogTelegramWriter.write( "Volatality, Exiting ="+ceStraddleOptionName );
+								if (this.placeActualOrder) {
+									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								}
+								updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
+								ceStraddleOptionName = "";
 							}
-							ceStraddleOptionName = "";
 							if (peStraddleOptionName.equals("")) {
 								if (this.noOfOrders<maxAllowedNoOfOrders) {
 									peStraddleOptionName =  entryStraddleOptionNames[1];
