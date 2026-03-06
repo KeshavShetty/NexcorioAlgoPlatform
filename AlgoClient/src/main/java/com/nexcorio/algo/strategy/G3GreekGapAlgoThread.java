@@ -37,6 +37,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	
 	public boolean useScaledDelta = true;
 	
+	public float ivTolerance = 0.5f;
+	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -324,6 +326,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			return getOptionTrendFromOIWorth(lastKnownTrend);
 		} else if (greekname.equals("deltaPrbltOiWorth")) {
 			return getOptionTrendFromDeltaProbablityAdjustedOIWorth(lastKnownTrend);
+		} else if (greekname.equals("drMedianAvgIV")) {
+			return getSellerDirectionByMedianAndAvgIVGreekGap(lastKnownTrend);
 		}
 		
 		Connection conn = null;
@@ -466,12 +470,38 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			} else if (greekname.equalsIgnoreCase("newGamaExpStrk")) {
 				fieldname = "maxGammaExposure0_250StrikeDistance as ceGreek, minGammaExposure0_250StrikeDistance as peGreek";
 			} else if (greekname.equalsIgnoreCase("otm250x750AccmlTheta")) {
-				fieldname = "otm250x750AccmlCeTheta as ceGreek, otm250x750AccmlPeTheta as peGreek";
+				fieldname = "otm250x750AccmlCeTheta as peGreek, otm250x750AccmlPeTheta as ceGreek";
 			} else if (greekname.equalsIgnoreCase("itm1000x500AvgIv")) {
 				fieldname = "itm1000x500AvgCeIv as ceGreek, itm1000x500AvgPeIv as peGreek";
 			} else if (greekname.equalsIgnoreCase("dr19fxdSizAccmlTheta")) {
 				fieldname = "dr19fixedSizeAccmlCETheta as ceGreek, dr19fixedSizeAccmlPETheta as peGreek";
-			}
+			} else if (greekname.equalsIgnoreCase("dr49BalancedDelta")) {
+				fieldname = "drCEAvgIV as peGreek, drPEAvgIV as ceGreek";
+			} else if (greekname.equalsIgnoreCase("altAbv5WhlStrkTheta")) {
+				fieldname = "altAbove5WhlStrkAccmltCETheta as ceGreek, altAbove5WhlStrkAccmltPETheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("futureOutstanding")) {
+				fieldname = "future_Outstanding_Volume as peGreek, 0 as ceGreek";
+			} else if (greekname.equalsIgnoreCase("tmpaccmltheta")) {
+				fieldname = "tmpaccmlcetheta as ceGreek, tmpaccmlpetheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("tmpaccmlvega")) {
+				fieldname = "tmpaccmlcetheta/tmpaccmlcegamma as ceGreek, tmpaccmlpetheta/tmpaccmlpegamma as peGreek";
+			} else if (greekname.equalsIgnoreCase("tmpaccmlgamma")) {
+				fieldname = "tmpaccmlcevega/tmpaccmlcegamma as ceGreek, tmpaccmlpevega/tmpaccmlpegamma as peGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlVegGam")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpevega/drWhlStrkaccumulatedchangein5secpegamma as peGreek, "
+						+ "drWhlStrkaccumulatedchangein5seccevega/drWhlStrkaccumulatedchangein5seccegamma as ceGreek";
+			} else if (this.greekname.equalsIgnoreCase("drWhlStrkacmlThetGam")) {
+				fieldname = "drWhlStrkaccumulatedchangein5secpetheta/drWhlStrkaccumulatedchangein5secpegamma as peGreek, "
+						+ "drWhlStrkaccumulatedchangein5seccetheta/drWhlStrkaccumulatedchangein5seccegamma as ceGreek";
+			} else if (greekname.equalsIgnoreCase("range350AvgGamma")) {
+				fieldname = "range350CEAvgGamma as peGreek, range350PEAvgGamma  as ceGreek";
+			} else if (greekname.equalsIgnoreCase("range350AvgIv")) {
+				fieldname = "range350CEAvgIv as peGreek, range350PEAvgIv as ceGreek";
+			} else if (greekname.equalsIgnoreCase("range350AvgTheta")) {
+				fieldname = "range350CEAvgTheta as ceGreek, range350PEAvgTheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("range350AvgVega")) {
+				fieldname = "range350CEAvgVega as peGreek, range350PEAvgVega as ceGreek";
+			} 
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {
@@ -537,6 +567,144 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				this.adjustGap = this.adjustGap/2;
 				this.resetAdjustGap = false;
 			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			
+		return retVal;
+	}
+	
+	private String getSellerDirectionByMedianAndAvgIVGreekGap( String lastKnownTrend) {
+		String retVal = lastKnownTrend;
+		
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select drCEMedianIV, drPEMedianIV, drCEAvgIV, drPEAvgIV, drCEPeak2IvDiff, drPEPeak2IvDiff,"
+					+ " drWhlStrkaccumulatedchangein5seccetheta as ceGreek, drWhlStrkaccumulatedchangein5secpetheta as peGreek"
+					+ " from nexcorio_option_atm_movement_data"
+					+ " where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float drCEMedianIV = 0f;
+			float drPEMedianIV = 0f;
+			
+			float drCEAvgIV = 0f;
+			float drPEAvgIV = 0f;
+			
+			float drCEPeak2IvDiff = 0f;
+			float drPEPeak2IvDiff = 0f;
+			
+			float otm250x750AccmlCeTheta = 0f;
+			float otm250x750AccmlPeTheta = 0f;
+			int otm250x750AccmlThetaCount = 0;
+			
+			int avgCount = 0;
+			int peakCount = 0;
+			int medianCount = 0;
+			int diffCount = 0;
+			while (rs.next()) {
+				drCEMedianIV = rs.getFloat("drCEMedianIV");
+				drPEMedianIV = rs.getFloat("drPEMedianIV");
+				
+				drCEAvgIV = rs.getFloat("drCEAvgIV");
+				drPEAvgIV = rs.getFloat("drPEAvgIV");
+				
+				drCEPeak2IvDiff = rs.getFloat("drCEPeak2IvDiff");
+				drPEPeak2IvDiff = rs.getFloat("drPEPeak2IvDiff");	
+				
+				otm250x750AccmlCeTheta = rs.getFloat("ceGreek");
+				otm250x750AccmlPeTheta = rs.getFloat("peGreek");
+				
+				float ceDiff = Math.abs(drCEMedianIV-drCEAvgIV);
+				float peDiff = Math.abs(drPEMedianIV-drPEAvgIV);
+				
+				if (drCEAvgIV > drPEAvgIV + adjustGap) avgCount++;
+				if (drCEPeak2IvDiff > drPEPeak2IvDiff) peakCount++;
+				if (drCEMedianIV > drPEMedianIV) medianCount++;
+				if (otm250x750AccmlCeTheta > otm250x750AccmlPeTheta) otm250x750AccmlThetaCount++;
+				if(ceDiff > peDiff) diffCount++;
+			}
+			rs.close();			
+			stmt.close();
+			
+			if (avgCount==5 && medianCount==5 ) retVal = "CE"; //- confirmed for Jan 26
+			else if (avgCount==0 && medianCount==0 ) retVal = "PE"; // Modifid - confirmed for Jan 26
+			else {
+				if (otm250x750AccmlCeTheta==5) retVal = "CE"; 
+				else if (otm250x750AccmlCeTheta==0) retVal = "PE";
+			}
+			
+//			else if (avgCount==0 && medianCount==5 ) {
+//				if (diffCount==5) retVal = "PE";//Modifirf - confirmed for Jan 26	- this needs further refinement
+//				else if (diffCount==0) retVal = "CE";
+//			}
+//			else if (avgCount==5 && medianCount==0 ) {
+//				if (otm250x750AccmlThetaCount==5) retVal = "CE";//Modifirf - confirmed for Jan 26	- this needs further refinement
+//				else if (otm250x750AccmlThetaCount==0) retVal = "PE";
+//			}
+
+
+			
+//			else if (avgCount==0 && medianCount==0 && peakCount==0) retVal = "PE";
+//			else if (avgCount==5 && medianCount==5 && peakCount==0) retVal = "PE";
+//			else if (avgCount==5 && medianCount==0 && peakCount==0) retVal = "CE";			
+//			else if (avgCount==0 && medianCount==5 && peakCount==0) retVal = "PE";			
+			
+			
+			
+			
+			if      (avgCount==0 && medianCount==0 && peakCount==0) fileLogTelegramWriter.write("1");
+			else if (avgCount==0 && medianCount==0 && peakCount==5) fileLogTelegramWriter.write("2");
+			else if (avgCount==0 && medianCount==5 && peakCount==0) fileLogTelegramWriter.write("3");
+			else if (avgCount==0 && medianCount==5 && peakCount==5) fileLogTelegramWriter.write("4");
+			
+			else if (avgCount==5 && medianCount==0 && peakCount==0) fileLogTelegramWriter.write("5");
+			else if (avgCount==5 && medianCount==0 && peakCount==5) fileLogTelegramWriter.write("6");
+			else if (avgCount==5 && medianCount==5 && peakCount==0) fileLogTelegramWriter.write("7");
+			else if (avgCount==5 && medianCount==5 && peakCount==5) fileLogTelegramWriter.write("8");
+			
+//			if (avgCount==5) {
+//				if (medianCount==5) retVal = "PE";
+//				else if (medianCount==0) retVal = "CE";
+////				if (peakCount==5) retVal = "CE";
+////				else if (peakCount==0) retVal = "PE";
+////				else {
+////					if (medianCount==5) retVal = "CE";
+////					else if (medianCount==0) retVal = "PE";
+////				}
+//			} else if (avgCount==0) {
+//				if (medianCount==5) retVal = "CE";
+//				else if (medianCount==0) retVal = "PE";
+////				if (peakCount==5) retVal = "PE";
+////				else if (peakCount==0) retVal = "CE";
+////				else {
+////					if (medianCount==5) retVal = "CE";
+////					else if (medianCount==0) retVal = "PE";
+////				}				
+//			}
+			
+			fileLogTelegramWriter.write("drCEMedianIV=" + drCEMedianIV + " drPEMedianIV="+drPEMedianIV+" drCEAvgIV=" + drCEAvgIV+" drPEAvgIV="+drPEAvgIV);
+			
+			
 		} catch(Exception ex) {
 			ex.printStackTrace();
 		}finally {

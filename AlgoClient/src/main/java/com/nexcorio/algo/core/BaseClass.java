@@ -154,6 +154,39 @@ public class BaseClass {
 		return retVal;
 	}
 	
+	public float getPriceFromTicks(String instrumentName, int minutesBack) {
+		float retVal = 0f;
+		
+		Connection conn = null;
+		try {
+			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select quote_time, last_traded_price from nexcorio_tick_data where trading_symbol = '" + instrumentName +"'"
+					+ " and quote_time <='" + postgresLongDateFormat.format(getCurrentTime(-minutesBack) )+ "'"
+					+ " order by quote_time desc limit 1";
+			//fileLogTelegramWriter.write(fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				retVal = rs.getFloat("last_traded_price");
+			}
+			rs.close();
+			stmt.close();
+		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		
+		return retVal;
+	}
+	
 	protected OptionGreek getOptionGreeks(String optionName) {
 		
 		if (optionName==null || optionName.equals("")) return null;

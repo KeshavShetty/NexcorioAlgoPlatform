@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -69,6 +70,11 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	private static final Logger log = LogManager.getLogger(ATMMovementAnalyzerThreadAlgoThread.class);
 	
 	String futuresTradingSymbol;
+	
+	float prev_last_traded_price = -1f;
+	long prev_volume_traded_today = 0l;
+	long lastProcessedId = 0l;
+	float outstandingVolume = 0f;
 	
 	private List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
 	private List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
@@ -718,6 +724,53 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				
 				retMap.put("altAbove5WhlStrkAccmltCETheta", altAbove5WhlStrkAccmltCETheta);
 				retMap.put("altAbove5WhlStrkAccmltPETheta", altAbove5WhlStrkAccmltPETheta);
+				
+				List<OptionGreek> range350CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> range350PEGreeks = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> range700CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> range700PEGreeks = new ArrayList<OptionGreek>();
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					if (aGreek.getStrike() - instrumentLtp < 350 && aGreek.getStrike() - instrumentLtp > -350) {
+						range350CEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - instrumentLtp > 350 && aGreek.getStrike() - instrumentLtp < 700) {
+						range700CEGreeks.add(aGreek);
+					}
+				}
+				for(OptionGreek aGreek: peOptionGreeks) {
+					if (aGreek.getStrike() - instrumentLtp < 350 && aGreek.getStrike() - instrumentLtp > -350) {
+						range350PEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - instrumentLtp < -350 && aGreek.getStrike() - instrumentLtp > -700) {
+						range700PEGreeks.add(aGreek);
+					}
+				}
+				retMap.put("range350CEAvgGamma", 100f* (float) range350CEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
+				retMap.put("range350PEAvgGamma", 100f* (float) range350PEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
+				
+				retMap.put("range350CEAvgIv", (float) range350CEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				retMap.put("range350PEAvgIv", (float) range350PEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				
+				retMap.put("range350CEAvgVega", (float) range350CEGreeks.stream().mapToDouble(d -> d.getVega()).average().orElse(0.0));
+				retMap.put("range350PEAvgVega", (float) range350PEGreeks.stream().mapToDouble(d -> d.getVega()).average().orElse(0.0));
+				
+				retMap.put("range350CEAvgTheta", (float) range350CEGreeks.stream().mapToDouble(d -> d.getTheta()).average().orElse(0.0)/365f);
+				retMap.put("range350PEAvgTheta", (float) range350PEGreeks.stream().mapToDouble(d -> d.getTheta()).average().orElse(0.0)/365f);
+				
+				
+				retMap.put("range700CEAvgGamma", 100f* (float) range700CEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
+				retMap.put("range700PEAvgGamma", 100f* (float) range700PEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
+				
+				retMap.put("range700CEAvgIv", (float) range700CEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				retMap.put("range700PEAvgIv", (float) range700PEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				
+				retMap.put("range700CEAvgVega", (float) range700CEGreeks.stream().mapToDouble(d -> d.getVega()).average().orElse(0.0));
+				retMap.put("range700PEAvgVega", (float) range700PEGreeks.stream().mapToDouble(d -> d.getVega()).average().orElse(0.0));
+				
+				retMap.put("range700CEAvgTheta", (float) range700CEGreeks.stream().mapToDouble(d -> d.getTheta()).average().orElse(0.0)/365f);
+				retMap.put("range700PEAvgTheta", (float) range700PEGreeks.stream().mapToDouble(d -> d.getTheta()).average().orElse(0.0)/365f);
 				
 				// otm250x750 Accml Theta & itm1000x500 Avg IV
 				
@@ -1431,10 +1484,19 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				Collections.sort(optionGreeks, new SortbyOiDesc());				
 				Set<Integer> top5Strikes = new HashSet<Integer>();
 				int recProcessed = 0;
+				float ceTotal = 0f;
+				float peTotal = 0f;
 				for(OptionGreek aGreek: optionGreeks) {
 					if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
 						recProcessed++;
 						top5Strikes.add(getStrike(aGreek.getTradingSymbol()));
+						
+						if(aGreek.getTradingSymbol().endsWith("CE")) {
+							ceTotal = ceTotal + aGreek.getOi()*aGreek.getLtp()/10000000;
+						} else {
+							peTotal = peTotal + aGreek.getOi()*aGreek.getLtp()/10000000;
+						}
+						
 					}
 					if (recProcessed>=5) break;
 				}
@@ -1460,6 +1522,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("minGammaExposureTopN", Math.abs(minGammaExposureTopN)/1000f);
 				retMap.put("maxGammaExposureTopN",maxGammaExposureTopN/1000f);
 				retMap.put("netGammaExposureTopN",netGammaExposureTopN/1000f);
+				retMap.put("top5OiDiff",peTotal-ceTotal);
+				
 				
 				// Cumulative IV diff between sequqntial strikes 
 				Collections.sort(ceOptionGreeks, new SortbyStrike());
@@ -1693,6 +1757,71 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		return retVal;
 	}
 	
+	private float getFutureOutstanding () {
+	
+		if  ( getCurrentTime().before(KiteUtil.getDailyCustomTime(getCurrentTime(), 9, 18, 1 )) ) {
+			return 0f;
+		}
+		
+		
+		float retVal = 0f; 
+		
+		Connection conn = null;
+		Statement stmt = null;
+		
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			stmt = conn.createStatement();
+			
+			String fetchSql = "SELECT ID, quote_time, last_traded_price, volume_traded_today FROM nexcorio_tick_data"
+				+ " WHERE trading_symbol = '" + futuresTradingSymbol + "'"
+				+ " AND quote_time >= '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:01'"
+				+ " AND quote_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + " '"
+				+ " AND id > " + lastProcessedId
+				+ " ORDER BY quote_time, ID ";
+		
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			while(rs.next()) {
+				long curId = rs.getLong("ID");
+				if (curId > lastProcessedId) lastProcessedId = curId;
+				
+				float currentLtp = rs.getFloat("last_traded_price");
+				long currentVolumeTradedToday = (long) rs.getFloat("volume_traded_today");
+				Date quoteTime = rs.getTimestamp("quote_time");
+				if (prev_last_traded_price>0f) { // already initialisefd
+					if (currentVolumeTradedToday!=prev_volume_traded_today
+							&& currentLtp != prev_last_traded_price) { // new data found
+						long volume = currentVolumeTradedToday - prev_volume_traded_today;
+						if (currentLtp < prev_last_traded_price ) outstandingVolume = outstandingVolume - volume;
+						else if (currentLtp > prev_last_traded_price )  outstandingVolume = outstandingVolume + volume;
+						//System.out.println("currentLtp="+currentLtp+" prevLtp="+prev_last_traded_price+ " currentVolumeTradedToday="+currentVolumeTradedToday+"  prev_volume_traded_today="+prev_volume_traded_today+ " volume="+volume);
+						
+						
+						prev_last_traded_price = currentLtp;
+						prev_volume_traded_today = currentVolumeTradedToday;
+					}
+				} else {
+					prev_last_traded_price = currentLtp;
+					prev_volume_traded_today = currentVolumeTradedToday;
+				}
+			}
+			rs.close();
+			stmt.close();
+			retVal = outstandingVolume;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return retVal;
+	}
+	
 	private Map<String, OptionGreek> processAndSaveRawStraddleData(float baseDelta, float totalCEOI, float totalPEOI, float totalCEIV, float totalPEIV,
 			float totalCEGamma, float totalPEGamma,
 			float totalCEVega, float totalPEVega,
@@ -1744,6 +1873,8 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					+ 0.1146 * deltaRangeGreeksDetails.get("altAbove5WhlStrkCEAvgIv")
 					+ 0.1097 * deltaRangeGreeksDetails.get("altAbove5WhlStrkPEAvgIv")
 					+ 12.3456);
+			
+			float futureOutStanding = getFutureOutstanding();
 			
 			if (ceOptionGreek!=null && peOptionGreek!=null) {
 				String insertSql = "INSERT INTO nexcorio_option_atm_movement_data (id, f_main_instrument, instrumentltp, record_time, ceOptionname, peOptionname"
@@ -1916,6 +2047,13 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", dr19fixedSizeCEAvgIV, dr19fixedSizePEAvgIV"
 						+ ", dr19fixedSizeAccmlCETheta, dr19fixedSizeAccmlPETheta"
 						+ ", ml_xgb_prediction"
+						
+						+ ", future_Outstanding_Volume"
+						
+						+ ", range350CEAvgGamma, range350PEAvgGamma, range350CEAvgTheta, range350PEAvgTheta, range350CEAvgVega, range350PEAvgVega, range350CEAvgIv, range350PEAvgIv"
+						+ ", range700CEAvgGamma, range700PEAvgGamma, range700CEAvgTheta, range700PEAvgTheta, range700CEAvgVega, range700PEAvgVega, range700CEAvgIv, range700PEAvgIv"
+						
+						+ ", top5OiDiff"
 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -2136,6 +2274,33 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						
 						+ ", " + mlXgbPrediction
 						
+						+ ", " + futureOutStanding
+						
+						+ ", " + deltaRangeGreeksDetails.get("range350CEAvgGamma")
+						+ ", " + deltaRangeGreeksDetails.get("range350PEAvgGamma")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range350CEAvgTheta")
+						+ ", " + deltaRangeGreeksDetails.get("range350PEAvgTheta")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range350CEAvgVega")
+						+ ", " + deltaRangeGreeksDetails.get("range350PEAvgVega")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range350CEAvgIv")
+						+ ", " + deltaRangeGreeksDetails.get("range350PEAvgIv")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range700CEAvgGamma")
+						+ ", " + deltaRangeGreeksDetails.get("range700PEAvgGamma")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range700CEAvgTheta")
+						+ ", " + deltaRangeGreeksDetails.get("range700PEAvgTheta")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range700CEAvgVega")
+						+ ", " + deltaRangeGreeksDetails.get("range700PEAvgVega")
+						
+						+ ", " + deltaRangeGreeksDetails.get("range700CEAvgIv")
+						+ ", " + deltaRangeGreeksDetails.get("range700PEAvgIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("top5OiDiff")
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -2236,6 +2401,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-02-06 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-03-04 09:16:00");
 	}
 }

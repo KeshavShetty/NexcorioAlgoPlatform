@@ -16,6 +16,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONException;
 
+import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.kite.KiteHelper;
 import com.nexcorio.algo.util.ApplicationConfig;
@@ -282,7 +283,9 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal+" algoTag="+algoTag);
 		String orderId = null;
 		try {
-			int freezeLimitPerOrder = KiteCache.getTradingSymbolMainInstrumentCache(optionname).getOrderFreezingQuantity();//KiteUtil.getOptionIndexInstrumentMetaData(KiteUtil.getIndexnameFromOptionName(optionname)).getOrderFreezingQuantity(); 
+			MainInstruments mainInstrument =  KiteCache.getTradingSymbolMainInstrumentCache(optionname);
+			int freezeLimitPerOrder =mainInstrument!=null?mainInstrument.getOrderFreezingQuantity():1800;// Todo- hardcoded in case of null
+			//KiteUtil.getOptionIndexInstrumentMetaData(KiteUtil.getIndexnameFromOptionName(optionname)).getOrderFreezingQuantity(); 
 			fileLogTelegramWriter.write("freezeLimitPerOrder="+freezeLimitPerOrder);
 			OrderParams orderParameters = new OrderParams();
 			
@@ -477,21 +480,25 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 							} else {
 								changeOrderStatus(aOrder.getId(), "PROCESSING"); // Immediately change order status, so that it is no more available for next run cycle (To avoid repeated order placing in case of Kite fail)
 								
-								String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
-										KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
-								if (placedKiteOrderId == null) { // Mostly socket/network exception, Try one more time
-									fileLogTelegramWriter.write("placedKiteOrderId is null, retry after few second");
-									Thread.sleep(5000);
-									placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
+								if (aOrder.getOption_name()!=null && aOrder.getOption_name().trim().length()>0) {
+									String placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
 											KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
+									if (placedKiteOrderId == null) { // Mostly socket/network exception, Try one more time
+										fileLogTelegramWriter.write("placedKiteOrderId is null, retry after few second");
+										Thread.sleep(5000);
+										placedKiteOrderId = placeKiteOrder(aOrder.getId(), aOrder.getOption_name(), aOrder.getQuantity(), aOrder.getTransactionType(), aOrder.isWaitforpositionfill(), 
+												KiteUtil.USE_NORMAL_ORDER_FALSE, aOrder.getAlgoTag(), aOrder.getExchange());
+									}
+									String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
+									if (status.equals("FAILED")) {
+										sendAlerts(aOrder.getAlgoTag(), aOrder.getOption_name());
+										blackListedAlgos.add(aOrder.getAlgoTag());
+										new RollbackStrategyOrdersAlgoThread(userId, aOrder.getAlgoTag());
+									}
+									aOrder.setPlacedKiteOrderId(placedKiteOrderId);
+								} else {
+									changeOrderStatus(aOrder.getId(), "INVALID"); 
 								}
-								String status = updateOrderStatus(aOrder.getId(), placedKiteOrderId);
-								if (status.equals("FAILED")) {
-									sendAlerts(aOrder.getAlgoTag(), aOrder.getOption_name());
-									blackListedAlgos.add(aOrder.getAlgoTag());
-									new RollbackStrategyOrdersAlgoThread(userId, aOrder.getAlgoTag());
-								}
-								aOrder.setPlacedKiteOrderId(placedKiteOrderId);
 							}
 						}
 						Thread.sleep(1000);

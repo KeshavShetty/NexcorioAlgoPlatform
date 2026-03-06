@@ -44,6 +44,8 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 	
 	private float openingStraddlePremium = -1f;
 	
+	public float futureCutoffVolume = 0f;
+	
 	private SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	
 	public G3CoveredCallAlgoThread(Long napAlgoId, String backTestDateStr) {
@@ -85,17 +87,21 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				}
 			} while(deltaDiff>0.02f);
 			
-			String syntheticFutureLongCE = entryStraddleOptionNames[0]; // CALL Buy
+			float deltaDiff2Use = -0.2f;
+			if (getTrendByFutures().equals("Bullish")) deltaDiff2Use = 0.2f;
+			String[]  entryStraddleOptionNamesFut = getStraddleOptionNamesByDeltaOptimised(baseDelta + deltaDiff2Use, this.optimalHedgeDistance);
+			
+			String syntheticFutureLongCE = entryStraddleOptionNamesFut[0]; // CALL Buy
 			OptionGreek syntheticFutureLongCEGreek = getOptionGreeks(syntheticFutureLongCE);
 			
-			String syntheticFutureShortPE  = entryStraddleOptionNames[0].replace("CE", "PE"); // PUT sell
+			String syntheticFutureShortPE  = entryStraddleOptionNamesFut[0].replace("CE", "PE"); // PUT sell
 			OptionGreek syntheticFutureShortPEGreek = getOptionGreeks(syntheticFutureShortPE);
 			
 			fileLogTelegramWriter.write( "Synthetix future greeks Begn-----"); 
 			print(syntheticFutureLongCEGreek, syntheticFutureShortPEGreek);
 			fileLogTelegramWriter.write( "Synthetix future greeks Ends-----");
 			
-			String hedge4FutureShortPE = entryStraddleOptionNames[3];	
+			String hedge4FutureShortPE = entryStraddleOptionNamesFut[3];	
 			int qtyOfHedge4FutureShortPE = 0;
 			
 			// Coevered options
@@ -204,78 +210,89 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				fileLogTelegramWriter.write( " currentDeltaPtr="+currentDeltaPtr+" lowerDelta="+lowerDelta+" upperDelta="+upperDelta+" soldCEDelta="+ceOptionGreeks.getDelta()+" syntheticFutureLongOrderIds.size="+syntheticFutureLongOrderIds.size() + " syntheticFutureShortOrderIds.size="+syntheticFutureShortOrderIds.size());
-				if (ceOptionGreeks.getDelta() < lowerDelta) {
-					fileLogTelegramWriter.write( "Chande In Delta, Sold Call delta reduced, reducing synthetic future size by 1");
-					if (syntheticFutureLongOrderIds.size()>0) {
-						if (this.placeActualOrder) {
-							placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortPE, noOfBatches*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							placeRealOrder( syntheticFutureLongOrderIds.get(0),  syntheticFutureLongCE,  noOfBatches*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-						}
-						syntheticFutureLongOrderIds.remove(0);
-						syntheticFutureShortOrderIds.remove(0);
-						currentDeltaPtr = lowerDelta;
-						lowerDelta = currentDeltaPtr - 0.1f;
-						upperDelta = currentDeltaPtr + 0.1f; 
-					} else {
-						prepareExit("Underflow future contracts");
-					}
-				} else if (ceOptionGreeks.getDelta() > upperDelta) {
-					fileLogTelegramWriter.write( "Chande In Delta, Sold Call delta increased, increase synthetic future size by 1");
-					if (syntheticFutureLongOrderIds.size()<lotsPerBatch*2) {
-						if (this.noOfOrders<maxAllowedNoOfOrders) {
-							Long longOrderDbId = createAlgoBuyOrder(syntheticFutureLongCE, getPriceFromTicks(syntheticFutureLongCE),  noOfBatches*lotSize);
-							syntheticFutureLongOrderIds.add(longOrderDbId);
-							
-							Long shortOrderDbId = createAlgoSellOrder(syntheticFutureShortPE, getPriceFromTicks(syntheticFutureShortPE), noOfBatches*lotSize);
-							syntheticFutureShortOrderIds.add(shortOrderDbId);
+				
+//				boolean isHighVolatalityDay = getVolatality();
+//				
+//				if (isHighVolatalityDay == true) { // exit all
+//					
+//				} else if () {
+//					
+//				} else {
+				
+				
+					if (ceOptionGreeks.getDelta() < lowerDelta) {
+						fileLogTelegramWriter.write( "Chande In Delta, Sold Call delta reduced, reducing synthetic future size by 1");
+						if (syntheticFutureLongOrderIds.size()>0) {
 							if (this.placeActualOrder) {
-								placeRealOrder( longOrderDbId,  syntheticFutureLongCE,  noOfBatches*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								if (qtyOfHedge4FutureShortPE <= syntheticFutureLongOrderIds.size()) {
-									qtyOfHedge4FutureShortPE++;
-									placeRealOrder( hedge4FutureShortPE, noOfBatches*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE); // Hedge for short leg of Synthetic future
-								}
-								placeRealOrder( shortOrderDbId, syntheticFutureShortPE, noOfBatches*lotSize, "SELL", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( syntheticFutureShortOrderIds.get(0), syntheticFutureShortPE, noOfBatches*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								placeRealOrder( syntheticFutureLongOrderIds.get(0),  syntheticFutureLongCE,  noOfBatches*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
-							currentDeltaPtr = upperDelta;
+							syntheticFutureLongOrderIds.remove(0);
+							syntheticFutureShortOrderIds.remove(0);
+							currentDeltaPtr = lowerDelta;
 							lowerDelta = currentDeltaPtr - 0.1f;
-							upperDelta = currentDeltaPtr + 0.1f;
+							upperDelta = currentDeltaPtr + 0.1f; 
 						} else {
-							prepareExit("Overflow future contracts");
+							prepareExit("Underflow future contracts");
 						}
-					} else {
-						prepareExit("Too many future position exist");
-					}
-				}
-				if (this.useVolSpikeProtection) {
-					String outlierDirection = getOutlierBuyerDirection();
-					if (outlierDirection.equals("CE")) {
-						if (peProtictionOrderId!=null) { // PE exist, exit
-							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							peProtictionOrderId = null;
-						}
-						if (ceProtictionOrderId==null) { // No Long position exist 
-							ceProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[0], getPriceFromTicks(volProtectionOptions[0]),  noOfBatches*lotsPerBatch*lotSize*2);
-							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-						}
-					} else if (outlierDirection.equals("PE")) {
-						if (ceProtictionOrderId!=null) { // CE exist, exit
-							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							ceProtictionOrderId = null;
-						}
-						if (peProtictionOrderId==null) { // No Long position exist 
-							peProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[1], getPriceFromTicks(volProtectionOptions[1]),  noOfBatches*lotsPerBatch*lotSize*2);
-							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-						}
-					} else {
-						if (peProtictionOrderId!=null) { // PE exist, exit
-							if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							peProtictionOrderId = null;
-						}
-						if (ceProtictionOrderId!=null) { // CE exist, exit
-							if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							ceProtictionOrderId = null;
+					} else if (ceOptionGreeks.getDelta() > upperDelta) {
+						fileLogTelegramWriter.write( "Chande In Delta, Sold Call delta increased, increase synthetic future size by 1");
+						if (syntheticFutureLongOrderIds.size()<lotsPerBatch*2) {
+							if (this.noOfOrders<maxAllowedNoOfOrders) {
+								Long longOrderDbId = createAlgoBuyOrder(syntheticFutureLongCE, getPriceFromTicks(syntheticFutureLongCE),  noOfBatches*lotSize);
+								syntheticFutureLongOrderIds.add(longOrderDbId);
+								
+								Long shortOrderDbId = createAlgoSellOrder(syntheticFutureShortPE, getPriceFromTicks(syntheticFutureShortPE), noOfBatches*lotSize);
+								syntheticFutureShortOrderIds.add(shortOrderDbId);
+								if (this.placeActualOrder) {
+									placeRealOrder( longOrderDbId,  syntheticFutureLongCE,  noOfBatches*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									if (qtyOfHedge4FutureShortPE <= syntheticFutureLongOrderIds.size()) {
+										qtyOfHedge4FutureShortPE++;
+										placeRealOrder( hedge4FutureShortPE, noOfBatches*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE); // Hedge for short leg of Synthetic future
+									}
+									placeRealOrder( shortOrderDbId, syntheticFutureShortPE, noOfBatches*lotSize, "SELL", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								}
+								currentDeltaPtr = upperDelta;
+								lowerDelta = currentDeltaPtr - 0.1f;
+								upperDelta = currentDeltaPtr + 0.1f;
+							} else {
+								prepareExit("Overflow future contracts");
+							}
+						} else {
+							prepareExit("Too many future position exist");
 						}
 					}
+					if (this.useVolSpikeProtection) {
+						String outlierDirection = getOutlierBuyerDirection();
+						if (outlierDirection.equals("CE")) {
+							if (peProtictionOrderId!=null) { // PE exist, exit
+								if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								peProtictionOrderId = null;
+							}
+							if (ceProtictionOrderId==null) { // No Long position exist 
+								ceProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[0], getPriceFromTicks(volProtectionOptions[0]),  noOfBatches*lotsPerBatch*lotSize*2);
+								if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+						} else if (outlierDirection.equals("PE")) {
+							if (ceProtictionOrderId!=null) { // CE exist, exit
+								if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								ceProtictionOrderId = null;
+							}
+							if (peProtictionOrderId==null) { // No Long position exist 
+								peProtictionOrderId = createAlgoBuyOrder(volProtectionOptions[1], getPriceFromTicks(volProtectionOptions[1]),  noOfBatches*lotsPerBatch*lotSize*2);
+								if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+						} else {
+							if (peProtictionOrderId!=null) { // PE exist, exit
+								if (this.placeActualOrder) placeRealOrder(peProtictionOrderId, volProtectionOptions[1], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								peProtictionOrderId = null;
+							}
+							if (ceProtictionOrderId!=null) { // CE exist, exit
+								if (this.placeActualOrder) placeRealOrder(ceProtictionOrderId, volProtectionOptions[0], noOfBatches*lotsPerBatch*lotSize*2, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								ceProtictionOrderId = null;
+							}
+						}
+					//}
 				}
 				checkExitSignals();
 				saveAlgoDailySummary(currentProfitPerUnit, maxProfitReached, maxProfitReachedAt, maxLowestpointReached, maxLowestpointReachedAt, maxTrailingProfit);
@@ -311,6 +328,42 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 		} finally {
 			fileLogTelegramWriter.close();
 		}
+	}
+	
+	private String getTrendByFutures() {
+		String retVal = "Bearish";
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select future_outstanding_volume from nexcorio_option_atm_movement_data where f_main_instrument = " + mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "' order by record_time desc limit 5";
+			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			float futureOutstandingVolume = 0f;
+			while (rs.next()) {
+				futureOutstandingVolume = futureOutstandingVolume + rs.getFloat("future_outstanding_volume");
+			}
+			rs.close();
+			
+			if (futureOutstandingVolume > 0f) {
+				retVal = "Bullish";
+			} 
+			fileLogTelegramWriter.write(" getTrendByFutures="+retVal);
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return retVal;
 	}
 	
 	protected void checkExitSignals() {
@@ -454,6 +507,43 @@ public class G3CoveredCallAlgoThread extends G3BaseClass implements Runnable{
 				e.printStackTrace();
 			}
 		}
+		return retVal;
+	}
+	
+	private boolean getVolatality() {
+		boolean retVal = false;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select future_Outstanding_Volume from nexcorio_option_atm_movement_data where f_main_instrument = " + mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float avgFutureOutstandingVolume = 0f;
+			while (rs.next()) {
+				avgFutureOutstandingVolume = avgFutureOutstandingVolume + rs.getInt("future_Outstanding_Volume");
+			}
+			rs.close();			
+			stmt.close();
+			avgFutureOutstandingVolume = avgFutureOutstandingVolume /5f;
+			
+			if ( avgFutureOutstandingVolume < futureCutoffVolume) {
+				retVal = true;
+			}	
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
 		return retVal;
 	}
 	
