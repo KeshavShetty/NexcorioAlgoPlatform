@@ -20,6 +20,8 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 	
 	public float baseDelta = 0.5f;	
 	public boolean  avoidOutlier = false;
+	public boolean waitForIdealEntry = false;
+	
 	
 	private float indexAt920 = 0f;
 	
@@ -50,8 +52,10 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 			
 			printFields(this);
 			
-			while(!isIdealEntry()) {
-				sleep(15);
+			if(this.waitForIdealEntry ==  true) {
+				while(!isIdealEntry()) {
+					sleep(15);
+				}
 			}
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
