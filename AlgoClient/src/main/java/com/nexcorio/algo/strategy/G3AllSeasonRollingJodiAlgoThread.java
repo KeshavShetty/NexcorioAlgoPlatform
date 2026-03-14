@@ -25,6 +25,8 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 	
 	private float indexAt920 = 0f;
 	
+	public float minwidth = 5f;
+	public float strikeDistance = 75f;
 	
 		
 	public G3AllSeasonRollingJodiAlgoThread(Long napAlgoId, String backTestDateStr) {
@@ -173,7 +175,7 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 						} else {
 							if (Math.abs(ceOptionGreeks.getDelta()) - Math.abs(ceGreekWhenJodiFormed.getDelta()) > 0.12f || Math.abs(peOptionGreeks.getDelta()) - Math.abs(peGreekWhenJodiFormed.getDelta()) > 0.12f							
 								
-									|| Math.abs(ceOptionGreeks.getStrike() - this.instrumentLtp) > 75f || Math.abs(peOptionGreeks.getStrike() - this.instrumentLtp) > 75f ) {
+									|| Math.abs(ceOptionGreeks.getStrike() - this.instrumentLtp) > this.strikeDistance || Math.abs(peOptionGreeks.getStrike() - this.instrumentLtp) > this.strikeDistance ) {
 								entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 								ceGreekWhenJodiFormed = getOptionGreeks(entryStraddleOptionNames[0]);
 								if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) { // Exit CE leg and enter
@@ -396,7 +398,7 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 			
 			fileLogTelegramWriter.write("indexAt920="+indexAt920+" instrumentLtp="+instrumentLtp+" maxValue="+maxValue+" minValue="+minValue+" range="+(maxValue-minValue)+" curValue="+curValue+" exitAt="+exitAt+" entryAt="+entryAt);
 			
-			if (maxValue-minValue > 5f && curValue > exitAt) {
+			if (maxValue-minValue > this.minwidth && curValue > exitAt) {
 				//if (futureOutstandingVolume < 0) retVal="CE"; // 
 				if (this.indexAt920 >= this.instrumentLtp) retVal="CE";
 				else retVal="PE";
