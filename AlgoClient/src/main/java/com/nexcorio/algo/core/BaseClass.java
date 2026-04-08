@@ -206,7 +206,7 @@ public class BaseClass {
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
-					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(backtestDate.getTime())+ "'") : "" )
+					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(getCurrentTimeDifferSeconds(2))+ "'") : "" )
 					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
 			//fileLogTelegramWriter.write("In getOptionGreeks fetchSql="+fetchSql);
@@ -1297,7 +1297,7 @@ public class BaseClass {
 	
 	public int getDaysBetween(Date startDate, Date endDate) {
 		long diffInMillies = Math.abs(startDate.getTime() - endDate.getTime());
-		return (int) (diffInMillies / (1000 * 60 * 60 * 24));
+		return (int) ((diffInMillies+1000*60*60*12) / (1000 * 60 * 60 * 24));
 	}
 	
 	public void printFields(Object aObj) {

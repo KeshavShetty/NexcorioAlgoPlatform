@@ -31,6 +31,7 @@ import com.zerodhatech.kiteconnect.utils.Constants;
 import com.zerodhatech.models.Margin;
 import com.zerodhatech.models.Order;
 import com.zerodhatech.models.OrderParams;
+import com.zerodhatech.models.OrderResponse;
 import com.zerodhatech.models.Position;
 import com.zerodhatech.models.Trade;
 
@@ -294,6 +295,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	        orderParameters.validity=Constants.VALIDITY_DAY;
 	        orderParameters.tradingsymbol=optionname;
 			orderParameters.transactionType=transactionType;
+			orderParameters.marketProtection = 10; // April 1st 2026, SEBI changes to add market protection percentage for MARKET AND SL-M orders 
 			if (algoTag!=null) orderParameters.tag = algoTag+"-"+id;
 			
 			orderParameters.product= Constants.PRODUCT_MIS;
@@ -309,9 +311,9 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 	        			Thread.sleep(2000); // 2sec sleep
 	        			this.noOfOrdersExecuted = 0;
 	        		}
-	        		Order aOrder = this.kiteConnect.placeOrder(orderParameters, Constants.VARIETY_REGULAR);
-	        		orderId = aOrder.orderId;
-					log.info("Order placed orderId" + aOrder.orderId);
+	        		OrderResponse orderResponse = this.kiteConnect.placeOrder(orderParameters, Constants.VARIETY_REGULAR);
+	        		orderId = orderResponse.orderId;
+					log.info("Order placed orderId" + orderResponse.orderId);
 					remainingQty = remainingQty>freezeLimitPerOrder?(remainingQty-freezeLimitPerOrder):0;
 					log.info("Remaining qty=" +remainingQty);
 					noOfOrdersExecuted++;

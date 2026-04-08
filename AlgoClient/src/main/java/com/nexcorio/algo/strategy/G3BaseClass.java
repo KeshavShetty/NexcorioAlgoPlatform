@@ -74,6 +74,8 @@ public abstract class G3BaseClass extends BaseClass {
 	String peStraddleOptionName = "";
 	
 	int ignoredOrders = 0;
+	
+	int daysToExpiry = -1;
 	void initializeAlgorithmParameters() {
 		
 		Connection conn = null;
@@ -386,6 +388,9 @@ public abstract class G3BaseClass extends BaseClass {
 		try {
 			Date expiryDate = getOptionCurrentWeekExpiryDate();
 			
+			if (this.daysToExpiry < 0) {
+				this.daysToExpiry = getDaysBetween(getCurrentTime(), expiryDate);
+			}
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
@@ -398,7 +403,7 @@ public abstract class G3BaseClass extends BaseClass {
 			rs.close();
 			
 			String insertSql = "INSERT INTO nexcorio_option_algo_orders (id, f_strategy, option_name, sell_price, buy_price, place_actual_order, quantity, days_to_expiry, short_date, entry_time, exit_time)"
-					+ " VALUES (" + retId +"," + this.napAlgoId + ",'" + optionName +"'," + optionPrice + "," + optionPrice +"," + this.placeActualOrder+"," + quantity +"," + getDaysBetween(getCurrentTime(), expiryDate) 
+					+ " VALUES (" + retId +"," + this.napAlgoId + ",'" + optionName +"'," + optionPrice + "," + optionPrice +"," + this.placeActualOrder+"," + quantity +"," +  this.daysToExpiry 
 					+ ",'" + postgresShortDateFormat.format(getCurrentTime())+ "'"
 					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
 					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
@@ -427,7 +432,9 @@ public abstract class G3BaseClass extends BaseClass {
 		Connection conn = null;
 		try {
 			Date expiryDate = getOptionCurrentWeekExpiryDate();
-			
+			if (this.daysToExpiry < 0) {
+				this.daysToExpiry = getDaysBetween(getCurrentTime(), expiryDate);
+			}
 			conn = HDataSource.getConnection();
 			Statement stmt = conn.createStatement();
 			
@@ -440,7 +447,7 @@ public abstract class G3BaseClass extends BaseClass {
 			rs.close();
 			
 			String insertSql = "INSERT INTO nexcorio_option_algo_orders (id, f_strategy, option_name, sell_price, buy_price, place_actual_order, quantity, days_to_expiry, short_date, entry_time, exit_time)"
-					+ " VALUES (" + retId +"," + this.napAlgoId + ",'" + optionName +"'," + optionPrice + "," + optionPrice +"," + this.placeActualOrder+"," + quantity +"," + getDaysBetween(getCurrentTime(), expiryDate) 
+					+ " VALUES (" + retId +"," + this.napAlgoId + ",'" + optionName +"'," + optionPrice + "," + optionPrice +"," + this.placeActualOrder+"," + quantity +"," + this.daysToExpiry 
 					+ ",'" + postgresShortDateFormat.format(getCurrentTime())+ "'"
 					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
 					+ ",'" + postgresLongDateFormat.format(getCurrentTime())+ "'"
@@ -653,13 +660,14 @@ public abstract class G3BaseClass extends BaseClass {
 						+ "worst_profit_reached_at='" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "', maxTrailingProfit=" + maxTrailingProfit + ", noOfOrders=" + this.noOfOrders +","
 						+ " last_updated_at = '" + postgresLongDateFormat.format(getCurrentTime()) +"'"
 						+ (this.exitThread==true?(", exit_reason='" + this.exitReason.trim()+ "'"):"")
+						+ ", dte=" + this.daysToExpiry
 						+ " WHERE f_strategy=" + this.napAlgoId + " and short_date='" + postgresShortDateFormat.format(shortDateToUse) + "'";
 						
 				int recUpdated = stmt.executeUpdate(updateSql);
 				
 				if (recUpdated==0) {
-					String insertSql = "INSERT INTO nexcorio_option_algo_orders_daily_summary (id, f_strategy, exit_profit, best_profit, worst_profit, max_profit_reached_at, worst_profit_reached_at, maxTrailingProfit, noOfOrders, short_date) "
-							+ " VALUES (nextval('nexcorio_option_algo_orders_daily_summary_id_seq')," + this.napAlgoId + "," + profit + "," + maxProfit + "," + worstProfit + ",'" + postgresLongDateFormat.format(maxProfitReachedAt) + "','" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "'," + maxTrailingProfit + "," + this.noOfOrders + ",'" + postgresShortDateFormat.format(shortDateToUse) + "')";
+					String insertSql = "INSERT INTO nexcorio_option_algo_orders_daily_summary (id, f_strategy, exit_profit, best_profit, worst_profit, max_profit_reached_at, worst_profit_reached_at, maxTrailingProfit, noOfOrders, short_date, dte) "
+							+ " VALUES (nextval('nexcorio_option_algo_orders_daily_summary_id_seq')," + this.napAlgoId + "," + profit + "," + maxProfit + "," + worstProfit + ",'" + postgresLongDateFormat.format(maxProfitReachedAt) + "','" + postgresLongDateFormat.format(maxLowestpointReachedAt) + "'," + maxTrailingProfit + "," + this.noOfOrders + ",'" + postgresShortDateFormat.format(shortDateToUse) + "'," + daysToExpiry + ")";
 					log.debug(insertSql);
 					stmt.execute(insertSql);
 				}

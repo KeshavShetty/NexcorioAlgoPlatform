@@ -33,6 +33,7 @@ import com.zerodhatech.kiteconnect.utils.Constants;
 import com.zerodhatech.models.Margin;
 import com.zerodhatech.models.Order;
 import com.zerodhatech.models.OrderParams;
+import com.zerodhatech.models.OrderResponse;
 import com.zerodhatech.models.Position;
 import com.zerodhatech.models.Trade;
 
@@ -177,11 +178,12 @@ public class RollbackStrategyOrdersAlgoThread implements Runnable {
 	        orderParameters.tradingsymbol=tradingSymbol;
 			orderParameters.transactionType=transactionType;
 			orderParameters.product= Constants.PRODUCT_MIS;
+			orderParameters.marketProtection = 10; // April 1st 2026, SEBI changes to add market protection percentage for MARKET AND SL-M orders 
 	        
 			orderParameters.quantity = Math.abs(qty);
 			sendAlerts(algoTag, tradingSymbol+" "+transactionType+" "+qty);
 			
-			Order aOrder = this.kiteConnect.placeOrder(orderParameters, Constants.VARIETY_REGULAR);
+			OrderResponse aOrderResponse = this.kiteConnect.placeOrder(orderParameters, Constants.VARIETY_REGULAR);
 		} catch (InputException e) {
 			log.error("InputException "+e.getMessage(), e);
 			fileLogTelegramWriter.write("Exception: " + e.message);

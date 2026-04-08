@@ -151,6 +151,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	private float dr19fixedSizeAccmlCETheta = 0f;
 	private float dr19fixedSizeAccmlPETheta = 0f;
 	
+	private float otm250_750AccmlCeTheta = 0f;
+	private float otm250_750AccmlPeTheta = 0f;
+	
+	private float otm200_400AccmlCeTheta = 0f;
+	private float otm200_400AccmlPeTheta = 0f;
+	
 	public ATMMovementAnalyzerThreadAlgoThread(String instrumentName, String backDateStr) {
 		super();
 		
@@ -686,6 +692,23 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				retMap.put("above5WhlStrkCEAvgIv", above5WhlStrkCEAvgIv);
 				retMap.put("above5WhlStrkPEAvgIv", above5WhlStrkPEAvgIv);
 				
+				
+				float altAbove5WhlStrkCEAvgTimevalue = 0f;
+				float altAbove5WhlStrkPEAvgTimevalue = 0f;
+				
+				int lowerLength = above5WhlStrkCEIvs.size() < above5WhlStrkPEIvs.size()?above5WhlStrkCEIvs.size():above5WhlStrkPEIvs.size();
+
+				for(int i=0;i<lowerLength;i++) {
+					altAbove5WhlStrkCEAvgTimevalue = altAbove5WhlStrkCEAvgTimevalue + above5WhlStrkCEIvs.get(i).getTimevalue();
+					altAbove5WhlStrkPEAvgTimevalue = altAbove5WhlStrkPEAvgTimevalue + above5WhlStrkPEIvs.get(i).getTimevalue();
+				}
+				if (lowerLength>0) {
+					altAbove5WhlStrkCEAvgTimevalue = altAbove5WhlStrkCEAvgTimevalue/lowerLength;
+					altAbove5WhlStrkPEAvgTimevalue = altAbove5WhlStrkPEAvgTimevalue/lowerLength;
+				}
+				retMap.put("altAbove5WhlStrkCEAvgTimevalue", altAbove5WhlStrkCEAvgTimevalue);
+				retMap.put("altAbove5WhlStrkPEAvgTimevalue", altAbove5WhlStrkPEAvgTimevalue);
+				
 				float altAbove5WhlStrkCEAvgIv = 0f;
 				float altAbove5WhlStrkPEAvgIv = 0f;
 				
@@ -731,12 +754,26 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<OptionGreek> range700CEGreeks = new ArrayList<OptionGreek>();
 				List<OptionGreek> range700PEGreeks = new ArrayList<OptionGreek>();
 				
+				float otm250_750Changein5secCeTheta = 0f;
+				float otm250_750Changein5secPeTheta = 0f;
+				
+				float otm200_400Changein5secCeTheta = 0f;
+				float otm200_400Changein5secPeTheta = 0f;
+				
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					if (aGreek.getStrike() - instrumentLtp < 350 && aGreek.getStrike() - instrumentLtp > -350) {
 						range350CEGreeks.add(aGreek);
 					}
 					if (aGreek.getStrike() - instrumentLtp > 350 && aGreek.getStrike() - instrumentLtp < 700) {
 						range700CEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() > this.instrumentLtp + 250 && aGreek.getStrike() < this.instrumentLtp + 750) {
+						if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) otm250_750Changein5secCeTheta = otm250_750Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+					}
+					if (aGreek.getStrike() - this.instrumentLtp > 200 && aGreek.getStrike() - this.instrumentLtp < 400) {
+						if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) {
+							otm200_400Changein5secCeTheta = otm200_400Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+						}
 					}
 				}
 				for(OptionGreek aGreek: peOptionGreeks) {
@@ -746,7 +783,27 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					if (aGreek.getStrike() - instrumentLtp < -350 && aGreek.getStrike() - instrumentLtp > -700) {
 						range700PEGreeks.add(aGreek);
 					}
+					if (aGreek.getStrike() < this.instrumentLtp - 250 && aGreek.getStrike() > this.instrumentLtp - 750 ) {
+						if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) otm250_750Changein5secPeTheta = otm250_750Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+					}
+					if (aGreek.getStrike() - this.instrumentLtp < -200 && aGreek.getStrike() - this.instrumentLtp > -400) {
+						if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) {
+							otm200_400Changein5secPeTheta = otm200_400Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getTheta()));
+						}
+					}
 				}
+				otm250_750AccmlCeTheta = otm250_750AccmlCeTheta + otm250_750Changein5secCeTheta;
+				otm250_750AccmlPeTheta = otm250_750AccmlPeTheta + otm250_750Changein5secPeTheta;
+				
+				otm200_400AccmlCeTheta = otm200_400AccmlCeTheta + otm200_400Changein5secCeTheta;
+				otm200_400AccmlPeTheta = otm200_400AccmlPeTheta + otm200_400Changein5secPeTheta;
+				
+				retMap.put("otm250_750AccmlCeTheta", otm250_750AccmlCeTheta);
+				retMap.put("otm250_750AccmlPeTheta", otm250_750AccmlPeTheta);
+				
+				retMap.put("otm200_400AccmlCeTheta", otm200_400AccmlCeTheta);
+				retMap.put("otm200_400AccmlPeTheta", otm200_400AccmlPeTheta);
+				
 				retMap.put("range350CEAvgGamma", 100f* (float) range350CEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
 				retMap.put("range350PEAvgGamma", 100f* (float) range350PEGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0));
 				
@@ -777,6 +834,18 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				float otm250x750Changein5secCeTheta = 0f;
 				float otm250x750Changein5secPeTheta = 0f;
 				
+				List<OptionGreek> upperOtm300x600CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> upperOtm300x600PEGreeks = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> lowerOtm0x300CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> lowerOtm0x300PEGreeks = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> fullOtm0x600CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> fullOtm0x600PEGreeks = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> upperOtm150x300CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> upperOtm150x300PEGreeks = new ArrayList<OptionGreek>();
+				
 				List<OptionGreek> itm1000x500CeIvs = new ArrayList<OptionGreek>();
 				List<OptionGreek> itm1000x500PeIvs = new ArrayList<OptionGreek>();
 				
@@ -790,6 +859,17 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 							if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) itm1000x500CeIvs.add(aGreek);
 						}
 					}
+					if (aGreek.getStrike() - this.instrumentLtp > 0 && aGreek.getStrike() - this.instrumentLtp < 300) {
+						lowerOtm0x300CEGreeks.add(aGreek);
+						fullOtm0x600CEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp > 300 && aGreek.getStrike() - this.instrumentLtp < 600) {
+						upperOtm300x600CEGreeks.add(aGreek);
+						fullOtm0x600CEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp > 500 && aGreek.getStrike() - this.instrumentLtp < 750) {
+						upperOtm150x300CEGreeks.add(aGreek);
+					}
 				}
 				for(OptionGreek aGreek: peOptionGreeks) {
 					if (aGreek.getStrike()%100==0) {
@@ -800,7 +880,17 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 							if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) itm1000x500PeIvs.add(aGreek);
 						}
 					}
-					
+					if (aGreek.getStrike() - this.instrumentLtp < 0 && aGreek.getStrike() - this.instrumentLtp > -300) {
+						lowerOtm0x300PEGreeks.add(aGreek);
+						fullOtm0x600PEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp < -300 && aGreek.getStrike() - this.instrumentLtp > -600) {
+						upperOtm300x600PEGreeks.add(aGreek);
+						fullOtm0x600PEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp < -500 && aGreek.getStrike() - this.instrumentLtp > -750) {
+						upperOtm150x300PEGreeks.add(aGreek);
+					}
 				}
 				
 				otm250x750AccmlCeTheta = otm250x750AccmlCeTheta + otm250x750Changein5secCeTheta;
@@ -811,7 +901,37 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				
 				retMap.put("itm1000x500AvgCeIv", (float) itm1000x500CeIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
 				retMap.put("itm1000x500AvgPeIv", (float) itm1000x500PeIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
-								
+				
+				retMap.put("fullOtm0x600CEGreeks", (float) fullOtm0x600CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("fullOtm0x600PEGreeks", (float) fullOtm0x600PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				
+				retMap.put("lowerOtm0x300CEGreeks", (float) lowerOtm0x300CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("lowerOtm0x300PEGreeks", (float) lowerOtm0x300PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				
+				retMap.put("upperOtm300x600CEGreeks", (float) upperOtm300x600CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("upperOtm300x600PEGreeks", (float) upperOtm300x600PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				
+				retMap.put("upperOtm150x300CEGreeks", (float) upperOtm150x300CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("upperOtm150x300PEGreeks", (float) upperOtm150x300PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				
+				List<OptionGreek> lowerStrikeCEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> lowerStrikePEGreeks = new ArrayList<OptionGreek>();
+				
+				for(OptionGreek aGreek: ceOptionGreeks) {
+					float delta = Math.abs(aGreek.getDelta());
+					if (delta > 0.5f && delta < 0.8f && this.instrumentLtp - aGreek.getStrike() < 350) {
+						lowerStrikeCEGreeks.add(aGreek);
+						for(OptionGreek peGreek: peOptionGreeks) {
+							if (peGreek.getStrike() == aGreek.getStrike()) {
+								lowerStrikePEGreeks.add(peGreek);
+							}
+						}
+					}
+				}
+				
+				retMap.put("lowerStrikeCEAvgIv", (float) lowerStrikeCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				retMap.put("lowerStrikePEAvgIv", (float) lowerStrikePEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+				
 				float lowerDelta = 0.1f;
 				float upperDelta = 0.9f;
 				
@@ -2054,6 +2174,19 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", range700CEAvgGamma, range700PEAvgGamma, range700CEAvgTheta, range700PEAvgTheta, range700CEAvgVega, range700PEAvgVega, range700CEAvgIv, range700PEAvgIv"
 						
 						+ ", top5OiDiff"
+						
+						+ ", otm250_750AccmlCeTheta, otm250_750AccmlPeTheta"
+						
+						+ ", lowerStrikeCEAvgIv, lowerStrikePEAvgIv"
+						
+						+ ", otm200_400AccmlCeTheta, otm200_400AccmlPeTheta"
+						
+						+ ", altAbove5WhlStrkCEAvgTimevalue, altAbove5WhlStrkPEAvgTimevalue"
+						
+						+", fullOtm0x600CEGreeks, fullOtm0x600PEGreeks"
+						+", lowerOtm0x300CEGreeks, lowerOtm0x300PEGreeks"
+						+", upperOtm300x600CEGreeks, upperOtm300x600PEGreeks"
+						+", upperOtm150x300CEGreeks, upperOtm150x300PEGreeks"
 
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -2301,6 +2434,31 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ ", " + deltaRangeGreeksDetails.get("range700PEAvgIv")
 						
 						+ " ," + deltaRangeGreeksDetails.get("top5OiDiff")
+						
+						+ " ," + deltaRangeGreeksDetails.get("otm250_750AccmlCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("otm250_750AccmlPeTheta")
+						
+						+ " ," + deltaRangeGreeksDetails.get("lowerStrikeCEAvgIv")
+						+ " ," + deltaRangeGreeksDetails.get("lowerStrikePEAvgIv")
+						
+						+ " ," + deltaRangeGreeksDetails.get("otm200_400AccmlCeTheta")
+						+ " ," + deltaRangeGreeksDetails.get("otm200_400AccmlPeTheta")
+						
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkCEAvgTimevalue")
+						+ " ," + deltaRangeGreeksDetails.get("altAbove5WhlStrkPEAvgTimevalue")
+						
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm0x600CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm0x600PEGreeks")
+						
+						+ " ," + deltaRangeGreeksDetails.get("lowerOtm0x300CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("lowerOtm0x300PEGreeks")
+						
+						+ " ," + deltaRangeGreeksDetails.get("upperOtm300x600CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("upperOtm300x600PEGreeks")
+						
+						+ " ," + deltaRangeGreeksDetails.get("upperOtm150x300CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("upperOtm150x300PEGreeks")
+						
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -2401,6 +2559,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-03-04 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-04-02 09:16:00");
 	}
 }

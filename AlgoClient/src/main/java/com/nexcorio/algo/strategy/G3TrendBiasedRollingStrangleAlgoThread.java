@@ -1,5 +1,9 @@
 package com.nexcorio.algo.strategy;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Date;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -8,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.db.HDataSource;
 
 public class G3TrendBiasedRollingStrangleAlgoThread extends G3BaseClass implements Runnable {
 
@@ -79,7 +84,7 @@ public class G3TrendBiasedRollingStrangleAlgoThread extends G3BaseClass implemen
 			Date maxLowestpointReachedAt = getCurrentTime();
 			float maxTrailingProfit = 0f;
 			
-			String trend = "Neutral";
+			//String trend = "Neutral";
 			updateAlgoStatus("Running");
 			
 			float indexWhenStrangleFormed = this.instrumentLtp;
@@ -115,13 +120,10 @@ public class G3TrendBiasedRollingStrangleAlgoThread extends G3BaseClass implemen
 				
 				boolean needRepositioning = false;
 				
+				String trend = getTrendByFutures();
+				
 				if (ceStraddleOptionName.equals("")) {
 					needRepositioning = true; // Just starting, no open positions
-				} else if (this.instrumentLtp > indexWhenStrangleFormed + indexRollingPts || this.instrumentLtp < indexWhenStrangleFormed - indexRollingPts) {
-					fileLogTelegramWriter.write("Realigning " + indexRollingPts + " pt range broken. indexWhenStrangleFormed="+indexWhenStrangleFormed+" index now at "+this.instrumentLtp);
-					needRepositioning = true;
-					if (this.instrumentLtp > indexWhenStrangleFormed + indexRollingPts) trend = "Bullish";
-					else trend = "Bearish";
 				} 
 				if (needRepositioning==false && this.maintainBias == true) { // && Math.abs(ceOptionGreeks.getDelta()) < Math.abs(peOptionGreeks.getDelta())
 					if (trend.equals("Bullish") && Math.abs(ceOptionGreeks.getDelta()) > Math.abs(peOptionGreeks.getDelta()) ) {
@@ -142,8 +144,6 @@ public class G3TrendBiasedRollingStrangleAlgoThread extends G3BaseClass implemen
 					if (currentGap > originalDeltaGap+oppositeDeltaDiff) { // 0.15f
 						fileLogTelegramWriter.write("Realigning oppositeDeltaDiff breached. currentGap="+currentGap);
 						needRepositioning = true;
-						if(trend.equals("Bullish")) trend = "Bearish";
-						else trend = "Bullish";
 					}
 				}
 				
@@ -252,6 +252,42 @@ public class G3TrendBiasedRollingStrangleAlgoThread extends G3BaseClass implemen
 		} finally {
 			fileLogTelegramWriter.close();
 		}
+	}
+	
+	private String getTrendByFutures() {
+		String retVal = "Bearish";
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select future_outstanding_volume from nexcorio_option_atm_movement_data where f_main_instrument = " + mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "' order by record_time desc limit 5";
+			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			float futureOutstandingVolume = 0f;
+			while (rs.next()) {
+				futureOutstandingVolume = futureOutstandingVolume + rs.getFloat("future_outstanding_volume");
+			}
+			rs.close();
+			
+			if (futureOutstandingVolume > 0f) {
+				retVal = "Bullish";
+			} 
+			fileLogTelegramWriter.write(" getTrendByFutures="+retVal);
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return retVal;
 	}
 	
 }

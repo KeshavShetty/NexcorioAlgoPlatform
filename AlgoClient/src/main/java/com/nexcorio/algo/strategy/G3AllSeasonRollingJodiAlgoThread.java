@@ -452,7 +452,10 @@ public class G3AllSeasonRollingJodiAlgoThread extends G3BaseClass implements Run
 			}
 			rs.close();
 			
-			if (maxValue-minValue > 10f && curValue < (maxValue+minValue)/2f) {
+//			if (maxValue-minValue > 10f && curValue < (maxValue+minValue)/2f) {
+//				retVal = true;
+//			}
+			if (curValue < maxValue-10f) {
 				retVal = true;
 			}
 			stmt.close();

@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -81,6 +82,9 @@ public class ATMProcessorMain {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
+//			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//			ATMThread aThread = new ATMThread(5651344L, 22664.3f, optionnames, new Timestamp(postgresLongDateFormat.parse("2026-03-23 09:48:59").getTime()) , mainInstrumentId);
+			
 			String fetchSql = "select id, instrumentltp, record_time from nexcorio_option_atm_movement_data where f_main_instrument=" + mainInstrumentId
 					+ " AND record_time >= '" + forDate + " 09:15:10' AND record_time <= '" + forDate + " 15:30:00' order by id";
 			ResultSet rs = stmt.executeQuery(fetchSql);
@@ -112,8 +116,8 @@ public class ATMProcessorMain {
 		
 //		new ATMProcessorMain("2025-12-01", "NIFTY", 2L).processAtm();
 		
-		String fromDate = "2026-02-06";
-		String toDate   = "2026-02-06";
+		String fromDate = "2026-04-07";
+		String toDate   = "2026-04-07";
 		
 		SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 		

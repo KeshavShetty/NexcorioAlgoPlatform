@@ -37,7 +37,18 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	
 	public boolean useScaledDelta = true;
 	
+	public boolean avoidTurbulace = false;
+	
 	public float ivTolerance = 0.5f;
+	
+	private float straddleAt920 = -1f;
+	private float ceGammaExposureAt920 = -1f;
+	private float peGammaExposureAt920 = -1f;
+	private boolean gammaExposureAt920Set = false;
+	
+	private float lowetStrikeCeAvgIVAt920 = -1f;
+	private float lowetStrikePeAvgIVAt920 = -1f;
+	private boolean lowetStrikeValuesSet = false;
 	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -75,6 +86,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				return;
 			}
 			
+			if (greekname.equals("GammaExposureRise")) {
+				sleep(60*5);
+				this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
+				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend);
+			}
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
 			if (currentTrend.equals("CE")) {
 				ceStraddleOptionName =  entryStraddleOptionNames[0];
@@ -91,14 +107,14 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				soldPrice = cePrice;
 			} else { // PE
 				peStraddleOptionName =  entryStraddleOptionNames[1];
-				peHedgeOptionName =  entryStraddleOptionNames[3];
+				//peHedgeOptionName =  entryStraddleOptionNames[3];
 				
 				float pePrice = getPriceFromTicks(peStraddleOptionName);
 				
 				fileLogTelegramWriter.write( "Taking PE directional peStraddleOptionName="+peStraddleOptionName + "(@" + pePrice +") peHedgeOptionName="+peHedgeOptionName);
 				peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 				if (this.placeActualOrder) { 
-					placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+					//placeRealOrder( peHedgeOptionName, noOfLots*lotSize, "BUY",  true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 					placeRealOrder( peDbId , peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 				}
 				soldPrice = pePrice;
@@ -144,60 +160,114 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" currentProfit="+currentProfitPerUnit+" maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
-				
-				if (!currentTrend.equals(lastKnownTrend)) {
-				
-					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-					
-					if (currentTrend.equals("CE")) { // Exit PE, Enter CE
-						if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-							// Exit PE
-							if (this.placeActualOrder) {
-								placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							peStraddleOptionName = "";
+				if (this.avoidTurbulace ==  true && isVolatile()) {
+					if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
+						fileLogTelegramWriter.write( "Turbulance Exiting ="+peStraddleOptionName );
+						// Exit PE
+						if (this.placeActualOrder) {
+							placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 						}
-						if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
-							if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+						peStraddleOptionName = "";
+					}
+					if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+						fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+						// Exit CE
+						if (this.placeActualOrder) {
+							placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						}
+						ceStraddleOptionName = "";
+					}
+				} else {
+					currentTrend = getSellerDirectionByATMGreekGap(lastKnownTrend); // StatusQuo, CE, PE
+					
+					if (!currentTrend.equals(lastKnownTrend)) {
+					
+						entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+						
+						if (currentTrend.equals("CE")) { // Exit PE, Enter CE
+							if (!peStraddleOptionName.equals("")) { // Exit PE, taking Directional
+								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+								// Exit PE
+								if (this.placeActualOrder) {
+									placeRealOrder( peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								}
+								peStraddleOptionName = "";
+							}
+							if (!ceStraddleOptionName.equals(entryStraddleOptionNames[0])) {
+								if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+									fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+									// Exit CE
+									if (this.placeActualOrder) {
+										placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									}
+									ceStraddleOptionName = "";
+								}
+								if (this.noOfOrders<maxAllowedNoOfOrders) {
+									ceStraddleOptionName =  entryStraddleOptionNames[0];
+									float cePrice = getPriceFromTicks(ceStraddleOptionName);
+									fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
+									// Place order
+									ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+									if (this.placeActualOrder) {
+										if (ceHedgeOptionName.equals("")) {								
+											ceHedgeOptionName =  entryStraddleOptionNames[2];
+											placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										}
+										placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									}
+									soldPrice = cePrice;
+								} else {
+									prepareExit("Too many orders");
+								}
+							} else {
+								fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
+							}
+						} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
+							if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
 								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
 								// Exit CE
 								if (this.placeActualOrder) {
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
 								ceStraddleOptionName = "";
 							}
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
-								ceStraddleOptionName =  entryStraddleOptionNames[0];
-								float cePrice = getPriceFromTicks(ceStraddleOptionName);
-								fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-								// Place order
-								ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
-								if (this.placeActualOrder) {
-									if (ceHedgeOptionName.equals("")) {								
-										ceHedgeOptionName =  entryStraddleOptionNames[2];
-										placeRealOrder(ceHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
+								if (!peStraddleOptionName.equals("")) { // Exit and re enter
+									fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+									if (this.placeActualOrder) {
+										placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
-									placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									peStraddleOptionName = "";
 								}
-								soldPrice = cePrice;
+								if (this.noOfOrders<maxAllowedNoOfOrders) {
+									peStraddleOptionName =  entryStraddleOptionNames[1];
+									float pePrice = getPriceFromTicks(peStraddleOptionName);
+									fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
+									// Place order
+									peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+									if (this.placeActualOrder) {
+										if (peHedgeOptionName.equals("")) {
+											//peHedgeOptionName =  entryStraddleOptionNames[3];
+											//placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										}
+										placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									}
+									soldPrice = pePrice;
+								} else {
+									prepareExit("Too many orders");
+								}
 							} else {
-								prepareExit("Too many orders");
+								fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
 							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+ceStraddleOptionName);
-						}
-					} else if (currentTrend.equals("PE")) { // Exit CE, Enter PE
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-							// Exit CE
-							if (this.placeActualOrder) {
-								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+						} else { // Uncertain, exit
+							if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
+								fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+								// Exit CE
+								if (this.placeActualOrder) {
+									placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+								}
+								ceStraddleOptionName = "";
 							}
-							ceStraddleOptionName = "";
-						}
-						if (!peStraddleOptionName.equals(entryStraddleOptionNames[1])) {
 							if (!peStraddleOptionName.equals("")) { // Exit and re enter
 								fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 								if (this.placeActualOrder) {
@@ -205,97 +275,61 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 								}
 								peStraddleOptionName = "";
 							}
-							if (this.noOfOrders<maxAllowedNoOfOrders) {
-								peStraddleOptionName =  entryStraddleOptionNames[1];
-								float pePrice = getPriceFromTicks(peStraddleOptionName);
-								fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-								// Place order
-								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
-								if (this.placeActualOrder) {
-									if (peHedgeOptionName.equals("")) {
-										peHedgeOptionName =  entryStraddleOptionNames[3];
-										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-								}
-								soldPrice = pePrice;
-							} else {
-								prepareExit("Too many orders");
-							}
-						} else {
-							fileLogTelegramWriter.write( " Retaining ="+peStraddleOptionName);
+							
 						}
-					} else { // Uncertain, exit
-						if (!ceStraddleOptionName.equals("")) { // Exit CE, taking Directional
-							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-							// Exit CE
-							if (this.placeActualOrder) {
-								placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							ceStraddleOptionName = "";
-						}
-						if (!peStraddleOptionName.equals("")) { // Exit and re enter
-							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-							if (this.placeActualOrder) {
-								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
-							}
-							peStraddleOptionName = "";
-						}
-						
-					}
-					lastKnownTrend = currentTrend;
-				} else {
-					if(adjustPosition==true && this.noOfOrders<maxAllowedNoOfOrders) { // Don't try to reposition if already at maxAllowedNoOfOrders 
-						if (!ceStraddleOptionName.equals("") || !peStraddleOptionName.equals("")) { // Atleast one leg should present
-							float optionPrice = ceOptionGreeks!=null?ceOptionGreeks.getLtp():peOptionGreeks.getLtp();
-							if (optionPrice<soldPrice/2f) { // Current price fell below half  
-								fileLogTelegramWriter.write( "Price fell significantly, need to respoition to get more premium");
-								
-								entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
-								
-								if (!ceStraddleOptionName.equals("")) { // CE exist
-									fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
-									// Exit CE
-									if (this.placeActualOrder) {
-										placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									ceStraddleOptionName =  entryStraddleOptionNames[0];
-									float cePrice = getPriceFromTicks(ceStraddleOptionName);
-									if (cePrice>=10f) {
-										fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
-										// Place order
-										ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+						lastKnownTrend = currentTrend;
+					} else {
+						if(adjustPosition==true && this.noOfOrders<maxAllowedNoOfOrders) { // Don't try to reposition if already at maxAllowedNoOfOrders 
+							if (!ceStraddleOptionName.equals("") || !peStraddleOptionName.equals("")) { // Atleast one leg should present
+								float optionPrice = ceOptionGreeks!=null?ceOptionGreeks.getLtp():peOptionGreeks.getLtp();
+								if (optionPrice<soldPrice/2f) { // Current price fell below half  
+									fileLogTelegramWriter.write( "Price fell significantly, need to respoition to get more premium");
+									
+									entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(baseDelta, this.optimalHedgeDistance);
+									
+									if (!ceStraddleOptionName.equals("")) { // CE exist
+										fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+										// Exit CE
 										if (this.placeActualOrder) {
-											placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											placeRealOrder( ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 										}
-										soldPrice = cePrice;
-									} else {
-										prepareExit("Low premium");
-									}
-								} else { // PE exist
-									fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
-									if (this.placeActualOrder) {
-										placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
-									}
-									peStraddleOptionName =  entryStraddleOptionNames[1];
-									float pePrice = getPriceFromTicks(peStraddleOptionName);
-									if (pePrice>=10f) {
-										fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
-										// Place order
-										peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+										ceStraddleOptionName =  entryStraddleOptionNames[0];
+										float cePrice = getPriceFromTicks(ceStraddleOptionName);
+										if (cePrice>=10f) {
+											fileLogTelegramWriter.write( " Entering ="+ceStraddleOptionName +"(@"+cePrice+")");
+											// Place order
+											ceDbId = createAlgoSellOrder(ceStraddleOptionName, cePrice, noOfLots*lotSize);
+											if (this.placeActualOrder) {
+												placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											}
+											soldPrice = cePrice;
+										} else {
+											prepareExit("Low premium");
+										}
+									} else { // PE exist
+										fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
 										if (this.placeActualOrder) {
-											placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 										}
-										soldPrice = pePrice;
-									} else {
-										prepareExit("Low premium");
+										peStraddleOptionName =  entryStraddleOptionNames[1];
+										float pePrice = getPriceFromTicks(peStraddleOptionName);
+										if (pePrice>=10f) {
+											fileLogTelegramWriter.write( "Entering ="+peStraddleOptionName +"(@"+pePrice+")");
+											// Place order
+											peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
+											if (this.placeActualOrder) {
+												placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
+											}
+											soldPrice = pePrice;
+										} else {
+											prepareExit("Low premium");
+										}
 									}
 								}
 							}
 						}
 					}
 				}
-				
 				checkExitSignals();
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
@@ -328,7 +362,16 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			return getOptionTrendFromDeltaProbablityAdjustedOIWorth(lastKnownTrend);
 		} else if (greekname.equals("drMedianAvgIV")) {
 			return getSellerDirectionByMedianAndAvgIVGreekGap(lastKnownTrend);
+		} else if (greekname.equals("lowerStrikeAvgIV")) {
+			return getSellerDirectionByLowerStrikeAvgIV();
+		} else if (greekname.equals("Top5OIDeltaBiased")) {
+			return getOptionTrendFromTop5OIDeltaBiased(lastKnownTrend);
+		} else if (greekname.equals("PremiumBasedGreekGap")) {
+			return getOptionTrendFromPremiumBasedGreekGap(lastKnownTrend);
+		} else if (greekname.equals("GammaExposureRise")) {
+			return getOptionTrendFromGammaExposureRise(lastKnownTrend);
 		}
+		
 		
 		Connection conn = null;
 		try {
@@ -419,7 +462,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlGama")) {
 				fieldname = "drWhlStrkaccumulatedchangein5seccegamma as ceGreek, drWhlStrkaccumulatedchangein5secpegamma as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlVega")) {
-				fieldname = "drWhlStrkaccumulatedchangein5seccevega as ceGreek, drWhlStrkaccumulatedchangein5secpevega as peGreek";
+				fieldname = "drWhlStrkaccumulatedchangein5seccevega as peGreek, drWhlStrkaccumulatedchangein5secpevega as ceGreek";
 			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlDelta")) {
 				fieldname = "drWhlStrkaccumulatedchangein5seccedelta as ceGreek, drWhlStrkaccumulatedchangein5secpedelta as peGreek";
 			} else if (this.greekname.equalsIgnoreCase("drWhlStrkaccmlTheta")) {
@@ -469,8 +512,6 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "otm750_1000avgCeiv  as ceGreek, otm750_1000avgPeiv  as peGreek"; // fieldname = "dr49WhlStrkaccumulatedAccmlceGamma as ceGreek, dr49WhlStrkaccumulatedAccmlpeGamma as peGreek"; //
 			} else if (greekname.equalsIgnoreCase("newGamaExpStrk")) {
 				fieldname = "maxGammaExposure0_250StrikeDistance as ceGreek, minGammaExposure0_250StrikeDistance as peGreek";
-			} else if (greekname.equalsIgnoreCase("otm250x750AccmlTheta")) {
-				fieldname = "otm250x750AccmlCeTheta as peGreek, otm250x750AccmlPeTheta as ceGreek";
 			} else if (greekname.equalsIgnoreCase("itm1000x500AvgIv")) {
 				fieldname = "itm1000x500AvgCeIv as ceGreek, itm1000x500AvgPeIv as peGreek";
 			} else if (greekname.equalsIgnoreCase("dr19fxdSizAccmlTheta")) {
@@ -482,6 +523,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			} else if (greekname.equalsIgnoreCase("futureOutstanding")) {
 				fieldname = "future_Outstanding_Volume as peGreek, 0 as ceGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmltheta")) {
+				//fieldname = "dr16accumulatedchangein5secpetheta as peGreek, dr16accumulatedchangein5seccetheta as ceGreek";
 				fieldname = "tmpaccmlcetheta as ceGreek, tmpaccmlpetheta as peGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmlvega")) {
 				fieldname = "tmpaccmlcetheta/tmpaccmlcegamma as ceGreek, tmpaccmlpetheta/tmpaccmlpegamma as peGreek";
@@ -501,6 +543,16 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "range350CEAvgTheta as ceGreek, range350PEAvgTheta as peGreek";
 			} else if (greekname.equalsIgnoreCase("range350AvgVega")) {
 				fieldname = "range350CEAvgVega as peGreek, range350PEAvgVega as ceGreek";
+			} else if (greekname.equalsIgnoreCase("tmp250x750accmlTheta")) {
+				fieldname = "otm250x500accmlcetheta as peGreek, otm250x500accmlpetheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("tmp0x350AvgIv")) {
+				fieldname = "itm0_350CEAvgIv as ceGreek, itm0_350PEAvgIv as peGreek";
+			} else if (greekname.equalsIgnoreCase("otm250x750AccmlTheta")) {
+				fieldname = "otm250x750AccmlCeTheta as ceGreek, otm250x750AccmlPeTheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("altAbv5AvgTimevalue")) {
+				fieldname = "altAbove5WhlStrkCEAvgTimevalue as ceGreek, altAbove5WhlStrkPEAvgTimevalue as peGreek";
+			} else if (greekname.equalsIgnoreCase("fullOtm0x600OI")) {
+				fieldname = "fullOtm0x600CEGreeks as ceGreek, fullOtm0x600PEGreeks as peGreek";
 			} 
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -533,6 +585,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 						gapCountWithoutAdjust++;
 					}
 				}
+				fileLogTelegramWriter.write("ceGreek="+ceGreek+" peGreek="+peGreek+" gapCount="+gapCount);
 			}
 			rs.close();			
 			stmt.close();
@@ -823,6 +876,299 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		return retVal;
 	}
 	
+	private String getOptionTrendFromTop5OIDeltaBiased(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		String top4Options ="";
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				optionGreeks = getSnapshotGreeksFromCache();
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
+				}
+			}
+			stmt.close();
+			
+			Collections.sort(optionGreeks, new SortbyOI());
+			
+			float ceOIWorth = 0f;
+			float peOIWorth = 0f;
+			
+			float ceOICount = 0;
+			float peOICount = 0;
+			
+			float ceOIDeltaBias = 0f;
+			float peOIDeltaBias = 0f;
+			
+			List<OptionGreek> ceGreeksTopOi = new ArrayList<OptionGreek>(); 
+			List<OptionGreek> peGreeksTopOi = new ArrayList<OptionGreek>();
+			
+			int recProcessed = 0;
+			
+			for(OptionGreek aGreek: optionGreeks) {
+				if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+					recProcessed++;
+					
+					String tradingSymbol = aGreek.getTradingSymbol();
+					float worthInCr = aGreek.getOi()*aGreek.getLtp()/10000000f;
+					float openInterest = aGreek.getOi();
+					float delta = Math.abs(aGreek.getDelta());
+					top4Options = top4Options + tradingSymbol +" ";
+					if (tradingSymbol.endsWith("CE")) {
+						ceOIWorth = ceOIWorth + worthInCr;
+						ceOICount = ceOICount + openInterest;
+						ceOIDeltaBias = ceOIDeltaBias + openInterest/(1f-delta);
+						ceGreeksTopOi.add(aGreek);
+					} else {
+						peOIWorth = peOIWorth + worthInCr;
+						peOICount = peOICount + openInterest;
+						peOIDeltaBias = peOIDeltaBias + openInterest/(1f-delta);
+						peGreeksTopOi.add(aGreek);
+					}
+				}
+				if (recProcessed >= 5) break;
+			}
+			
+			float avgCeDistance = 0f;
+			float avgPeDistance = 0f;
+			
+			for(OptionGreek aGreek: ceGreeksTopOi) {
+				avgCeDistance = avgCeDistance + aGreek.getOi()/(aGreek.getStrike() - this.instrumentLtp);
+			}
+			for(OptionGreek aGreek: peGreeksTopOi) {
+				avgPeDistance = avgPeDistance + aGreek.getOi()/(this.instrumentLtp - aGreek.getStrike());
+			}
+			if (ceGreeksTopOi.size() > 0 ) avgCeDistance = avgCeDistance/(float)ceGreeksTopOi.size();
+			else avgCeDistance = 2000f;
+			if (peGreeksTopOi.size() > 0 ) avgPeDistance = avgPeDistance/(float)peGreeksTopOi.size();
+			else avgPeDistance = 2000f;
+			
+			
+//			if (ceOIDeltaBias - peOIDeltaBias > 0) {
+//				retVal = "CE";
+//			} else {
+//				retVal = "PE";
+//			}
+			
+			if (avgCeDistance < avgPeDistance) {
+				retVal = "CE";
+			} else {
+				retVal = "PE";
+			}
+			
+			
+			String logString = " ceOIWorth="+ceOIWorth+" peOIWorth="+peOIWorth +" retVal="+retVal + "ceOIDeltaBias="+ceOIDeltaBias+" peOIDeltaBias="+peOIDeltaBias+" top4Options="+top4Options;
+			fileLogTelegramWriter.write( logString);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	
+	private String getOptionTrendFromPremiumBasedGreekGap(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+						
+			//String fieldname = "drWhlStrkaccumulatedchangein5secpetheta as peGreek, drWhlStrkaccumulatedchangein5seccetheta as ceGreek";
+			String fieldname = "altabove5WhlStrkCEAvgIv as ceGreek, altabove5WhlStrkPEAvgIv as peGreek";
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select " + fieldname + ", celtp+peltp as premium,lowerStrikeCEAvgIv, lowerStrikePEAvgIv, upperStrikeCEAvgIv, upperStrikePEAvgIv, tmpaccmlcetheta, tmpaccmlpetheta from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float lowerStrikeCEAvgIv = 0f;
+			float lowerStrikePEAvgIv = 0f;
+			
+			float upperStrikeCEAvgIv = 0f;
+			float upperStrikePEAvgIv = 0f;
+			
+			float fullCEAvgIv = 0f;
+			float fullPEAvgIv = 0f;
+			
+			int gapCount = 0;
+			float curPremium = -1f;
+			
+			while (rs.next()) {
+				float ceGreek = rs.getFloat("ceGreek");
+				float peGreek = rs.getFloat("peGreek");
+				
+				lowerStrikeCEAvgIv = lowerStrikeCEAvgIv + rs.getFloat("lowerStrikeCEAvgIv");
+				lowerStrikePEAvgIv = lowerStrikePEAvgIv + rs.getFloat("lowerStrikePEAvgIv");
+				
+				upperStrikeCEAvgIv = upperStrikeCEAvgIv + rs.getFloat("upperStrikeCEAvgIv");
+				upperStrikePEAvgIv = upperStrikePEAvgIv + rs.getFloat("upperStrikePEAvgIv");
+				
+				fullCEAvgIv = fullCEAvgIv + rs.getFloat("tmpaccmlcetheta");
+				fullPEAvgIv = fullPEAvgIv + rs.getFloat("tmpaccmlpetheta");
+				
+				if (curPremium < 0f) {
+					curPremium = rs.getFloat("premium");
+					if (this.straddleAt920 <= 0f) straddleAt920 = curPremium;
+				}
+				
+				if (ceGreek+adjustGap>=peGreek) {
+					gapCount++;
+				}
+			}
+			rs.close();			
+			stmt.close();
+			
+			fileLogTelegramWriter.write("gapCpunt=" + gapCount +" straddleAt920="+straddleAt920+" curPremium="+curPremium);
+			
+			if (gapCount == 0) {
+				retVal = "PE";
+			} else if (gapCount == 5) {
+				retVal = "CE";
+			}
+			
+			if (retVal.equals("Unknown") ) {
+				if (gapCount < 2 ) {
+					retVal = "PE";
+				} else if (gapCount > 3 ) {
+					retVal = "CE";
+				}
+			}
+			if (fullPEAvgIv > fullCEAvgIv && lowerStrikePEAvgIv > upperStrikePEAvgIv ) {
+				retVal = "CE";
+			}
+//			if (curPremium > this.straddleAt920 + 5f) {
+//				if (retVal.equals("CE")) retVal = "PE";
+//				else if (retVal.equals("PE")) retVal = "CE";
+//			} else if (curPremium > this.straddleAt920) {
+//				if (!lastKnownOptiontrend.equals(retVal)) retVal = lastKnownOptiontrend;
+//			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	private String getOptionTrendFromGammaExposureRise(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+						
+			//String fieldname = "dr16AccumulatedChangein5secCeTheta as peGreek, dr16AccumulatedChangein5secPeTheta as ceGreek";
+			String fieldname = "minGammaExposure as peGreek, maxGammaExposure as ceGreek";
+			//String fieldname = "drWhlStrkaccumulatedchangein5seccetheta as ceGreek, drWhlStrkaccumulatedchangein5secpetheta as peGreek";
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float ceGreek = 0f;
+			float peGreek = 0f;
+			
+			while (rs.next()) {
+				ceGreek = ceGreek + rs.getFloat("ceGreek");
+				peGreek = peGreek + rs.getFloat("peGreek");
+			}
+			rs.close();			
+			stmt.close();
+			
+			ceGreek = ceGreek/5f;
+			peGreek = peGreek/5f;
+			
+			if (gammaExposureAt920Set == false) {
+				ceGammaExposureAt920 = ceGreek;
+				peGammaExposureAt920 = peGreek;
+				gammaExposureAt920Set = true;
+			}
+			
+			float ceGain = (ceGreek-ceGammaExposureAt920);//*100f/ceGammaExposureAt920;
+			float peGain = (peGreek-peGammaExposureAt920);//*100f/peGammaExposureAt920;
+			if (ceGain < peGain) {
+				retVal = "CE";
+			} else {
+				retVal = "PE";
+			}
+			
+			fileLogTelegramWriter.write("ceGammaExposureAt920=" + ceGammaExposureAt920 +" peGammaExposureAt920="+peGammaExposureAt920+" ceGreek="+ceGreek+" peGreek="+peGreek+" CeGain="+ceGain+" peGain="+peGain);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	
 	private String getOptionTrendFromDeltaProbablityAdjustedOIWorth(String lastKnownOptiontrend) {
 		String retVal = "StatusQuo";
 		
@@ -1037,6 +1383,125 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}	
 		return retStr;
 	}
+	
+	private boolean isVolatile() {
+		boolean retVal = false;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchSql = "select celtp+peltp as curPremium from nexcorio_option_atm_movement_data where f_main_instrument = " + mainInstrument.getId() + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "' order by record_time desc limit 1";
+			fileLogTelegramWriter.write("2. fetchSql="+fetchSql);
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			float curValue = 0f;
+			while (rs.next()) {
+				curValue = rs.getFloat("curPremium");
+			}
+			rs.close();
+			
+			if (this.straddleAt920 <= 0f) straddleAt920 = curValue;			
+			if (curValue > this.straddleAt920 + 5f) retVal = true;
+			fileLogTelegramWriter.write("this.straddleAt920="+this.straddleAt920+" curValue="+curValue+" retVal="+retVal);
+			
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return retVal;
+	}
+	
+	private String getSellerDirectionByLowerStrikeAvgIV() {
+		String retVal = "Unknown";
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fieldname = "tmpaccmlcetheta as ceGreek, tmpaccmlpetheta as peGreek";
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+//			if (lowetStrikeValuesSet == false) {
+//				String fetchSql = "select max(tmpaccmlcetheta) as ceGreek, max(tmpaccmlpetheta) as peGreek from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+//						+ " and record_time >= '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'"
+//						+ " and record_time <= '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:35:00'";
+//				ResultSet rs = stmt.executeQuery(fetchSql);
+//				
+//				while (rs.next()) {
+//					lowetStrikeCeAvgIVAt920 = rs.getFloat("ceGreek");
+//					lowetStrikePeAvgIVAt920 = rs.getFloat("peGreek");
+//					lowetStrikeValuesSet = true;
+//				}
+//			}
+			
+			
+			String fetchSql = "select lowerStrikeCEAvgIv, lowerStrikePEAvgIv, upperStrikeCEAvgIv, upperStrikePEAvgIv, tmpaccmlcetheta, tmpaccmlpetheta from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float lowerStrikeCEAvgIv = 0f;
+			float lowerStrikePEAvgIv = 0f;
+			
+			float upperStrikeCEAvgIv = 0f;
+			float upperStrikePEAvgIv = 0f;
+			
+			int peCondition = 0;
+			
+			while (rs.next()) {
+				lowerStrikeCEAvgIv = rs.getFloat("lowerStrikeCEAvgIv");
+				lowerStrikePEAvgIv = rs.getFloat("lowerStrikePEAvgIv");
+				
+				upperStrikeCEAvgIv = rs.getFloat("upperStrikeCEAvgIv");
+				upperStrikePEAvgIv = rs.getFloat("upperStrikePEAvgIv");
+				
+				if (upperStrikeCEAvgIv + adjustGap > upperStrikePEAvgIv ) {
+					peCondition++;
+				} else if (upperStrikePEAvgIv + adjustGap > lowerStrikePEAvgIv) {
+					peCondition++;
+//				} else if (upperStrikeCEAvgIv + 0.25 > lowerStrikeCEAvgIv) {
+//					peCondition++;
+				}
+				fileLogTelegramWriter.write("lowerStrikeCEAvgIv="+lowerStrikeCEAvgIv+" lowerStrikePEAvgIv="+lowerStrikePEAvgIv+" upperStrikeCEAvgIv="+upperStrikeCEAvgIv+" upperStrikePEAvgIv="+upperStrikePEAvgIv+" peCondition="+peCondition);
+			}
+			rs.close();			
+			stmt.close();
+			
+			if (peCondition >= 5 ) {
+				retVal = "PE";
+			} else {
+				retVal = "CE";
+			}
+			
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retVal;	
+	}
+	
 	
 	public static void main(String[] args) {
 		new G3GreekGapAlgoThread(23L, null);

@@ -21,6 +21,8 @@ public class OptionGreek {
 	
 	private float underlyingValue;
 	
+	private float timevalue=0;
+	
 	public OptionGreek(String tradingSymbol, float iv, float delta, float vega, float theta, float gamma) {
 		super();
 		this.tradingSymbol = tradingSymbol;
@@ -151,6 +153,21 @@ public class OptionGreek {
 
 	public void setStrike(int strike) {
 		this.strike = strike;
+	}
+
+	public float getTimevalue() {
+		if (timevalue==0) {
+			if (tradingSymbol.endsWith("CE")) {
+				timevalue = getStrike()>underlyingValue?ltp: ltp - (underlyingValue - getStrike());
+			} else {
+				timevalue = underlyingValue>getStrike()?ltp: ltp - (getStrike() - underlyingValue);
+			}
+		}
+		return timevalue;
+	}
+
+	public void setTimevalue(float timevalue) {
+		this.timevalue = timevalue;
 	}
 }
 
