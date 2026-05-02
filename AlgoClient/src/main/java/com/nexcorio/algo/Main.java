@@ -12,7 +12,9 @@ import com.nexcorio.algo.core.G3NapAlgoTriggerThread;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.kite.KiteHelper;
 import com.nexcorio.algo.oms.OrderExecutionThreadAlgoThread;
+import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.KiteUtil;
+import com.nexcorio.algo.util.TelegramChannelReader;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
 
 /**
@@ -60,6 +62,8 @@ public class Main {
 			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
 			new G3NapAlgoTriggerThread();
 			
+			if (ApplicationConfig.getProperty("enable.telegram.integration").equals("true")) new TelegramChannelReader(); // Telegram integration 
+			else System.out.println("Telegram Not enablked");
 		} catch (Exception | KiteException e) {
 			e.printStackTrace();
 			log.error("Exception in main", e);

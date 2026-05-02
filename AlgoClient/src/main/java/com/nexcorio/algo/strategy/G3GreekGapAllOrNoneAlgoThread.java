@@ -418,6 +418,8 @@ public class G3GreekGapAllOrNoneAlgoThread extends G3BaseClass implements Runnab
 				fieldname = "otm250x750AccmlCeTheta as ceGreek, otm250x750AccmlPeTheta as peGreek";
 			} else if (greekname.equalsIgnoreCase("fullOtm0x600OI")) {
 				fieldname = "fullOtm0x600CEGreeks as ceGreek, fullOtm0x600PEGreeks as peGreek";
+			} else if (greekname.equalsIgnoreCase("altAbv5AvgTimevalue")) {
+				fieldname = "altAbove5WhlStrkCEAvgTimevalue as ceGreek, altAbove5WhlStrkPEAvgTimevalue as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();

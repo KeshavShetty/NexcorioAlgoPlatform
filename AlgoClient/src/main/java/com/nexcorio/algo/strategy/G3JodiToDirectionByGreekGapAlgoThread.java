@@ -120,8 +120,8 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 								if (this.placeActualOrder) {
 									if (peHedgeOptionName.equals("")) {
-										//peHedgeOptionName =  entryStraddleOptionNames[3];
-										//placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										peHedgeOptionName =  entryStraddleOptionNames[3];
+										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
 									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
@@ -177,8 +177,8 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 							peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 							if (this.placeActualOrder) {
 								if (peHedgeOptionName.equals("")) {
-									//peHedgeOptionName =  entryStraddleOptionNames[3];
-									//placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+									peHedgeOptionName =  entryStraddleOptionNames[3];
+									placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}
 								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 							}
@@ -238,8 +238,8 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 								peDbId = createAlgoSellOrder(peStraddleOptionName, pePrice, noOfLots*lotSize);
 								if (this.placeActualOrder) {
 									if (peHedgeOptionName.equals("")) {
-										//peHedgeOptionName =  entryStraddleOptionNames[3];
-										//placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+										peHedgeOptionName =  entryStraddleOptionNames[3];
+										placeRealOrder(peHedgeOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
 									}
 									placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "SELL", false, KiteUtil.USE_NORMAL_ORDER_FALSE);
 								}

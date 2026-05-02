@@ -31,7 +31,7 @@ public class TelegramUtil {
 		// Post to Telegram channel - Refer https://sean-bradley.medium.com/get-telegram-chat-id-80b575520659
 		URL exchangeLink;
 		try {
-			exchangeLink = new URL("https://api.telegram.org/" + ApplicationConfig.getProperty("telegram.channel.id")+ "@" + (msgId!=null?"&reply_to_message_id="+msgId:"") + "&text="     + URLEncoder.encode(aMessage, "UTF-8") ); // This is for GROUP "Nexcorio-FnO Algo"
+			exchangeLink = new URL("https://api.telegram.org/bot" + ApplicationConfig.getProperty("telegram.channel.id")+ "/sendMessage?chat_id=-1001887452901@" + (msgId!=null?"&reply_to_message_id="+msgId:"") + "&text="     + URLEncoder.encode(aMessage, "UTF-8") ); // This is for GROUP "Nexcorio-FnO Algo"
 			
 			URLConnection urlConnection = exchangeLink.openConnection();
 			urlConnection.setConnectTimeout(5000);
@@ -54,15 +54,13 @@ public class TelegramUtil {
 	
 	public static void postTelegramMessage(String channelName, String aMessage) {
 		// Post to Telegram channel
-		// https://api.telegram.org/bot591155202:AAE3sBbDT7kLSnpcMHJ5HCU3SvVfa8G826w/sendMessage?chat_id=@NseFnOAutoPicks&text=Test
 		
-		// For posting in Groups use https://api.telegram.org/bot591155202:AAE3sBbDT7kLSnpcMHJ5HCU3SvVfa8G826w/sendMessage?chat_id=-298585946@&text=Test
 		
 		// For Excorio(NSE Scalp) use @nse_excorio
 		//aMessage = aMessage + " System Time:" + istDateFormat(new Date());
 		URL exchangeLink;
 		try {
-			exchangeLink = new URL("https://api.telegram.org/bot591155202:AAE3sBbDT7kLSnpcMHJ5HCU3SvVfa8G826w/sendMessage?chat_id=" + channelName + "&text="+ URLEncoder.encode(aMessage, "UTF-8") );
+			exchangeLink = new URL("https://api.telegram.org/bot" + ApplicationConfig.getProperty("telegram.channel.id") + "/sendMessage?chat_id=" + channelName + "&text="+ URLEncoder.encode(aMessage, "UTF-8") );
 			
 			URLConnection urlConnection = exchangeLink.openConnection();
 			BufferedReader in = new BufferedReader(	new InputStreamReader(urlConnection.getInputStream()));

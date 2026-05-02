@@ -76,7 +76,7 @@
 	<dependency>
 		<groupId>org.apache.httpcomponents</groupId>
 		<artifactId>httpclient</artifactId>
-		<version>4.3.6</version>
+		<version>4.5.14</version>
 	</dependency>
 	
 	<!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
@@ -108,6 +108,14 @@
 		<artifactId>icu4j</artifactId>
 		<version>65.1</version>
 	</dependency>
+	
+	<!-- Source: https://mvnrepository.com/artifact/org.telegram/telegrambots -->
+	<dependency>
+	    <groupId>org.telegram</groupId>
+	    <artifactId>telegrambots</artifactId>
+	    <version>6.9.7.1</version>
+	</dependency>
+
   </dependencies>
 
 	<repositories>
