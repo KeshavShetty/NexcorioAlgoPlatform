@@ -85,7 +85,7 @@ public class TelegramChannelReader extends AnalyticsBaseClass implements Runnabl
     	if ("true".equals(ApplicationConfig.getProperty("enable.telegram.integration"))) {
     		TelegramChannelReader TelegramChannelReader= new TelegramChannelReader();
     	} else {
-    		System.out.println("Not enabled");
+    		System.out.println("Not enabled. Keep it on only on one node");
     	}
     }
 
