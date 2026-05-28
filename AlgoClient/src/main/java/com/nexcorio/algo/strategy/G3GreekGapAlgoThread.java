@@ -49,6 +49,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 	private float lowetStrikePeAvgIVAt920 = -1f;
 	private boolean lowetStrikeValuesSet = false;
 	
+	public String mainGreek4MultiOI = "";
+	
 	public G3GreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -69,7 +71,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			long peDbId = -1;
 			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
-			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
+			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp+" quickGainNotifTarget="+quickGainNotifTarget);
 			
 			
 			String lastKnownTrend = "Unknown";
@@ -375,6 +377,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			return getSellerDirectionBySupportStrength();
 		} else if (greekname.equals("multiOIAltAbove5")) {
 			return getSellerDirectionByMultiOI(lastKnownTrend);
+		}else if (greekname.equals("minMaxIvAltAbove5")) {
+			return getSellerDirectionByMinMaxIv(lastKnownTrend);
 		}
 		
 		
@@ -560,6 +564,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "fullOtm0x600CEGreeks as ceGreek, fullOtm0x600PEGreeks as peGreek";
 			} else if (greekname.equalsIgnoreCase("fullOtm0x200OI")) {
 				fieldname = "full200CEList as ceGreek, full200PEList as peGreek";
+			} else if (greekname.equalsIgnoreCase("fullOtm50x400OI")) {
+				fieldname = "fullOtm50x400CEGreeks as ceGreek, fullOtm50x400PEGreeks as peGreek";
 			}  
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -1227,13 +1233,15 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 					retVal = "CE";
 				}
 				fileLogTelegramWriter.write("Using Full -> retVal=" + retVal);
-			} else {
+			} else if (ceAvgOutlier <= 4f && peAvgOutlier <= 4f) {
 				if (altGapCount == 0) {
 					retVal = "PE";
 				} else if (altGapCount == 5) {
 					retVal = "CE";
 				}
 				fileLogTelegramWriter.write("Using Alt -> retVal=" + retVal);
+			} else {
+				retVal = lastKnownOptiontrend;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -1260,51 +1268,72 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				instrumentIdToUse = dependentInstrumentId;
 			}
 			
-			String fetchSql = "select otm0x400CEGreeks, otm400x800CEGreeks, otm0x400PEGreeks, otm400x800PEGreeks, altabove5WhlStrkCEAvgIv, altabove5WhlStrkPEAvgIv from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+			String greekSelectFields = " fullOtm0x600CEGreeks as ceGreek, fullOtm0x600PEGreeks as peGreek";
+			if (mainGreek4MultiOI.equalsIgnoreCase("fullOtm0x500")) {
+				greekSelectFields = " fullOtm0x500CEGreeks as ceGreek, fullOtm0x500PEGreeks as peGreek";
+			} else if (mainGreek4MultiOI.equalsIgnoreCase("fullOtm50x400")) {
+				greekSelectFields = " fullOtm50x400CEGreeks as ceGreek, fullOtm50x400PEGreeks as peGreek";
+			} else if (mainGreek4MultiOI.equalsIgnoreCase("deltaRangeAvgIV")) {
+				greekSelectFields = " deltarangeceavgiv as ceGreek, deltarangepeavgiv as peGreek";
+			} else if (mainGreek4MultiOI.equalsIgnoreCase("drWhlStrkaccmlTheta")) {
+				greekSelectFields = "drWhlStrkaccumulatedchangein5secpetheta as peGreek, drWhlStrkaccumulatedchangein5seccetheta as ceGreek";
+			} else if (mainGreek4MultiOI.equalsIgnoreCase("dr49accmlLtp")) {
+				greekSelectFields = "dr49accumulatedchangein5secceLtp as ceGreek, dr49accumulatedchangein5secpeLtp as peGreek";
+			}
+			String fetchSql = "select " + greekSelectFields + ", altabove5WhlStrkCEAvgIv, altabove5WhlStrkPEAvgIv from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
-			float otm0x400CEGreeks = 0f;
-			float otm400x800CEGreeks = 0f;
-			float otm0x400PEGreeks = 0f;
-			float otm400x800PEGreeks = 0f;
+			float ceGreek = 0f;
+			float peGreek = 0f;
+			
 			int altGapCount = 0;
 			while (rs.next()) {
-				otm0x400CEGreeks = otm0x400CEGreeks + rs.getFloat("otm0x400CEGreeks");
-				otm400x800CEGreeks = otm400x800CEGreeks + rs.getFloat("otm400x800CEGreeks");
+				ceGreek = ceGreek + rs.getFloat("ceGreek");
+				peGreek = peGreek + rs.getFloat("peGreek");
 				
-				otm0x400PEGreeks = otm0x400PEGreeks + rs.getFloat("otm0x400PEGreeks");
-				otm400x800PEGreeks = otm400x800PEGreeks + rs.getFloat("otm400x800PEGreeks");
+				float altCeGreek = rs.getFloat("altabove5WhlStrkCEAvgIv");
+				float altPeGreek = rs.getFloat("altabove5WhlStrkPEAvgIv");
 				
-				float ceGreek = rs.getFloat("altabove5WhlStrkCEAvgIv");
-				float peGreek = rs.getFloat("altabove5WhlStrkPEAvgIv");
-				
-				if (ceGreek > peGreek) altGapCount++;
+				if (altCeGreek > altPeGreek) altGapCount++;
 			}
 			rs.close();			
 			stmt.close();
 			
-			otm0x400CEGreeks = otm0x400CEGreeks/5f;
-			otm400x800CEGreeks = otm400x800CEGreeks/5f;
+			ceGreek = ceGreek/5f;
+			peGreek = peGreek/5f;
 			
-			otm0x400PEGreeks = otm0x400PEGreeks/5f;
-			otm400x800PEGreeks = otm400x800PEGreeks/5f;
-			
-			fileLogTelegramWriter.write("otm0x400CEGreeks="+otm0x400CEGreeks+" otm400x800CEGreeks="+otm400x800CEGreeks+" otm0x400PEGreeks="+otm0x400PEGreeks+" otm400x800PEGreeks="+otm400x800PEGreeks);
-			if (otm0x400CEGreeks > otm0x400PEGreeks && otm400x800CEGreeks > otm400x800PEGreeks) {
-				retVal = "CE";
-			} else if (otm0x400CEGreeks < otm0x400PEGreeks && otm400x800CEGreeks < otm400x800PEGreeks) {
-				retVal = "PE";
-			} else { 
-				if (altGapCount == 0) {
-					retVal = "PE";
-				} else if (altGapCount == 5) {
-					retVal = "CE";
-				}
-				fileLogTelegramWriter.write("Using Alt -> retVal=" + retVal);
+			float fullPercentDiff = 0f;
+			String directionByFullOI = ""; 
+					
+			if (ceGreek > peGreek) {
+				fullPercentDiff = (ceGreek-peGreek)*100f/peGreek;
+				directionByFullOI = "CE";
+			} else {
+				fullPercentDiff = (peGreek - ceGreek)*100f/ceGreek;
+				directionByFullOI = "PE";
 			}
+			
+			String directionAltAbove5 = ""; 
+			if (altGapCount == 0) {
+				directionAltAbove5 = "PE";
+			} else if (altGapCount == 5) {
+				directionAltAbove5 = "CE";
+			}
+			
+			if (directionAltAbove5.equals(directionByFullOI)) {
+				retVal = directionAltAbove5;
+			} else {
+				if (fullPercentDiff > 20f) {
+					retVal = directionByFullOI;
+				} else {
+					retVal = directionAltAbove5;
+				}
+			}
+			fileLogTelegramWriter.write("fullOtm0x600CEGreeks="+ceGreek+" fullOtm0x600PEGreeks="+peGreek+" fullPercentDiff="+fullPercentDiff+" directionByFullOI="+directionByFullOI+" directionAltAbove5="+directionAltAbove5 + "retVal="+ retVal);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -1316,6 +1345,84 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		}
 		return retVal;
 	}
+	
+	private String getSellerDirectionByMinMaxIv(String lastKnownOptiontrend) {
+		String retVal = lastKnownOptiontrend;
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
+			
+			String fetchSql = "select upperDeltaPeMinIv, upperDeltaPeAvgIv,lowerDeltaPeMinIv, lowerDeltaPeAvgIv, altabove5WhlStrkCEAvgIv, altabove5WhlStrkPEAvgIv from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			float upperDeltaPeMinIv = 0f;
+			float upperDeltaPeAvgIv = 0f;
+			
+			float lowerDeltaPeMinIv = 0f;
+			float lowerDeltaPeAvgIv = 0f;
+			
+			int altGapCount = 0;
+			int skewCount = 0;
+			
+			while (rs.next()) {
+				upperDeltaPeMinIv = rs.getFloat("upperDeltaPeMinIv");
+				upperDeltaPeAvgIv = rs.getFloat("upperDeltaPeAvgIv");
+				
+				lowerDeltaPeMinIv = rs.getFloat("lowerDeltaPeMinIv");
+				lowerDeltaPeAvgIv = rs.getFloat("lowerDeltaPeAvgIv");
+				
+//				if (lowerDeltaPeMinIv > upperDeltaPeAvgIv) {
+//					skewCount++;
+//				} else 
+					if (upperDeltaPeMinIv > lowerDeltaPeAvgIv) {
+					skewCount++;
+				}
+				
+				float ceGreek = rs.getFloat("altabove5WhlStrkCEAvgIv");
+				float peGreek = rs.getFloat("altabove5WhlStrkPEAvgIv");
+				
+				if (ceGreek > peGreek) altGapCount++;
+			}
+			rs.close();			
+			stmt.close();
+			
+			String directionAltAbove5 = ""; 
+			if (altGapCount == 0) {
+				directionAltAbove5 = "PE";
+			} else if (altGapCount == 5) {
+				directionAltAbove5 = "CE";
+			}
+			
+			retVal = directionAltAbove5;
+			
+			if (directionAltAbove5.equals("PE")) {
+				if (skewCount==5) retVal = "CE";
+			}
+			
+			fileLogTelegramWriter.write("lowerDeltaPeMinIv="+lowerDeltaPeMinIv+" upperDeltaPeAvgIv="+upperDeltaPeAvgIv+" directionAltAbove5="+directionAltAbove5 + " skewCount="+skewCount + "retVal="+ retVal);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	
 	private String getOptionTrendFromDeltaProbablityAdjustedOIWorth(String lastKnownOptiontrend) {
 		String retVal = "StatusQuo";
 		

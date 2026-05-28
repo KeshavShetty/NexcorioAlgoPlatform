@@ -855,6 +855,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				List<OptionGreek> otm0x400PEGreeks = new ArrayList<OptionGreek>();
 				List<OptionGreek> otm400x800PEGreeks = new ArrayList<OptionGreek>();
 				
+				List<OptionGreek> fullOtm50x400CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> fullOtm50x400PEGreeks = new ArrayList<OptionGreek>();
+				
+				List<OptionGreek> fullOtm0x500CEGreeks = new ArrayList<OptionGreek>();
+				List<OptionGreek> fullOtm0x500PEGreeks = new ArrayList<OptionGreek>();
+				
 				for(OptionGreek aGreek: ceOptionGreeks) {
 					if (aGreek.getStrike()%100==0) {
 						if (aGreek.getStrike() > this.instrumentLtp + 250 && aGreek.getStrike() < this.instrumentLtp + 750) {
@@ -883,7 +889,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					if (aGreek.getStrike() - this.instrumentLtp > 400 && aGreek.getStrike() - this.instrumentLtp < 800 ) {
 						otm400x800CEGreeks.add(aGreek);
 					}
-					
+					if (aGreek.getStrike() - this.instrumentLtp > 0 && aGreek.getStrike() - this.instrumentLtp < 500) {
+						fullOtm0x500CEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp > -50 && aGreek.getStrike() - this.instrumentLtp < 400) {
+						fullOtm50x400CEGreeks.add(aGreek);
+					}
 				}
 				for(OptionGreek aGreek: peOptionGreeks) {
 					if (aGreek.getStrike()%100==0) {
@@ -910,6 +921,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					}
 					if (aGreek.getStrike() - this.instrumentLtp < -400 && aGreek.getStrike() - this.instrumentLtp > -800 ) {
 						otm400x800PEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp < 0 && aGreek.getStrike() - this.instrumentLtp > -500) {
+						fullOtm0x500PEGreeks.add(aGreek);
+					}
+					if (aGreek.getStrike() - this.instrumentLtp < 50 && aGreek.getStrike() - this.instrumentLtp > -400) {
+						fullOtm50x400PEGreeks.add(aGreek);
 					}
 				}
 				
@@ -939,6 +956,12 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				
 				retMap.put("otm0x400PEGreeks", (float) otm0x400PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
 				retMap.put("otm400x800PEGreeks", (float) otm400x800PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				
+				retMap.put("fullOtm0x500CEGreeks", (float) fullOtm0x500CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("fullOtm0x500PEGreeks", (float) fullOtm0x500PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+
+				retMap.put("fullOtm50x400CEGreeks", (float) fullOtm50x400CEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
+				retMap.put("fullOtm50x400PEGreeks", (float) fullOtm50x400PEGreeks.stream().mapToDouble(d -> d.getOi()).sum());
 				
 				List<OptionGreek> lowerStrikeCEGreeks = new ArrayList<OptionGreek>();
 				List<OptionGreek> lowerStrikePEGreeks = new ArrayList<OptionGreek>();
@@ -2215,6 +2238,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+", upperOtm150x300CEGreeks, upperOtm150x300PEGreeks"
 						
 						+", otm0x400CEGreeks, otm400x800CEGreeks, otm0x400PEGreeks, otm400x800PEGreeks"
+						+", fullOtm0x500CEGreeks, fullOtm0x500PEGreeks, fullOtm50x400CEGreeks, fullOtm50x400PEGreeks"
 						
 						+ ")" 
 						+ " VALUES (nextval('nexcorio_option_atm_movement_data_id_seq')," + this.mainInstrument.getId()+ "," + this.instrumentLtp 
@@ -2492,6 +2516,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("otm0x400PEGreeks")
 						+ " ," + deltaRangeGreeksDetails.get("otm400x800PEGreeks")
 						
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm0x500CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm0x500PEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm50x400CEGreeks")
+						+ " ," + deltaRangeGreeksDetails.get("fullOtm50x400PEGreeks") 
 						+ ")";
 				fileLogTelegramWriter.write(insertSql);
 				stmt.execute(insertSql);
@@ -2592,6 +2620,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-04-24 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-05-22 09:16:00");
 	}
 }

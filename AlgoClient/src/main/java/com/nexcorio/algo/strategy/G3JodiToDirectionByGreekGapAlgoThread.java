@@ -22,6 +22,8 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 	public String greekname = "";
 	public float minGap = 0f;
 		
+	public Integer dependentInstrumentId = null;
+	
 	public G3JodiToDirectionByGreekGapAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -251,7 +253,9 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 				}
 				lastKnownTrend = sellerDirection;
 				checkExitSignals();
-				
+				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
+					prepareExit( "Nothing much left in premium");
+				}
 				if (exitThread==true) {
 					if (!ceStraddleOptionName.equals("")) {
 						updateCurrentOrderStatus(ceStraddleOptionName, ceDbId, "LegClosed");
@@ -295,6 +299,9 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
 			
 			String fetchSql = "select " + fieldname + " from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"

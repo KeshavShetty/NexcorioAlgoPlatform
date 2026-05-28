@@ -233,7 +233,7 @@ public class TelegramChannelReader extends AnalyticsBaseClass implements Runnabl
 			
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
-			String fetchNextSeq = "SELECT f_strategy,exit_profit,best_profit,worst_profit,nooforders FROM nexcorio_option_algo_orders_daily_summary WHERE short_date='" + postgresShortDateFormat.format(new Date()) + "' ";
+			String fetchNextSeq = "SELECT f_strategy,exit_profit,best_profit,worst_profit,nooforders,exit_reason FROM nexcorio_option_algo_orders_daily_summary WHERE short_date='" + postgresShortDateFormat.format(new Date()) + "' ";
 			if (messageParts.length>1) {
 				fetchNextSeq = fetchNextSeq + " and f_strategy=" + messageParts[1].trim();
 			} else {
@@ -251,8 +251,11 @@ public class TelegramChannelReader extends AnalyticsBaseClass implements Runnabl
 	    	while (rs.next()) {
 	    		long algoId = rs.getLong("f_strategy");
 	    		float exitProfit = rs.getFloat("exit_profit");
+	    		int noOfOrders = rs.getInt("nooforders");
+	    		String exitReason = rs.getString("exit_reason"); 
+	    		if (exitReason == null) exitReason = "Not Yet"; 
 	    		TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + algoId + ": " 
-						+ " Last updated PnL pts = "+CURRENCY_FORMAT.format(exitProfit));
+						+ " Last updated PnL pts = "+CURRENCY_FORMAT.format(exitProfit) + " NoOfOrders="+noOfOrders +", exit reason [" + exitReason + "]" );
 			}
 			rs.close();
 			stmt.close();

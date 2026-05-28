@@ -49,6 +49,7 @@ public abstract class G3BaseClass extends BaseClass {
 	protected int trailingStoploss = -1;
 	protected int exitHour = 15;
 	protected int exitMinute = 15;
+	public float quickGainNotifTarget =-1f;
 	
 	protected boolean placeActualOrder = false;
 	protected int noOfLots = 0;
@@ -379,6 +380,11 @@ public abstract class G3BaseClass extends BaseClass {
 		if(manualExitEnabled()==true) {
 			prepareExit(" Manual exit triggered");
 		}
+		if (this.placeActualOrder==true && quickGainNotifTarget > 0f && this.currentProfitPerUnit > quickGainNotifTarget) {
+			TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
+					+ " Quick and early target "+CURRENCY_FORMAT.format(quickGainNotifTarget) +" reached.");
+			quickGainNotifTarget = -1f; // Don't send notification again
+		}
 	}
 	
 	protected long createAlgoSellOrder(String optionName, float optionPrice, int quantity) {
@@ -687,7 +693,7 @@ public abstract class G3BaseClass extends BaseClass {
 				com.ibm.icu.text.NumberFormat format = com.ibm.icu.text.NumberFormat.getCurrencyInstance(new Locale("en", "in"));
 			    
 				TelegramUtil.postTelegramMessage("@NseFnOAutoPicks", ApplicationConfig.getProperty("zerodha.user.id") + "-X" + this.napAlgoId + ": " 
-						+ " Exit with PnL = "+CURRENCY_FORMAT.format(profit) +" ( "+ format.format((noOfLots*lotSize*profit)) + "/- )");
+						+ " Exit with PnL = "+CURRENCY_FORMAT.format(profit) +" ( "+ format.format((noOfLots*lotSize*profit)) + "/- ), NoOfOrders=" + this.noOfOrders + ", Exit reason:-" + this.exitReason + ")");
 			}
 		}
 	}
