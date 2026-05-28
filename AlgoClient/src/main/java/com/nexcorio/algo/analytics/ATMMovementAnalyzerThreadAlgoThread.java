@@ -1759,11 +1759,27 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		return retMap;
 	}
 	
-	private int getStrike(String optionname) {
+	private int getStrike(String optionName) {
 		int retVal = 0;
-		String strikename = optionname.substring(optionname.length()-7, optionname.length()-2);
-		//System.out.println(strikename);
-		retVal = Integer.parseInt(strikename);
+		
+		int rearEnd = optionName.length()-2;
+		int frontEnd = rearEnd;
+		for(int i=rearEnd;i>0;i--) {
+			if (Character.isDigit(optionName.charAt(i))) {
+				frontEnd = i;
+			} else {
+				break;
+			}
+		}
+		String strPart = optionName.substring(frontEnd, rearEnd);
+		if (frontEnd < rearEnd) {
+			//System.out.println("For " + optionName + " str=" + strPart);
+			if (strPart.length()>5) {
+				retVal = Integer.parseInt(strPart);
+			} else {
+				retVal = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
+			}
+		}
 		return retVal;
 	}
 	
@@ -2620,6 +2636,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-05-22 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-04-30 09:16:00");
 	}
 }

@@ -146,7 +146,26 @@ public class OptionGreek {
 
 	public int getStrike() {
 		if (strike==0) {
-			strike = Integer.parseInt(this.tradingSymbol .substring(this.tradingSymbol.length()-7, this.tradingSymbol.length()-2));
+			
+			String optionName = this.tradingSymbol;
+			int rearEnd = optionName.length()-2;
+			int frontEnd = rearEnd;
+			for(int i=rearEnd;i>0;i--) {
+				if (Character.isDigit(optionName.charAt(i))) {
+					frontEnd = i;
+				} else {
+					break;
+				}
+			}
+			String strPart = optionName.substring(frontEnd, rearEnd);
+			if (frontEnd < rearEnd) {
+				//System.out.println("For " + optionName + " str=" + strPart); // Disbale
+				if (strPart.length()>5) {
+					strike = Integer.parseInt(strPart);
+				} else {
+					strike = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
+				}
+			}
 		}
 		return strike;
 	}
