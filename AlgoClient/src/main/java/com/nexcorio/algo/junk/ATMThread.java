@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
+import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
 class SortbyIV implements Comparator<OptionGreek> 
@@ -125,7 +126,7 @@ public class ATMThread implements Runnable {
 		List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
 		List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
 		
-		List<OptionGreek> allPrevGreeks = getOptionGreeks(optionnames, -5);
+		List<OptionGreek> allPrevGreeks = getOptionGreeks(optionnames, -400);
 		for(OptionGreek aGreek : allPrevGreeks ) {
 			if (aGreek!=null) {
 				if (aGreek.getTradingSymbol().endsWith("CE")) prevCeOptionGreeks.add(aGreek);
@@ -138,47 +139,35 @@ public class ATMThread implements Runnable {
 		
 		Map<String, Float> retMap = new HashMap<>();
 		
-		Collections.sort(ceOptionGreeks, new SortbyIV());
-		Collections.sort(peOptionGreeks, new SortbyIV());
+		Collections.sort(allGreeks, new SortbyOiDesc());
 		
-		List<OptionGreek> above5WhlStrkCEIvs = new ArrayList<OptionGreek>();
-		List<OptionGreek> above5WhlStrkPEIvs = new ArrayList<OptionGreek>();
+		float prevCeOi = 0f;
+		float prevPeOi = 0f;
 		
-		for(OptionGreek aGreek: ceOptionGreeks) {
-			float delta = Math.abs(aGreek.getDelta());
-			
-			if (aGreek.getStrike()%10==0) {
-				if (delta > 0.5f ) above5WhlStrkCEIvs.add(aGreek);
+		float curCeOi = 0f;
+		float curPeOi = 0f;
+		
+		int recCount = 0;
+		for(OptionGreek aGreek: allGreeks) {
+			if (aGreek!=null) {
+				if (recCount < 5) {
+					if (aGreek.getTradingSymbol().endsWith("CE")) {
+						curCeOi = curCeOi + aGreek.getOi();
+						if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) prevCeOi = prevCeOi + prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getOi();
+					} else {
+						curPeOi = curPeOi + aGreek.getOi();
+						if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null)  prevPeOi = prevPeOi + prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getOi();
+					}
+				} else break;
+				recCount++;
 			}
 		}
-		for(OptionGreek aGreek: peOptionGreeks) {
-			float delta = Math.abs(aGreek.getDelta());
-			
-			if (aGreek.getStrike()%10==0) {
-				if (delta > 0.5f ) above5WhlStrkPEIvs.add(aGreek);
-			}
-		}
 		
-		Collections.sort(ceOptionGreeks, new SortbyAbsDelta());
-		Collections.sort(peOptionGreeks, new SortbyAbsDelta());
+		float rocInCeOi =  prevCeOi!=0 ? (curCeOi - prevCeOi)/prevCeOi :0f;
+		float rocInPeOi =  prevPeOi!=0 ? (curPeOi - prevPeOi)/prevPeOi :0f;
 		
-		while(above5WhlStrkCEIvs.size() != above5WhlStrkPEIvs.size()) {
-			if (above5WhlStrkCEIvs.size() > above5WhlStrkPEIvs.size() ) {
-				above5WhlStrkCEIvs.remove(above5WhlStrkCEIvs.size()-1);
-			} else {
-				above5WhlStrkPEIvs.remove(above5WhlStrkPEIvs.size()-1);
-			}
-		}
-//		
-//		for(OptionGreek aGreek: above5WhlStrkCEIvs) {
-//			System.out.println("CE aGreek AStrike="+aGreek.getStrike()+ "Delta="+aGreek.getDelta()+" IV="+aGreek.getIv());
-//		}
-//		for(OptionGreek aGreek: above5WhlStrkPEIvs) {
-//			System.out.println("PE aGreek AStrike="+aGreek.getStrike()+ "Delta="+aGreek.getDelta()+" IV="+aGreek.getIv());
-//		}
-		
-		retMap.put("altAbove5WhlStrkCEAvgIv", (float) above5WhlStrkCEIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
-		retMap.put("altAbove5WhlStrkPEAvgIv", (float) above5WhlStrkPEIvs.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+		retMap.put("tmpaccmlcetheta", rocInCeOi);
+		retMap.put("tmpaccmlpetheta", rocInPeOi);
 		
 		//saveGreek(retMap, adjustedATMCEGreek, adjustedATMPEGreek);
 		saveAccumulatedChangeInIVGreek(retMap);
@@ -344,8 +333,8 @@ public class ATMThread implements Runnable {
 //				+ ", upperstrikeceavgiv=" + retMap.get("upperCEAvgIv")
 //				+ ", upperstrikepeavgiv=" + retMap.get("upperPEAvgIv")
 //				
-				+ "  tmpaccmlcetheta=" + retMap.get("altAbove5WhlStrkCEAvgIv")
-				+ ", tmpaccmlpetheta=" + retMap.get("altAbove5WhlStrkPEAvgIv")
+				+ "  tmpaccmlcetheta=" + retMap.get("tmpaccmlcetheta")
+				+ ", tmpaccmlpetheta=" + retMap.get("tmpaccmlpetheta")
 				
 //				+ "  tmpchangecetheta=" + retMap.get("changeInCETheta")
 //				+ ", tmpchangepetheta=" + retMap.get("changeInPETheta")
@@ -736,11 +725,7 @@ public class ATMThread implements Runnable {
 	}
 	
 	private int getStrike(String optionname) {
-		int retVal = 0;
-		String strikename = optionname.substring(optionname.length()-7, optionname.length()-2);
-		//System.out.println(strikename);
-		retVal = Integer.parseInt(strikename);
-		return retVal;
+		return KiteUtil.getStrike(optionname);
 	}
 	
 	public static void main(String[] args) {

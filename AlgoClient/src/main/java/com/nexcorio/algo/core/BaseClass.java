@@ -29,6 +29,7 @@ import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.kite.KiteCache;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
+import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 import com.zerodhatech.kiteconnect.KiteConnect;
 import com.zerodhatech.kiteconnect.kitehttp.exceptions.KiteException;
@@ -1600,28 +1601,7 @@ public class BaseClass {
 	}
 	
 	protected int getStrikePriceFromOptionName(String optionName) {
-		int retVal = 0;
-		
-		int rearEnd = optionName.length()-2;
-		int frontEnd = rearEnd;
-		for(int i=rearEnd-1;i>0;i--) {
-			if (Character.isDigit(optionName.charAt(i))) {
-				frontEnd = i;
-			} else {
-				break;
-			}
-		}
-		String strPart = optionName.substring(frontEnd, rearEnd);
-		
-		if (frontEnd < rearEnd) {
-			//System.out.println("For " + optionName + " str=" + strPart); // Disbale
-			if (strPart.length()<=5) {
-				retVal = Integer.parseInt(strPart);
-			} else {
-				retVal = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
-			}
-		}
-		return retVal;
+		return KiteUtil.getStrike(optionName);
 	}
 	
 	protected float getTimeValue(String optionName, float indexLtp, float optionLtp) {

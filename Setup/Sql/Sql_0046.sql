@@ -14,7 +14,11 @@ add column lowerotm0x300pegreeks real default 0,
 add column upperotm300x600cegreeks real default 0,
 add column upperotm300x600pegreeks real default 0,
 add column upperotm150x300cegreeks real default 0,
-add column upperotm150x300pegreeks real default 0;
+add column upperotm150x300pegreeks real default 0,
+add column otm0x400cegreeks real default 0,
+add column otm400x800cegreeks real default 0,
+add column otm0x400pegreeks real default 0,
+add column otm400x800pegreeks real default 0;
 
 CREATE FOREIGN TABLE "public"."fdw_nexcorio_option_greeks" (
   "id" int8 NOT NULL,

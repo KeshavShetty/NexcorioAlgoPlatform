@@ -116,8 +116,8 @@ public class ATMProcessorMain {
 		
 //		new ATMProcessorMain("2025-12-01", "NIFTY", 2L).processAtm();
 		
-		String fromDate = "2026-04-07";
-		String toDate   = "2026-04-07";
+		String fromDate = "2026-05-11";
+		String toDate   = "2026-05-11";
 		
 		SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 		

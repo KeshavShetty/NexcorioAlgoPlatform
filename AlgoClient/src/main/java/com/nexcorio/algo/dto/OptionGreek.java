@@ -1,4 +1,7 @@
 package com.nexcorio.algo.dto;
+
+import com.nexcorio.algo.util.KiteUtil;
+
 /**
  * 
  * @author Keshav Shetty
@@ -146,27 +149,7 @@ public class OptionGreek {
 
 	public int getStrike() {
 		if (strike==0) {
-			
-			String optionName = this.tradingSymbol;
-			int rearEnd = optionName.length()-2;
-			int frontEnd = rearEnd;
-			for(int i=rearEnd-1;i>0;i--) {
-				if (Character.isDigit(optionName.charAt(i))) {
-					frontEnd = i;
-				} else {
-					break;
-				}
-			}
-			String strPart = optionName.substring(frontEnd, rearEnd);
-			
-			if (frontEnd < rearEnd) {
-				//System.out.println("For " + optionName + " str=" + strPart); // Disbale
-				if (strPart.length()<=5) {
-					strike = Integer.parseInt(strPart);
-				} else {
-					strike = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
-				}
-			}
+			strike = KiteUtil.getStrike(this.tradingSymbol);
 		}
 		return strike;
 	}
@@ -189,5 +172,7 @@ public class OptionGreek {
 	public void setTimevalue(float timevalue) {
 		this.timevalue = timevalue;
 	}
+	
+	
 }
 

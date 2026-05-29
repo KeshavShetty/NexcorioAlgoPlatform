@@ -42,4 +42,29 @@ public class KiteUtil {
 		return cal.getTime();
 	}
 	
+	public static int getStrike(String tradingSymbol) {
+		int returnStrike = 0;
+		String optionName = tradingSymbol;
+		int rearEnd = optionName.length()-2;
+		int frontEnd = rearEnd;
+		for(int i=rearEnd-1;i>0;i--) {
+			if (Character.isDigit(optionName.charAt(i))) {
+				frontEnd = i;
+			} else {
+				break;
+			}
+		}
+		String strPart = optionName.substring(frontEnd, rearEnd);
+		
+		if (frontEnd < rearEnd) {
+			//System.out.println("For " + optionName + " str=" + strPart); // Disbale
+			if (strPart.length()<=5) {
+				returnStrike = Integer.parseInt(strPart);
+			} else {
+				returnStrike = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
+			}
+		}
+		return returnStrike;
+	}
+	
 }
