@@ -1764,7 +1764,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 		
 		int rearEnd = optionName.length()-2;
 		int frontEnd = rearEnd;
-		for(int i=rearEnd;i>0;i--) {
+		for(int i=rearEnd-1;i>0;i--) {
 			if (Character.isDigit(optionName.charAt(i))) {
 				frontEnd = i;
 			} else {
@@ -1772,9 +1772,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			}
 		}
 		String strPart = optionName.substring(frontEnd, rearEnd);
+		
 		if (frontEnd < rearEnd) {
-			//System.out.println("For " + optionName + " str=" + strPart);
-			if (strPart.length()>5) {
+			//System.out.println("For " + optionName + " str=" + strPart); // Disbale
+			if (strPart.length()<=5) {
 				retVal = Integer.parseInt(strPart);
 			} else {
 				retVal = Integer.parseInt(optionName.substring(optionName.length()-7,optionName.length()-2));
