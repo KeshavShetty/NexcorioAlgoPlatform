@@ -296,6 +296,10 @@ public class G3JodiToDirectionByGreekGapAlgoThread extends G3BaseClass implement
 				fieldname = "fullOtm0x600CEGreeks as ceGreek, fullOtm0x600PEGreeks as peGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmltheta")) {
 				fieldname = "tmpaccmlcetheta as ceGreek, tmpaccmlpetheta as peGreek";
+			} else if (greekname.equalsIgnoreCase("fullotm50x400OI")) {
+				fieldname = "fullotm50x400cegreeks as ceGreek, fullotm50x400pegreeks as peGreek";
+			} else if (greekname.equalsIgnoreCase("itm1000x500AvgIv")) {
+				fieldname = "itm1000x500AvgCeIv as ceGreek, itm1000x500AvgPeIv as peGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
