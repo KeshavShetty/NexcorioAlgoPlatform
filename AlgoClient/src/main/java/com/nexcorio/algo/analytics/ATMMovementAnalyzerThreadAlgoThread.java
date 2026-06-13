@@ -2517,7 +2517,10 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 						+ " ," + deltaRangeGreeksDetails.get("fullOtm50x400CEGreeks")
 						+ " ," + deltaRangeGreeksDetails.get("fullOtm50x400PEGreeks") 
 						+ ")";
+				
+				insertSql = insertSql.replaceAll("NaN", "0");
 				fileLogTelegramWriter.write(insertSql);
+				
 				stmt.execute(insertSql);
 				
 				retMap = new HashMap<>();
@@ -2616,6 +2619,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-04-30 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("HDFCBANK", "2026-06-12 09:16:00");
 	}
 }
