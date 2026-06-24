@@ -19,6 +19,7 @@ public class OptionGreek {
 	private float ltp;
 	private float oi;
 	private float changeInIv=0f;
+	private long volumeTradedToday;
 	
 	private int strike=0; 
 	
@@ -156,6 +157,14 @@ public class OptionGreek {
 
 	public void setStrike(int strike) {
 		this.strike = strike;
+	}
+
+	public long getVolumeTradedToday() {
+		return volumeTradedToday;
+	}
+
+	public void setVolumeTradedToday(long volumeTradedToday) {
+		this.volumeTradedToday = volumeTradedToday;
 	}
 
 	public float getTimevalue() {

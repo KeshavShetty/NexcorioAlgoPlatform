@@ -1009,6 +1009,18 @@ public abstract class G3BaseClass extends BaseClass {
 			}
 		}
 	}
+	
+	public int getTimeDiff(Date date1, Date date2) {
+		int retVal = -1;
+		
+		 long diffInMillies = Math.abs(date2.getTime() - date1.getTime());
+	        
+	        // Approach A: Convert using TimeUnit utility (Cleaner)
+		 retVal = (int) TimeUnit.MILLISECONDS.toMinutes(diffInMillies);
+	        
+	        
+		return retVal;
+	}
 }
 
 class SortbyOI implements Comparator<OptionGreek> {

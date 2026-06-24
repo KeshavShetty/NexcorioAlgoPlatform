@@ -78,7 +78,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		startTime = elapsedTime1;
 		
 		if (optionIV!=0) {
-			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp, optionInstrument.getfMainInstrument());
+			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp, optionInstrument.getfMainInstrument(), this.volumeTradedToday);
 			
 			float changeInIv = 0f;
 			OptionGreek optionGreekFromCache = KiteCache.optionGreekCache.getIfPresent(tradingSymbol);
@@ -86,6 +86,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				changeInIv = optionGreekDto.getIv() - optionGreekFromCache.getIv();
 			}
 			optionGreekDto.setChangeInIv(changeInIv);
+			optionGreekDto.setVolumeTradedToday(volumeTradedToday);
 			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
 		}
 		elapsedTime1 = System.currentTimeMillis();
@@ -151,7 +152,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		return retVal;
 	}
 
-	public OptionGreek calculateAndSaveOptionGreeks(String optionType, String optionName, double lastPrice, double underlyingValue, double strikePrice, double impliedVolatility, Date expDate, Date latestTickQuoteTime, Long fMainInstrument) {
+	public OptionGreek calculateAndSaveOptionGreeks(String optionType, String optionName, double lastPrice, double underlyingValue, double strikePrice, double impliedVolatility, 
+			Date expDate, Date latestTickQuoteTime, Long fMainInstrument, Long volumeTradedToday) {
 		Long startTime = System.currentTimeMillis();
 		Long beginTime = System.currentTimeMillis();
 		StringBuffer logStr = new StringBuffer();
@@ -206,9 +208,9 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 			
-			String insertSql = "INSERT INTO nexcorio_option_greeks (id, f_main_instrument, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma)"
+			String insertSql = "INSERT INTO nexcorio_option_greeks (id, f_main_instrument, trading_symbol, quote_time, ltp, oi, underlying_value, iv, delta, vega, theta, gamma, volume_traded_today)"
 					+ " VALUES (" + this.fStreamingId + "," + fMainInstrument + ",'" + this.tradingSymbol+ "','" + postgresLongDateFormat.format(latestTickQuoteTime) + "'," + lastPrice + "," + this.openIterest  +"," + underlyingValue 
-					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + ")";
+					+"," + (float)impliedVolatility +"," + (float)delta+"," + (float)vega+"," + (float)theta+"," + (float)gamma + "," + volumeTradedToday + ")";
 			log.debug(insertSql);
 			stmt.execute(insertSql);
 			

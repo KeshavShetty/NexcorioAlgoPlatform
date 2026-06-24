@@ -206,7 +206,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
+			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
 					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(getCurrentTimeDifferSeconds(2))+ "'") : "" )
 					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
@@ -214,6 +214,7 @@ public class BaseClass {
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while (rs.next()) {
 				retVal = new OptionGreek(optionName, rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"), rs.getFloat("oi"));
+				retVal.setVolumeTradedToday(rs.getLong("volume_traded_today"));
 				retVal.setUnderlyingValue(rs.getFloat("underlying_value"));
 			}
 			rs.close();
