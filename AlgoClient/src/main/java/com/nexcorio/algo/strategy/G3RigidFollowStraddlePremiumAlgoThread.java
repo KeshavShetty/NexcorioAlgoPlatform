@@ -16,6 +16,9 @@ public class G3RigidFollowStraddlePremiumAlgoThread extends G3BaseClass implemen
 	public float baseDelta = 0.5f;
 	
 	public float diffFromAtmPremium = 10f;
+	public float idxPtsMultiplier = 1f;
+	
+	public boolean exitOnQuickChrun = false;
 	
 	private String guidingStraddleCeOptionName = "";
 	private String guidingStraddlePeOptionName = "";
@@ -50,7 +53,7 @@ public class G3RigidFollowStraddlePremiumAlgoThread extends G3BaseClass implemen
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
-			
+			Date lastOrderAt = null;
 			do {
 				sleep(5); // Quick to react
 				
@@ -97,8 +100,28 @@ public class G3RigidFollowStraddlePremiumAlgoThread extends G3BaseClass implemen
 					
 					float diffPercent  = (price2Use - currentStradlleCenter)*100f/currentStradlleCenter;
 					
-					if (diffPercent>currentStradlleCenter) needRepositioning = true;
+					if (diffPercent>currentStradlleCenter/idxPtsMultiplier) needRepositioning = true;
 					fileLogTelegramWriter.write("currentStradlleCenter="+currentStradlleCenter+" runningCenter="+runningCenter+" diffPercent="+diffPercent+" needRepositioning="+needRepositioning + " cePrice="+cePrice+" pePrice="+pePrice);
+					
+					if (needRepositioning==true && exitOnQuickChrun==true && getTimeDiff(lastOrderAt, getCurrentTime()) < 15) {
+						// Exit all, Sleep 15 minutes, Reenter
+						if (!ceStraddleOptionName.equals("")) { // Exit and re enter
+							fileLogTelegramWriter.write( " Exiting ="+ceStraddleOptionName );
+							// Exit CE
+							if (this.placeActualOrder) {
+								placeRealOrder(ceDbId, ceStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							ceStraddleOptionName = "";
+						}
+						if (!peStraddleOptionName.equals("")) { // Exit and re enter
+							fileLogTelegramWriter.write( " Exiting ="+peStraddleOptionName );
+							if (this.placeActualOrder) {
+								placeRealOrder(peDbId, peStraddleOptionName, noOfLots*lotSize, "BUY", true, KiteUtil.USE_NORMAL_ORDER_FALSE);
+							}
+							peStraddleOptionName = "";
+						}
+						sleep(5*12*15);
+					}
 				}
 				if (needRepositioning) {
 					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
@@ -166,6 +189,7 @@ public class G3RigidFollowStraddlePremiumAlgoThread extends G3BaseClass implemen
 					entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(0.5f, 0);
 					guidingStraddleCeOptionName = entryStraddleOptionNames[0];
 					guidingStraddlePeOptionName = entryStraddleOptionNames[1];
+					lastOrderAt = getCurrentTime();
 				}
 				
 				if ( (runningCePrice+runningPePrice)>0 && (runningCePrice+runningPePrice)<10f ) {
@@ -201,4 +225,6 @@ public class G3RigidFollowStraddlePremiumAlgoThread extends G3BaseClass implemen
 			fileLogTelegramWriter.close();
 		}
 	}
+	
+	
 }
