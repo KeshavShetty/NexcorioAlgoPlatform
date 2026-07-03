@@ -123,7 +123,7 @@ public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implement
 						currentPeGreekValue = Math.abs(currentPEGreek.getVega());
 					}
 					
-					float current2Use = currentCeGreekValue > currentPeGreekValue ? currentCeGreekValue : currentPeGreekValue;					
+					float current2Use = currentCeGreekValue < currentPeGreekValue ? currentCeGreekValue : currentPeGreekValue;					
 					float guiding2Use = guidingCeGreekValue > guidingPeGreekValue ? guidingCeGreekValue : guidingPeGreekValue;
 					
 					float diffPercent  = (current2Use - guiding2Use)*100f/current2Use;
