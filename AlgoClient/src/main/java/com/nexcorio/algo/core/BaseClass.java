@@ -207,7 +207,7 @@ public class BaseClass {
 			Statement stmt = conn.createStatement();
 			
 			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
-					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(getCurrentTimeDifferSeconds(2))+ "'") : "" )
+					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(getCurrentTimeDifferSeconds(0))+ "'") : "" )
 					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
 			//fileLogTelegramWriter.write("In getOptionGreeks fetchSql="+fetchSql);
