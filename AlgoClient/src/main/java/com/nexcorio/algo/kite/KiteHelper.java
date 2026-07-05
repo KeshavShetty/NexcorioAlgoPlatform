@@ -26,7 +26,6 @@ import org.json.JSONException;
 
 import com.neovisionaries.ws.client.WebSocketException;
 import com.nexcorio.algo.dto.MainInstruments;
-import com.nexcorio.algo.dto.OptionFnOInstrument;
 import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
@@ -819,6 +818,67 @@ public class KiteHelper {
 				log.error(e);
 			}
 		}
+		return retVal;
+	}
+	
+	public static boolean checkDTE(Long napAlgoId, String forDate, int dte) {
+		
+		boolean retVal = false;
+		
+		Connection conn = null;
+		try {
+			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fetchInstrument = "SELECT f_main_instrument FROM nexcorio_options_algo_strategy where id=" + napAlgoId;
+			System.out.println("fetchInstrument="+fetchInstrument);
+			ResultSet rs = stmt.executeQuery(fetchInstrument);
+			Long mainInstrumentId = null;
+			while (rs.next()) {
+				mainInstrumentId = rs.getLong("f_main_instrument");
+			}
+			rs.close();
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(postgresLongDateFormat.parse(forDate));
+			cal.add(Calendar.DATE, -1);
+			
+			String fnoExchange = "NFO-OPT";
+			if (mainInstrumentId==4) fnoExchange = "BFO-OPT";
+			String fetchSql = "SELECT expiry_date from nexcorio_fno_expiry_dates WHERE f_main_instrument="+mainInstrumentId+ ""
+					+ " and fno_segment='" + fnoExchange + "' "
+					+ " and expiry_date > '" + postgresShortDateFormat.format(cal.getTime()) + "' "
+					+ " ORDER BY expiry_date ASC LIMIT 1";
+			System.out.println("fetchInstrument="+fetchSql);
+			//fileLogTelegramWriter.write("Fetch sql="+fetchSql);
+			Date expiryDate = null;
+			rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				expiryDate = rs.getDate("expiry_date");
+			}
+			rs.close();
+			
+			long diffInMillies = Math.abs(postgresLongDateFormat.parse(forDate).getTime() - expiryDate.getTime());
+			int daysToExpiry = (int) ((diffInMillies+1000*60*60*12) / (1000 * 60 * 60 * 24));
+			System.out.println("expiryDate="+expiryDate + " daysToExpiry="+daysToExpiry);
+			if (daysToExpiry == dte) {
+				retVal = true;
+			}
+			
+			stmt.close();
+		} catch (Exception e) {
+			log.error("Error"+e.getMessage(),e);
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}	
+			
 		return retVal;
 	}
 }
