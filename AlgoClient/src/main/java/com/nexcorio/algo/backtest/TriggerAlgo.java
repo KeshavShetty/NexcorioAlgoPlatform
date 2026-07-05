@@ -28,7 +28,7 @@ import com.nexcorio.algo.util.db.HDataSource;
 public class TriggerAlgo {
 	private static final Logger log = LogManager.getLogger(TriggerAlgo.class);
 	
-	public static void triggerAlgo(Long napAlgoId, String forDate) {
+	public static void triggerAlgo(Long napAlgoId, String forDate, int dte) {
 		
 		Map<Long, String> retMap = CloneAlgo.getExistingAlgo(napAlgoId);
 		if (retMap==null) {
@@ -41,7 +41,13 @@ public class TriggerAlgo {
 		Long algoIdToRun = retMap.keySet().iterator().next();
 		
 		float indexCheckValue = KiteHelper.getIndexCheck(forDate);
-		if (indexCheckValue>0) {
+		
+		boolean dteAllowed = true;
+		if (dte >= 0) {
+			dteAllowed = KiteHelper.checkDTE(napAlgoId, forDate, dte);
+		}
+		
+		if (indexCheckValue>0 && dteAllowed) {
 			String algoClassname = retMap.get(algoIdToRun);
 			System.out.println("Going o run algo "+algoIdToRun);
 			try {
@@ -53,11 +59,11 @@ public class TriggerAlgo {
 				e.printStackTrace();
 			}
 		} else {
-			System.out.println("Not a atrading day");
+			System.out.println("Not a atrading day, or non DTE day");
 		}
 	}
 	
-	public static void triggerAlgo(Long napAlgoId, String fromDate, String toDate) {
+	public static void triggerAlgo(Long napAlgoId, String fromDate, String toDate, int dte) {
 		SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 		try {
@@ -66,7 +72,7 @@ public class TriggerAlgo {
 			
 			do {
 				System.out.println("Launching algo for day " + postgresLongDateFormat.format(cal.getTime()));
-				triggerAlgo(napAlgoId, postgresLongDateFormat.format(cal.getTime()));
+				triggerAlgo(napAlgoId, postgresLongDateFormat.format(cal.getTime()), dte);
 				cal.add(Calendar.DATE, 1);
 			} while(cal.getTime().before(postgresLongDateFormat.parse(toDate)) || cal.getTime().equals(postgresLongDateFormat.parse(toDate)));
 			
@@ -288,11 +294,11 @@ public class TriggerAlgo {
 	public static void main(String[] args) {
 		String forDate = "2025-09-01";
 		String toDate  = "202-10-01";
-
-		//triggerAlgo(813L, "2026-03-01 09:20:00", "2026-03-13 11:45:00");
 		
-		triggerAlgo(808L, "2026-04-10 09:20:00", "2026-03-03 11:45:00");
-		//triggerAlgo(819L, "2026-03-16 09:20:10", "2026-03-27 11:45:00");
+		int dte = 0;
+		
+		triggerAlgo(33L, "2026-06-01 09:20:00", "2026-07-03 11:45:00", dte);
+		
 		
 	}
 	
