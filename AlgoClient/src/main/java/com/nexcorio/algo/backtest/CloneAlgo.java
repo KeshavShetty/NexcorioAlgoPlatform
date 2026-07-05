@@ -8,6 +8,7 @@ import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.nexcorio.algo.junk.MultiDataSource;
 import com.nexcorio.algo.util.db.HDataSource;
 
 public class CloneAlgo {
@@ -82,11 +83,15 @@ public class CloneAlgo {
 			
 			boolean isActive = true;
 			Long newAlgoId = null;
-			String fetchNextSeq = "select nextval('nexcorio_options_algo_strategy_id_seq') as nextId";
+			
 	    	if (isTestAlgo) {	    		
 	    		isActive = false;
 	    		newAlgoId = 9000 + napAlgoId;
-	    	} else {			
+	    	} else {	    		
+	    		//String fetchNextSeq = "select nextval('nexcorio_options_algo_strategy_id_seq') as nextId";
+	    		// Use alternative to use missed sequence Id
+	    		String fetchNextSeq = "SELECT t1.id + 1 AS nextId FROM nexcorio_options_algo_strategy t1 LEFT JOIN nexcorio_options_algo_strategy t2 ON t1.id + 1 = t2.id WHERE t2.id IS NULL ORDER BY t1.id LIMIT 1";
+
 		    	ResultSet rs = stmt.executeQuery(fetchNextSeq);
 				while (rs.next()) {
 					newAlgoId = rs.getLong("nextId");
@@ -157,6 +162,7 @@ public class CloneAlgo {
 			stmt.executeBatch();
 			stmt.close();
 			
+			System.out.println("Created newAlgoId "+newAlgoId);
 			retMap.put(newAlgoId, algoClassname);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -171,8 +177,100 @@ public class CloneAlgo {
 		return retMap;
 	}
 	
-	public static void main(String[] args) {
-		cloneAlgo(807L, false, 2L);
+	public static void cloneAlgoToRTX(Long napAlgoId, boolean isTestAlgo, Long targetInstrument) {
 		
+		Connection conn = null;
+		Connection rtxConn = null;
+		try {
+			conn = MultiDataSource.getLocalConnection();
+			rtxConn = MultiDataSource.getRtxConnection();
+			
+			Statement stmt = conn.createStatement();
+			Statement rtxStmt = rtxConn.createStatement();
+			
+			boolean isActive = true;
+			
+			String opOIFetch = "select f_user, f_main_instrument, algoname, entry_time, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders, "
+					+ " order_enabled_monday, order_enabled_tuesday, order_enabled_wednesday, order_enabled_thursday, order_enabled_friday, algo_class_name from nexcorio_options_algo_strategy where id = " + napAlgoId;			  
+			
+			String insertSqlPart = " INSERT INTO nexcorio_options_algo_strategy (id, f_user, f_main_instrument, algoname, entry_time, exit_time, no_of_lots, max_fund_allocated, target, stoploss, trailing_stoploss, max_allowed_nooforders,"
+					+ " order_enabled_monday, order_enabled_tuesday, order_enabled_wednesday, order_enabled_thursday, order_enabled_friday, algo_class_name, isactive) VALUES(" + napAlgoId;
+			System.out.println("opOIFetch="+opOIFetch);
+			
+			String algoClassname = null;
+			ResultSet rs = stmt.executeQuery(opOIFetch);
+			while (rs.next()) {
+				algoClassname = rs.getString("algo_class_name");
+				insertSqlPart = insertSqlPart + "," + rs.getLong("f_user");
+				
+				if (targetInstrument != null) {
+					insertSqlPart = insertSqlPart + "," + targetInstrument;
+				} else {
+					insertSqlPart = insertSqlPart + "," + rs.getLong("f_main_instrument");
+				}
+				
+				insertSqlPart = insertSqlPart + ",'" + (isTestAlgo ? "Test" : "") + rs.getString("algoname") +"'";
+				
+				insertSqlPart = insertSqlPart + ",'" + rs.getString("entry_time") +"'";
+				insertSqlPart = insertSqlPart + ",'" + rs.getString("exit_time") +"'";
+				insertSqlPart = insertSqlPart + "," + rs.getInt("no_of_lots");
+				insertSqlPart = insertSqlPart + "," + rs.getInt("max_fund_allocated");
+				
+				insertSqlPart = insertSqlPart + "," + rs.getInt("target");
+				insertSqlPart = insertSqlPart + "," + rs.getInt("stoploss");
+				insertSqlPart = insertSqlPart + "," + rs.getInt("trailing_stoploss");
+				insertSqlPart = insertSqlPart + "," + rs.getInt("max_allowed_nooforders");
+				
+				insertSqlPart = insertSqlPart + "," + Boolean.FALSE; //rs.getBoolean("order_enabled_monday"); 
+				insertSqlPart = insertSqlPart + "," + Boolean.FALSE; //rs.getBoolean("order_enabled_tuesday");
+				insertSqlPart = insertSqlPart + "," + Boolean.FALSE; //rs.getBoolean("order_enabled_wednesday");
+				insertSqlPart = insertSqlPart + "," + Boolean.FALSE; //rs.getBoolean("order_enabled_thursday");
+				insertSqlPart = insertSqlPart + "," + Boolean.FALSE; //rs.getBoolean("order_enabled_friday");
+				insertSqlPart = insertSqlPart + ",'" + algoClassname +"'";
+				
+				insertSqlPart = insertSqlPart + "," + isActive + ")"; // IsActive
+				
+			}
+			rs.close();			
+			System.out.println(insertSqlPart);
+			rtxStmt.execute(insertSqlPart);
+			
+			opOIFetch = "select name, data_type, value from nexcorio_options_algo_strategy_parameters where f_strategy = " + napAlgoId;			  
+			  
+			System.out.println("opOIFetch="+opOIFetch);
+			
+			rs = stmt.executeQuery(opOIFetch);
+			while (rs.next()) {
+				String name = rs.getString("name");
+				String dataType = rs.getString("data_type");
+				String value = rs.getString("value");
+				String insertSubSql = "INSERT INTO nexcorio_options_algo_strategy_parameters(id, f_strategy, name, data_type, value) VALUES(nextval('nexcorio_options_algo_strategy_parameters_id_seq')," + napAlgoId + ",'" + name + "','" + dataType +"','" + value +"')";
+				System.err.println("insertSubSql="+insertSubSql);
+				rtxStmt.addBatch(insertSubSql);
+			}
+			rs.close();
+			// submit a batch of update commands for execution
+			rtxStmt.executeBatch();
+			rtxStmt.close();
+			stmt.close();
+			
+			System.out.println("On RTX Created newAlgoId "+napAlgoId);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+				rtxConn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public static void main(String[] args) {
+		cloneAlgo(33L, false, 4L);
+		//cloneAlgoToRTX(808L, false, 2L);
 	}
 }
