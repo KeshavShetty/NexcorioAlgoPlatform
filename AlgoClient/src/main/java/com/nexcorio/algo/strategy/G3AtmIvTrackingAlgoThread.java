@@ -339,7 +339,7 @@ public class G3AtmIvTrackingAlgoThread extends G3BaseClass implements Runnable{
 	
 	public static void main(String[] args) {
 		
-		TriggerAlgo.triggerAlgo(392L, "2025-09-05 09:20:00", "2025-09-05 09:21:00");
+		
 	
 	}
 }
