@@ -1021,6 +1021,47 @@ public abstract class G3BaseClass extends BaseClass {
 	        
 		return retVal;
 	}
+	
+	protected String[] getStraddleOptionNamesFromAtmData() {
+		String[] retStr = null;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			
+			String fetchSql = "select ceoptionname, peoptionname  from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			
+			String ceoptionname = "";
+			String peoptionname = "";
+			
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				ceoptionname = rs.getString("ceoptionname");
+				peoptionname = rs.getString("peoptionname");
+			}
+			rs.close();
+			
+			retStr = new String[]{ceoptionname, peoptionname};
+			
+		} catch(Exception ex) {
+			ex.printStackTrace();
+			log.error("Error"+ex.getMessage(),ex);
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retStr;
+	}
 }
 
 class SortbyOI implements Comparator<OptionGreek> {
