@@ -30,16 +30,6 @@ public class TriggerAlgo {
 	
 	public static void triggerAlgo(Long napAlgoId, String forDate, int dte) {
 		
-		Map<Long, String> retMap = CloneAlgo.getExistingAlgo(napAlgoId);
-		if (retMap==null) {
-			retMap = CloneAlgo.cloneAlgo(napAlgoId, true, null);
-		} else {
-			CloneAlgo.deleteBacktestData(retMap.keySet().iterator().next(), forDate);
-		}
-		
-		retMap.keySet().iterator();
-		Long algoIdToRun = retMap.keySet().iterator().next();
-		
 		float indexCheckValue = KiteHelper.getIndexCheck(forDate);
 		
 		boolean dteAllowed = true;
@@ -48,6 +38,16 @@ public class TriggerAlgo {
 		}
 		
 		if (indexCheckValue>0 && dteAllowed) {
+			Map<Long, String> retMap = CloneAlgo.getExistingAlgo(napAlgoId);
+			if (retMap==null) {
+				retMap = CloneAlgo.cloneAlgo(napAlgoId, true, null);
+			} else {
+				CloneAlgo.deleteBacktestData(retMap.keySet().iterator().next(), forDate);
+			}
+			
+			retMap.keySet().iterator();
+			Long algoIdToRun = retMap.keySet().iterator().next();
+		
 			String algoClassname = retMap.get(algoIdToRun);
 			System.out.println("Going o run algo "+algoIdToRun);
 			try {
@@ -295,10 +295,11 @@ public class TriggerAlgo {
 		String forDate = "2025-09-01";
 		String toDate  = "202-10-01";
 		
-		int dte = 0;
+		int[] dte = {0, 1, 2, 3, 4, 5, 6, -1}; 
 		
-		triggerAlgo(33L, "2026-06-01 09:20:00", "2026-07-03 11:45:00", dte);
-		
+				
+		triggerAlgo(33L, "2026-07-14 09:20:02", "2026-08-07 11:45:00", dte[0]);
+		triggerAlgo(896L, "2026-07-14 09:20:02", "2026-08-07 11:45:00", dte[0]);
 		
 	}
 	

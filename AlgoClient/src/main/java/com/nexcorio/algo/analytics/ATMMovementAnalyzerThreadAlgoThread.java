@@ -202,7 +202,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 				fileLogTelegramWriter.write("instrumentLtp="+instrumentLtp);
 				processATMMovement();
 					
-				if (timeout(15, 29, 0)) {
+				if (timeout(15, 39, 0)) {
 					prepareExit(" Exiting: Timeout");
 				}
 				//this.exitThread = true;

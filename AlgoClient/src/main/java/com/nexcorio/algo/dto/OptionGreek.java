@@ -1,5 +1,7 @@
 package com.nexcorio.algo.dto;
 
+import java.sql.Timestamp;
+
 import com.nexcorio.algo.util.KiteUtil;
 
 /**
@@ -20,6 +22,8 @@ public class OptionGreek {
 	private float oi;
 	private float changeInIv=0f;
 	private long volumeTradedToday;
+	
+	private Timestamp quoteTime;
 	
 	private int strike=0; 
 	
@@ -180,6 +184,14 @@ public class OptionGreek {
 
 	public void setTimevalue(float timevalue) {
 		this.timevalue = timevalue;
+	}
+
+	public Timestamp getQuoteTime() {
+		return quoteTime;
+	}
+
+	public void setQuoteTime(Timestamp quoteTime) {
+		this.quoteTime = quoteTime;
 	}
 	
 	

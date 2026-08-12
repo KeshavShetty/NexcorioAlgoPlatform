@@ -91,7 +91,7 @@ public class G3NapAlgoTriggerThread implements Runnable {
 				
 				prevHourMinuteSecondPart = currentHourMinuteSecondPart;
 				
-				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 20, 0))) {
+				if ((new Date()).after(KiteUtil.getDailyCustomTime(15, 30, 0))) {
 					this.exitThread = true;
 				}
 			} while(!this.exitThread); 
