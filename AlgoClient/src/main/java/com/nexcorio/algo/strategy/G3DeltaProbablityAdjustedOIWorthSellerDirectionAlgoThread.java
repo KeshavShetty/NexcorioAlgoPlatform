@@ -5,7 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -253,87 +253,66 @@ public class G3DeltaProbablityAdjustedOIWorthSellerDirectionAlgoThread extends G
 				}
 				rs.close();
 			} else {
-				Calendar intCal = Calendar.getInstance();
-				intCal.setTime(backtestDate.getTime());
-				intCal.set(Calendar.SECOND, 0);
-				//log.info("intCal="+intCal);
-				String opOIFetch = "select trading_symbol, delta, oi as open_interest, oi*ltp/10000000 as worthInCr "
-						+ " from nexcorio_option_greeks where trading_symbol like '" + optionnamePrefix + "%'"
-						
-						+ " and quote_time <= '"+ postgresLongDateFormat.format(getCurrentTime()) + "'"	
-						+ " and quote_time >  '"+ postgresLongDateFormat.format(getCurrentTime(-1)) + "'"
-						
-						+ (filterOptionWorth==true?" and oi*ltp/10000000>10":"")  + " order by quote_time desc ";
 				
-				fileLogTelegramWriter.write(" opOIFetch="+opOIFetch);
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
 				
-				List<String> symbols = new ArrayList<String>();
-				List<Float> ois = new ArrayList<Float>();
-				List<Float> deltas = new ArrayList<Float>();
-				List<Float> worthInCrAll = new ArrayList<Float>();
-				ResultSet rs = stmt.executeQuery(opOIFetch);
-				int recCount = 0;
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
 				while (rs.next()) {
-					symbols.add(rs.getString("trading_symbol") );
-					ois.add(rs.getFloat("open_interest") );
-					deltas.add(rs.getFloat("delta"));
-					worthInCrAll.add(rs.getFloat("worthInCr"));
-					top4Options = top4Options + symbols.get(recCount) +" "; 
-					//fileLogTelegramWriter.write( symbols.get(recCount) + ", oi=" + ois.get(recCount) );
-					recCount++;
+					optionnames.add(rs.getString("trading_symbol"));
 				}
 				rs.close();
-				// Remove the duplicates from the bottom
 				
-				for(int bottomPt = ois.size()-1;bottomPt>0;bottomPt--) {
-					for(int topPt = 0;topPt<bottomPt;topPt++) {
-						if (symbols.get(bottomPt).equals(symbols.get(topPt))) {
-							//fileLogTelegramWriter.write("Removing duplicate " + symbols.get(bottomPt) + ", oi=" + ois.get(bottomPt) );
-							ois.remove(bottomPt);
-							symbols.remove(bottomPt);
-							deltas.remove(bottomPt);
-							worthInCrAll.remove(bottomPt);
-							break;
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				List<OptionGreek> optionGreeks = getOptionGreeks(optionnames, 0);
+//				for(String optionname:optionnames ) {
+//					OptionGreek aGreek = getOptionGreeks(optionname);
+//					if (aGreek!=null) {
+//						optionGreeks.add(aGreek);
+//					}
+//				}
+				Collections.sort(optionGreeks, new SortbyOiDesc());
+				
+				int recProcessed = 0;
+				for(OptionGreek aGreek: optionGreeks) {
+					if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+						recProcessed++;
+						String tradingSymbol = aGreek.getTradingSymbol();
+						float worthInCr = aGreek.getOi()*aGreek.getLtp()/10000000f;
+						float delta = aGreek.getDelta();
+						top4Options = top4Options + tradingSymbol +" ";
+						
+						if (tradingSymbol.endsWith("CE")) {
+							if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCr*(1f-delta);				
+							else ceOIWorth = ceOIWorth + worthInCr*delta;
+						} else {
+							if (useScaledDelta) peOIWorth = peOIWorth + worthInCr*(1f+delta);
+							else peOIWorth = peOIWorth + worthInCr*-delta;
 						}
 					}
-				}
-				// Sort by OI
-				for(int i=0;i<ois.size()-1;i++) {
-					for(int j=i+1;j<ois.size();j++) {
-						if ( ois.get(j) > ois.get(i) ) {
-							String swapObj = symbols.get(i);
-							symbols.set(i, symbols.get(j));
-							symbols.set(j, swapObj);
-							
-							Float swapNum = ois.get(i);
-							ois.set(i, ois.get(j));
-							ois.set(j, swapNum);
-							
-							swapNum = deltas.get(i);
-							deltas.set(i, deltas.get(j));
-							deltas.set(j, swapNum);
-							
-							swapNum = worthInCrAll.get(i);
-							worthInCrAll.set(i, worthInCrAll.get(j));
-							worthInCrAll.set(j, swapNum);
-						}
-					}
-				}
-				
-				int tillLoop = this.topOis;
-				if (ois.size() < this.topOis) {
-					tillLoop = ois.size();
-				}
-				
-				for(int i=0;i<tillLoop;i++) {
-					//fileLogTelegramWriter.write(i + ". " + symbols.get(i) + ", oi=" + ois.get(i) );
-					if (symbols.get(i).endsWith("CE")) {
-						if (useScaledDelta) ceOIWorth = ceOIWorth + worthInCrAll.get(i)*(1f-Math.abs(deltas.get(i)));
-						else ceOIWorth = ceOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
-					} else {
-						if (useScaledDelta) peOIWorth = peOIWorth + worthInCrAll.get(i)*(1f-Math.abs(deltas.get(i)));
-						else peOIWorth = peOIWorth + worthInCrAll.get(i)*Math.abs(deltas.get(i));
-					}
+					if (recProcessed>=this.topOis) break;
 				}				
 			}
 			stmt.close();

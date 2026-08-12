@@ -25,6 +25,7 @@ public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implement
 	public float diffFromAtmGreeks = 10f;
 	public boolean exitOnQuickChrun = false;
 	public String greekname = "Theta";
+	public boolean adjustATMGap = false;
 	
 	
 	private String guidingStraddleCeOptionName = "";
@@ -108,6 +109,15 @@ public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implement
 					
 					OptionGreek currentCEGreek = getOptionGreeks(entryStraddleOptionNames[0]);
 					OptionGreek currentPEGreek = getOptionGreeks(entryStraddleOptionNames[1]);
+					
+					if (adjustATMGap) {
+						if (currentPEGreek.getTheta() > currentCEGreek.getTheta()) {
+							float diff2Add = currentPEGreek.getTheta() - currentCEGreek.getTheta();
+							guidingCEGreek.setTheta(guidingCEGreek.getTheta()+diff2Add);
+							currentCEGreek.setTheta(currentCEGreek.getTheta()+diff2Add);
+							fileLogTelegramWriter.write( "adjustATMGap " + diff2Add);
+						}
+					}
 					
 					float guidingCeGreekValue = Math.abs(guidingCEGreek.getTheta());
 					float guidingPeGreekValue = Math.abs(guidingPEGreek.getTheta());

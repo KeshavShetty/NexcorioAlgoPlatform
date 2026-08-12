@@ -17,10 +17,13 @@ public class G3AutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass imple
 	public float indexPoints = 35f; 
 	
 	public float deltaBias = 0.1f;
-	
+	public boolean bullNeutral = false;
 	public boolean wait4IdealPremium = Boolean.FALSE;
 	
 	private float idealPremium = 0f;
+	
+	public float upIndexPoints = -1f;
+	public float dnIndexPoints = -1f;
 	
 	public G3AutoIndexFollowerRollingGreekAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -78,6 +81,11 @@ public class G3AutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass imple
 			float maxTrailingProfit = 0f;
 			
 			updateAlgoStatus("Running");
+			
+			if (upIndexPoints < 0f ) upIndexPoints = indexPoints;
+			if (dnIndexPoints < 0f ) dnIndexPoints = indexPoints;
+			
+			fileLogTelegramWriter.write( "Set upIndexPoints=" + upIndexPoints + " dnIndexPoints="+dnIndexPoints);
 			
 			String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 			
@@ -140,7 +148,7 @@ public class G3AutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass imple
 				}
 				fileLogTelegramWriter.write( " instrumentLtp=" + this.instrumentLtp +" ****** currentProfit="+currentProfitPerUnit+" ****** maxLowestpointReachedPerUnit="+(maxLowestpointReached)+" maxTrailingProfit="+maxTrailingProfit);
 				
-				if (this.instrumentLtp > indexWhenStraddleFormed + indexPoints || this.instrumentLtp < indexWhenStraddleFormed - indexPoints) {
+				if (this.instrumentLtp > indexWhenStraddleFormed + upIndexPoints || this.instrumentLtp < indexWhenStraddleFormed - dnIndexPoints) {
 					
 					// Exit existing function
 					fileLogTelegramWriter.write( " Exiting running straddle="+ceStraddleOptionName +" and " + peStraddleOptionName);
@@ -155,10 +163,18 @@ public class G3AutoIndexFollowerRollingGreekAlgoThread extends G3BaseClass imple
 					
 					if (this.noOfOrders < maxAllowedNoOfOrders) {
 						
-						String[] entryStraddleOptionNames1 = getStraddleOptionNamesByDeltaOptimised( baseDelta+deltaBias, 0);
-						String[] entryStraddleOptionNames2 = getStraddleOptionNamesByDeltaOptimised( baseDelta-deltaBias, 0);
+						float upDelat2Use = baseDelta+deltaBias;
+						float dnDelat2Use = baseDelta-deltaBias;
 						
-						if (this.instrumentLtp > indexWhenStraddleFormed + indexPoints) {
+						if (bullNeutral && this.instrumentLtp > indexWhenStraddleFormed + upIndexPoints) {
+							upDelat2Use = baseDelta;
+							dnDelat2Use = baseDelta;
+						}
+						
+						String[] entryStraddleOptionNames1 = getStraddleOptionNamesByDeltaOptimised( upDelat2Use, 0);
+						String[] entryStraddleOptionNames2 = getStraddleOptionNamesByDeltaOptimised( dnDelat2Use, 0);
+						
+						if (this.instrumentLtp > indexWhenStraddleFormed + upIndexPoints) {
 							ceStraddleOptionName =  entryStraddleOptionNames2[0];
 							peStraddleOptionName =  entryStraddleOptionNames1[1];
 						} else {

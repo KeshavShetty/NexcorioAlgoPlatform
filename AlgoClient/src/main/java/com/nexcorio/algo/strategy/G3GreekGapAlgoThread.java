@@ -381,6 +381,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			return getSellerDirectionByMinMaxIv(lastKnownTrend);
 		} else if (greekname.equals("altAbove5IvSlope")) {
 			return getSellerDirectionByIvSlope(lastKnownTrend);
+		} else if (greekname.equals("OiStrikeDistance")) {
+			return getOptionTrendFromTop5OIByStrikeDistance(lastKnownTrend);
 		}
 		
 		
@@ -535,7 +537,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "future_Outstanding_Volume as peGreek, 0 as ceGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmltheta")) {
 				//fieldname = "dr16accumulatedchangein5secpetheta as peGreek, dr16accumulatedchangein5seccetheta as ceGreek";
-				fieldname = "tmpaccmlcetheta as ceGreek, tmpaccmlpetheta as peGreek";
+				fieldname = "limitedOTMCeAvgIv as ceGreek, limitedOTMPeAvgIv as peGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmlvega")) {
 				fieldname = "tmpaccmlcetheta/tmpaccmlcegamma as ceGreek, tmpaccmlpetheta/tmpaccmlpegamma as peGreek";
 			} else if (greekname.equalsIgnoreCase("tmpaccmlgamma")) {
@@ -1030,6 +1032,104 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 		return retVal;
 	}
 	
+	private String getOptionTrendFromTop5OIByStrikeDistance(String lastKnownOptiontrend) {
+		String retVal = "StatusQuo";
+		
+		Connection conn = null;
+		String top4Options ="";
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			List<OptionGreek> optionGreeks = new ArrayList<OptionGreek>();
+			
+			if (this.backtestDate == null) { // Live
+				optionGreeks = getSnapshotGreeksFromCache();
+			} else {
+				// First try to fetch from Snapshot table
+				String fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_snapshot"
+						+ " where trading_symbol like '" + mainInstrument.getShortName() + "%' "
+						+ " and record_date = '" + postgresShortDateFormat.format(getCurrentTime()) + "'";
+				fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+				
+				List<String> optionnames = new ArrayList<>();			
+				ResultSet rs = stmt.executeQuery(fetchSql);
+				while (rs.next()) {
+					optionnames.add(rs.getString("trading_symbol"));
+				}
+				rs.close();
+				
+				if (optionnames.size()==0) { // not found in snapshot		
+					fetchSql = "select DISTINCT(trading_symbol) as trading_symbol from nexcorio_option_greeks"
+							+ " where f_main_instrument = " + mainInstrument.getId() + " "
+							+ " and quote_time > '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:15:00'"
+							+ " and quote_time < '" + postgresShortDateFormat.format(getCurrentTime()) + " 09:20:00'";
+								
+					rs = stmt.executeQuery(fetchSql);
+					while (rs.next()) {
+						optionnames.add(rs.getString("trading_symbol"));
+					}
+					rs.close();
+					
+					// Insert to snapshot
+					for(String aSymbol: optionnames) {
+						String insertSql = "INSERT INTO nexcorio_option_snapshot (id, trading_symbol, record_date)"
+								+ " VALUES (nextval('nexcorio_option_snapshot_id_seq'),'" + aSymbol + "','" + postgresShortDateFormat.format(getCurrentTime()) + "')";
+						stmt.executeUpdate(insertSql);
+					}
+				}
+				for(String optionname:optionnames ) {
+					OptionGreek aGreek = getOptionGreeks(optionname);
+					if (aGreek!=null) {
+						optionGreeks.add(aGreek);
+					}
+				}
+			}
+			stmt.close();
+			
+			Collections.sort(optionGreeks, new SortbyOiDesc());
+			
+			int recProcessed = 0;
+			float ceValue = 0f;
+			float peValue = 0f;
+			
+			for(OptionGreek aGreek: optionGreeks) {
+				if (aGreek.getOi()*aGreek.getLtp()/10000000>10) {
+					recProcessed++;
+					
+					String tradingSymbol = aGreek.getTradingSymbol();
+					float oi = aGreek.getOi();
+					float strikeDistance = 0f;
+					if (tradingSymbol.endsWith("CE")) {
+						strikeDistance = aGreek.getStrike() - this.instrumentLtp;
+						ceValue = ceValue + oi/Math.abs(aGreek.getDelta());
+						fileLogTelegramWriter.write( "tradingSymbol="+tradingSymbol+" oi="+oi+" this.instrumentLtp="+this.instrumentLtp+" strikeDistance="+strikeDistance+" ceValue="+ceValue);
+					} else {
+						strikeDistance = this.instrumentLtp - aGreek.getStrike();
+						peValue = peValue + oi/Math.abs(aGreek.getDelta());
+						fileLogTelegramWriter.write( "tradingSymbol="+tradingSymbol+" oi="+oi+" this.instrumentLtp="+this.instrumentLtp+" strikeDistance="+strikeDistance+" peValue="+peValue);
+					}
+				}
+				if (recProcessed >=5) break;
+			}
+			
+			if (ceValue > peValue) {
+				retVal = "CE";
+			} else {
+				retVal = "PE";
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retVal;
+	}
+	
 	private String getOptionTrendFromPremiumBasedGreekGap(String lastKnownOptiontrend) {
 		String retVal = "StatusQuo";
 		
@@ -1286,7 +1386,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			} else if (mainGreek4MultiOI.equalsIgnoreCase("dr49accmlLtp")) {
 				greekSelectFields = "dr49accumulatedchangein5secceLtp as ceGreek, dr49accumulatedchangein5secpeLtp as peGreek";
 			}
-			String fetchSql = "select " + greekSelectFields + ", altabove5WhlStrkCEAvgIv, altabove5WhlStrkPEAvgIv from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+			String fetchSql = "select " + greekSelectFields + ", altabove5WhlStrkCEAvgIv as altCe, altabove5WhlStrkPEAvgIv as altPe from nexcorio_option_atm_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 5";
 			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
@@ -1300,8 +1400,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				ceGreek = ceGreek + rs.getFloat("ceGreek");
 				peGreek = peGreek + rs.getFloat("peGreek");
 				
-				float altCeGreek = rs.getFloat("altabove5WhlStrkCEAvgIv");
-				float altPeGreek = rs.getFloat("altabove5WhlStrkPEAvgIv");
+				float altCeGreek = rs.getFloat("altCe");
+				float altPeGreek = rs.getFloat("altPe");
 				
 				if (altCeGreek > altPeGreek) altGapCount++;
 			}
