@@ -19,10 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.commons.math3.stat.regression.SimpleRegression;
+
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
-import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
 class SortbyIV implements Comparator<OptionGreek> 
@@ -80,6 +81,17 @@ class SortbyStrike implements Comparator<OptionGreek>
     } 
 }
 
+class SortbyTheta implements Comparator<OptionGreek> 
+{ 
+    // Comparator 
+    public int compare(OptionGreek a, OptionGreek b) 
+    { 
+    	if (a.getTheta() < b.getTheta()) return -1;
+    	else if (a.getTheta() > b.getTheta()) return 1;
+    	else return 0;
+    } 
+}
+
 public class ATMThread implements Runnable {
 
 	Long atmId;
@@ -126,7 +138,7 @@ public class ATMThread implements Runnable {
 		List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
 		List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
 		
-		List<OptionGreek> allPrevGreeks = getOptionGreeks(optionnames, -400);
+		List<OptionGreek> allPrevGreeks = getOptionGreeks(optionnames, -5);
 		for(OptionGreek aGreek : allPrevGreeks ) {
 			if (aGreek!=null) {
 				if (aGreek.getTradingSymbol().endsWith("CE")) prevCeOptionGreeks.add(aGreek);
@@ -139,35 +151,71 @@ public class ATMThread implements Runnable {
 		
 		Map<String, Float> retMap = new HashMap<>();
 		
-		Collections.sort(allGreeks, new SortbyOiDesc());
+		Collections.sort(ceOptionGreeks, new SortbyStrike());
+		Collections.reverse(ceOptionGreeks);
+		Collections.sort(peOptionGreeks, new SortbyStrike());
 		
-		float prevCeOi = 0f;
-		float prevPeOi = 0f;
 		
-		float curCeOi = 0f;
-		float curPeOi = 0f;
-		
-		int recCount = 0;
-		for(OptionGreek aGreek: allGreeks) {
-			if (aGreek!=null) {
-				if (recCount < 5) {
-					if (aGreek.getTradingSymbol().endsWith("CE")) {
-						curCeOi = curCeOi + aGreek.getOi();
-						if (prevCeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null) prevCeOi = prevCeOi + prevCeOptionGreeksMap.get(aGreek.getTradingSymbol()).getOi();
+		int lowerStrikeMarked = 0;
+		OptionGreek prevGreek = null;
+		for(OptionGreek aGreek: ceOptionGreeks) {
+			float delta = Math.abs(aGreek.getDelta());
+			if (delta > 0.5f) {
+				if (prevGreek!=null) {
+					if (delta < 0.9f) {
+						if ( Math.abs(aGreek.getDelta()) > Math.abs(prevGreek.getDelta())) {
+							lowerStrikeMarked = aGreek.getStrike();
+							prevGreek = aGreek;
+						}
 					} else {
-						curPeOi = curPeOi + aGreek.getOi();
-						if (prevPeOptionGreeksMap.get(aGreek.getTradingSymbol())!=null)  prevPeOi = prevPeOi + prevPeOptionGreeksMap.get(aGreek.getTradingSymbol()).getOi();
+						break;
 					}
-				} else break;
-				recCount++;
+				} else {
+					lowerStrikeMarked = aGreek.getStrike();
+					prevGreek = aGreek;
+				}
 			}
 		}
 		
-		float rocInCeOi =  prevCeOi!=0 ? (curCeOi - prevCeOi)/prevCeOi :0f;
-		float rocInPeOi =  prevPeOi!=0 ? (curPeOi - prevPeOi)/prevPeOi :0f;
+		int upperStrikeMarked = 0;
+		prevGreek = null;
+		for(OptionGreek aGreek: peOptionGreeks) {
+			float delta = Math.abs(aGreek.getDelta());
+			if (delta > 0.5f) {
+				if (prevGreek!=null) {
+					if (delta < 0.9f) {
+						if ( Math.abs(aGreek.getDelta()) > Math.abs(prevGreek.getDelta())) {
+							upperStrikeMarked = aGreek.getStrike();
+							prevGreek = aGreek;
+						}
+					} else {
+						break;
+					}
+				} else {
+					upperStrikeMarked = aGreek.getStrike();
+					prevGreek = aGreek;
+				}
+			}
+		}
+		//System.out.println("lowerStrikeMarked="+lowerStrikeMarked+" upperStrikeMarked="+upperStrikeMarked);
 		
-		retMap.put("tmpaccmlcetheta", rocInCeOi);
-		retMap.put("tmpaccmlpetheta", rocInPeOi);
+		List<OptionGreek> selectedCeGreeks = new ArrayList<OptionGreek>();
+		List<OptionGreek> selectedPeGreeks = new ArrayList<OptionGreek>();
+		
+		for(OptionGreek aGreek: ceOptionGreeks) {
+			if (aGreek.getStrike() > lowerStrikeMarked && aGreek.getStrike() < upperStrikeMarked ) {
+				selectedCeGreeks.add(aGreek);
+			}
+		}
+		
+		for(OptionGreek aGreek: peOptionGreeks) {
+			if (aGreek.getStrike() > lowerStrikeMarked && aGreek.getStrike() < upperStrikeMarked ) {
+				selectedPeGreeks.add(aGreek);
+			}
+		}
+		
+		retMap.put("tmpaccmlcetheta", (float) selectedCeGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0) );
+		retMap.put("tmpaccmlpetheta", (float) selectedPeGreeks.stream().mapToDouble(d -> d.getGamma()).average().orElse(0.0) );
 		
 		//saveGreek(retMap, adjustedATMCEGreek, adjustedATMPEGreek);
 		saveAccumulatedChangeInIVGreek(retMap);
@@ -191,6 +239,78 @@ public class ATMThread implements Runnable {
         } else {
         	System.out.println("Failed File deleted successfully");
         }
+	}
+	
+	private float getMedianIv(List<OptionGreek> selectedGreeks) {
+		
+		int n = selectedGreeks.size();
+        
+        // If length is odd, return the middle element
+        if (n % 2 != 0) {
+            return selectedGreeks.get(n / 2).getTheta();
+        }
+        
+        // If length is even, return the average of the two middle elements
+        return (selectedGreeks.get(n / 2 - 1).getTheta() + selectedGreeks.get(n / 2).getTheta() )/ 2.0f;
+	}
+	private float getSlope(List<OptionGreek> selectedGreeks) {
+		float retVal = 0f;
+		SimpleRegression regression = new SimpleRegression();
+
+		// Adding individual data points (x, y)
+		for(OptionGreek aGreek: selectedGreeks) {
+			System.out.println("Adding "+aGreek.getTradingSymbol()+" Strike:" + aGreek.getStrike()+" Iv:"+aGreek.getIv());
+			regression.addData(aGreek.getStrike(), aGreek.getIv());
+		}
+		// Extracting regression parameters
+		double slope = regression.getSlope();
+		double intercept = regression.getIntercept();
+		
+		System.out.println("Slope: " + slope);
+		System.out.println("Intercept: " + intercept);
+		
+		retVal = (float) slope;
+		
+		return retVal;
+	}
+	
+	private float getScaledIv(int strike, Map<Integer, OptionGreek> availableGreeksMap) {
+		float retVal = 0f;
+		
+		int lowerStrike = -1;
+		int curStrike = strike;
+		do {
+			if (availableGreeksMap.get(curStrike) != null ) {
+				lowerStrike = curStrike;
+			} else {
+				curStrike = curStrike - 50;
+			}
+		} while(lowerStrike < 0);
+		
+		int upperStrike = -1;
+		curStrike = strike;
+		do {
+			if (availableGreeksMap.get(curStrike) != null ) {
+				upperStrike = curStrike;
+			} else {
+				curStrike = curStrike + 50;
+			}
+		} while(upperStrike < 0);
+		
+		OptionGreek lowerGreek = availableGreeksMap.get(lowerStrike);
+		OptionGreek upperGreek = availableGreeksMap.get(upperStrike);
+		
+		//retVal = lowerGreek.getIv() + (upperGreek.getIv() - lowerGreek.getIv() ) / (( upperGreek.getStrike() - lowerGreek.getStrike() )/ (strike - lowerGreek.getStrike()) ) ;
+		
+		retVal = (upperGreek.getIv() + lowerGreek.getIv())/2f;
+//		System.out.println("lowerGreek Strike " + lowerGreek.getStrike() + " uppergreek strike " + upperGreek.getStrike() + 
+//				"lowerGreek Iv " + lowerGreek.getIv() + " uppergreek Iv " + upperGreek.getIv() + " for strike " + strike + " retVal="+retVal);
+		
+		return retVal;
+	}
+	
+	public float scaleZeroToOne(float value, float min, float max) {
+	    return (value - min) / (max - min);
 	}
 	
 	private Map<String, Float> getPrev5SecFullRangeIvs() {
@@ -306,43 +426,51 @@ public class ATMThread implements Runnable {
 			SimpleDateFormat postgresLongDateFormat  = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(recTimestamp);
+			cal.add(Calendar.MINUTE, -15);
+			
 			String updateSql = "UPDATE nexcorio_option_atm_movement_data set"
 					
-
-//				+ "  lowerStrikeCEAvgIv=" + retMap.get("lowerCEAvgIv")
-//				+ ", lowerStrikePEAvgIv=" + retMap.get("lowerPEAvgIv")
-//				
-//				+ ", upperStrikeCEAvgIv=" + retMap.get("upperCEAvgIv")
-//				+ ", upperStrikePEAvgIv=" + retMap.get("upperPEAvgIv")
-				
-//				+ "  fullOtm0x600CEGreeks=" + retMap.get("fullOtm0x600CEGreeks")
-//				+ ", fullOtm0x600PEGreeks=" + retMap.get("fullOtm0x600PEGreeks")
-//				
-//				+ ", lowerOtm0x300CEGreeks=" + retMap.get("lowerOtm0x300CEGreeks")
-//				+ ", lowerOtm0x300PEGreeks=" + retMap.get("lowerOtm0x300PEGreeks")
-//					
-//				+ ", upperOtm300x600CEGreeks=" + retMap.get("upperOtm300x600CEGreeks")
-//				+ ", upperOtm300x600PEGreeks=" + retMap.get("upperOtm300x600PEGreeks")
-//					
-//				+ ", upperOtm150x300CEGreeks=" + retMap.get("upperOtm150x300CEGreeks")
-//				+ ", upperOtm150x300PEGreeks=" + retMap.get("upperOtm150x300PEGreeks")
+//			retMap.put("ceOutlierCount", (float) selectedOutlierCEGreeks.size() );
+//			retMap.put("peOutlierCount", (float) selectedOutlierPEGreeks.size() );
+//			
+//			retMap.put("allITMCeAvgIv",(float) selectedAllITMCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+//			retMap.put("allITMPeAvgIv",(float) selectedAllITMPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+//			retMap.put("limitedITMCeAvgIv",(float) selectedLimitedITMCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+//			retMap.put("limitedITMPeAvgIv",(float) selectedLimitedITMPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+//			retMap.put("limitedOTMCeAvgIv",(float) selectedLimitedOTMCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
+//			retMap.put("limitedOTMPeAvgIv",(float) selectedLimitedOTMPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
 			
-//				+ "  lowerstrikeceavgiv=" + retMap.get("lowerCEAvgIv")
-//				+ ", lowerstrikepeavgiv=" + retMap.get("lowerPEAvgIv")
-//				
-//				+ ", upperstrikeceavgiv=" + retMap.get("upperCEAvgIv")
-//				+ ", upperstrikepeavgiv=" + retMap.get("upperPEAvgIv")
-//				
+			
+//			+ "  ceOutlierCount=" + retMap.get("ceOutlierCount") + ",  peOutlierCount=" + retMap.get("peOutlierCount")	
+//			+ ", allITMCeAvgIv=" + retMap.get("allITMCeAvgIv") + ",  allITMPeAvgIv=" + retMap.get("allITMPeAvgIv")
+//			+ ", limitedITMCeAvgIv=" + retMap.get("limitedITMCeAvgIv") + ",  limitedITMPeAvgIv=" + retMap.get("limitedITMPeAvgIv")
+//			+ ", limitedOTMCeAvgIv=" + retMap.get("limitedOTMCeAvgIv") + ",  limitedOTMPeAvgIv=" + retMap.get("limitedOTMPeAvgIv")
+					
+					
 				+ "  tmpaccmlcetheta=" + retMap.get("tmpaccmlcetheta")
 				+ ", tmpaccmlpetheta=" + retMap.get("tmpaccmlpetheta")
 				
-//				+ "  tmpchangecetheta=" + retMap.get("changeInCETheta")
-//				+ ", tmpchangepetheta=" + retMap.get("changeInPETheta")
-//				+ ", tmpaccmlcetheta=" + "(SELECT sum(tmpchangecetheta) FROM nexcorio_option_atm_movement_data"
-//					+ " where f_main_instrument=2 and record_time > '" + postgresShortDateFormat.format(recTimestamp) + " 09:15:05' and record_time <= '" + postgresLongDateFormat.format(recTimestamp) + "')"
-//				+ ", tmpaccmlpetheta=" + "(SELECT sum(tmpchangepetheta) FROM nexcorio_option_atm_movement_data"
-//					+ " where f_main_instrument=2 and record_time > '" + postgresShortDateFormat.format(recTimestamp) + " 09:15:05' and record_time <= '" + postgresLongDateFormat.format(recTimestamp) + "')"
 				
+				
+//					+ "  upperDeltaPeMinIv=" + retMap.get("upperDeltaPeMinIv")
+//					+ ", upperDeltaPeMaxIv=" + retMap.get("upperDeltaPeMaxIv")
+//					+ ", upperDeltaPeAvgIv=" + retMap.get("upperDeltaPeAvgIv")
+//					
+//					+ ", lowerDeltaPeMinIv=" + retMap.get("lowerDeltaPeMinIv")
+//					+ ", lowerDeltaPeMaxIv=" + retMap.get("lowerDeltaPeMaxIv")
+//					+ ", lowerDeltaPeAvgIv=" + retMap.get("lowerDeltaPeAvgIv")						
+						
+				
+					
+//				+ "  tmpchangecetheta=" + retMap.get("tmpaccmlcetheta")
+//				+ ", tmpchangepetheta=" + retMap.get("tmpaccmlpetheta")
+//				+ ", tmpaccmlcetheta=" + "(SELECT sum(tmpchangecetheta) FROM nexcorio_option_atm_movement_data"
+//					+ " where f_main_instrument=2 and record_time > '" + postgresLongDateFormat.format(cal.getTime()) + "' and record_time <= '" + postgresLongDateFormat.format(recTimestamp) + "')"
+//				+ ", tmpaccmlpetheta=" + "(SELECT sum(tmpchangepetheta) FROM nexcorio_option_atm_movement_data"
+//					+ " where f_main_instrument=2 and record_time > '" + postgresLongDateFormat.format(cal.getTime()) + "' and record_time <= '" + postgresLongDateFormat.format(recTimestamp) + "')"
+//				
 				
 
 //					+ "  otm0_200CEChangeTheta=" + retMap.get("otm0_200CEAccmlTheta")
@@ -687,14 +815,14 @@ public class ATMThread implements Runnable {
 			String fetchSql = "WITH RankedRows AS"
 					+ " ("
 					+ " SELECT "
-					+ " trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value,"
+					+ " trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today, quote_time, "
 					+ " ROW_NUMBER() OVER (PARTITION BY trading_symbol ORDER BY quote_time DESC, id DESC) AS rank"
 					+ " FROM nexcorio_option_greeks"
 					+ " WHERE trading_symbol IN (" + "'" + String.join("','", optionnames) + "'" + ")"
 					+ " AND quote_time <= '" + postgresLongDateFormat.format(upto)  + "'"
 					+ " AND quote_time >= '" + postgresLongDateFormat.format(fromTime)  + "'"
 					+ " )"
-					+ " SELECT trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value FROM RankedRows WHERE rank = 1";
+					+ " SELECT trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today, quote_time FROM RankedRows WHERE rank = 1";
 			
 			//System.out.println("fetchSql="+fetchSql);
 			
@@ -704,6 +832,8 @@ public class ATMThread implements Runnable {
 			while (rs.next()) {
 				OptionGreek retVal = new OptionGreek(rs.getString("trading_symbol"), rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"), rs.getFloat("oi"));
 				retVal.setUnderlyingValue(rs.getFloat("underlying_value"));
+				retVal.setVolumeTradedToday(rs.getLong("volume_traded_today"));
+				retVal.setQuoteTime(rs.getTimestamp("quote_time"));
 				retList.add(retVal);
 			}
 			rs.close();
@@ -723,9 +853,64 @@ public class ATMThread implements Runnable {
 		}
 		return retList;
 	}
+
+	protected Map<String, Float> getVolumeTraded(List<String> optionNames, int lagSecond) {
+		
+		Map<String, Float> retMap = new HashMap<String, Float>();
+		
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(recTimestamp);
+			if (lagSecond!=0) {
+				cal.add(Calendar.SECOND, lagSecond);
+			}
+			Date upto =  cal.getTime();
+			
+			cal.add(Calendar.SECOND, -300);
+			Date fromTime =  cal.getTime();
+			SimpleDateFormat postgresLongDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+			
+			String fetchSql = "WITH RankedRows AS"
+					+ " ("
+					+ " SELECT "
+					+ " trading_symbol, open_interest,"
+					+ " ROW_NUMBER() OVER (PARTITION BY trading_symbol ORDER BY quote_time DESC, id DESC) AS rank"
+					+ " FROM nexcorio_tick_data"
+					+ " WHERE trading_symbol IN (" + "'" + String.join("','", optionnames) + "'" + ")"
+					+ " AND quote_time <= '" + postgresLongDateFormat.format(upto)  + "'"
+					+ " AND quote_time >= '" + postgresLongDateFormat.format(fromTime)  + "'"
+					+ " )"
+					+ " SELECT trading_symbol, open_interest FROM RankedRows WHERE rank = 1";
+			//System.out.println(fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while (rs.next()) {
+				retMap.put(rs.getString("trading_symbol"), rs.getFloat("open_interest"));
+			}
+			rs.close();
+			stmt.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		return retMap;
+	}
 	
 	private int getStrike(String optionname) {
-		return KiteUtil.getStrike(optionname);
+		int retVal = 0;
+		String strikename = optionname.substring(optionname.length()-7, optionname.length()-2);
+		//System.out.println(strikename);
+		retVal = Integer.parseInt(strikename);
+		return retVal;
 	}
 	
 	public static void main(String[] args) {
