@@ -1688,5 +1688,17 @@ public class BaseClass {
 		fileLogTelegramWriter.write("In getSnapshotGreeksFromCache size=" + retList.size());
 		return retList;
 	}
-	
+
+	protected String getDayOfWeekField(Calendar curTestTime) {
+		String retStr = "order_enabled_monday";
+		Calendar calInst = Calendar.getInstance();
+		if (curTestTime!=null) calInst = curTestTime;
+		if (calInst.get(Calendar.DAY_OF_WEEK)==Calendar.MONDAY) retStr = "order_enabled_monday";
+		else if (calInst.get(Calendar.DAY_OF_WEEK)==Calendar.TUESDAY) retStr = "order_enabled_tuesday";
+		else if (calInst.get(Calendar.DAY_OF_WEEK)==Calendar.WEDNESDAY) retStr = "order_enabled_wednesday";
+		else if (calInst.get(Calendar.DAY_OF_WEEK)==Calendar.THURSDAY) retStr = "order_enabled_thursday";
+		else if (calInst.get(Calendar.DAY_OF_WEEK)==Calendar.FRIDAY) retStr = "order_enabled_friday"; 
+		System.out.println("In getDayOfWeekField retStr="+retStr);
+		return retStr;
+	}
 }

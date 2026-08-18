@@ -239,11 +239,15 @@ public class TelegramChannelReader extends AnalyticsBaseClass implements Runnabl
 			} else {
 				fetchNextSeq = fetchNextSeq + " and f_strategy in (" 
 						+ " SELECT id FROM nexcorio_options_algo_strategy WHERE "
-						+ " order_enabled_monday = 't' "
-						+ " OR order_enabled_tuesday = 't'"
-						+ " OR order_enabled_wednesday = 't'"
-						+ " OR order_enabled_thursday = 't'"
-						+ " OR order_enabled_friday = 't'"
+						
+						+ getDayOfWeekField(backtestDate) + " = 't' "
+						
+//						+ " order_enabled_monday = 't' "
+//						+ " OR order_enabled_tuesday = 't'"
+//						+ " OR order_enabled_wednesday = 't'"
+//						+ " OR order_enabled_thursday = 't'"
+//						+ " OR order_enabled_friday = 't'"
+						
 						+ " order by id)";
 			}
 			
@@ -283,11 +287,14 @@ public class TelegramChannelReader extends AnalyticsBaseClass implements Runnabl
 			} else {
 				updateSql = updateSql + " and id in (" 
 						+ " SELECT id FROM nexcorio_options_algo_strategy WHERE "
-						+ " order_enabled_monday = 't' "
-						+ " OR order_enabled_tuesday = 't'"
-						+ " OR order_enabled_wednesday = 't'"
-						+ " OR order_enabled_thursday = 't'"
-						+ " OR order_enabled_friday = 't'"
+						+ getDayOfWeekField(backtestDate) + " = 't' "
+						
+//						+ " order_enabled_monday = 't' "
+//						+ " OR order_enabled_tuesday = 't'"
+//						+ " OR order_enabled_wednesday = 't'"
+//						+ " OR order_enabled_thursday = 't'"
+//						+ " OR order_enabled_friday = 't'"
+						
 						+ " order by id)";
 			}
 			int recUpdated = stmt.executeUpdate(updateSql);
