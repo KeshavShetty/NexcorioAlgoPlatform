@@ -52,18 +52,18 @@ public class Main {
 			
 			kiteHelper.tickerUsage((ArrayList<Long>) zerodhaTokensToSubscribe);
 			
-			List<MainInstruments> mainInstruments = kiteHelper.getMainInstrumentsDto();
-			for(MainInstruments mainInstrument : mainInstruments) {
-				if (!mainInstrument.getShortName().equals("VIX")) { // Exclude VIX (Vix has no options
-					new ATMMovementAnalyzerThreadAlgoThread(mainInstrument.getShortName(), null);
-				}
-			}
-			
-			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
-			new G3NapAlgoTriggerThread();
-			
-			if (ApplicationConfig.getProperty("enable.telegram.integration").equals("true")) new TelegramChannelReader(); // Telegram integration 
-			else System.out.println("Telegram Not enablked");
+//			List<MainInstruments> mainInstruments = kiteHelper.getMainInstrumentsDto();
+//			for(MainInstruments mainInstrument : mainInstruments) {
+//				if (!mainInstrument.getShortName().equals("VIX")) { // Exclude VIX (Vix has no options
+//					new ATMMovementAnalyzerThreadAlgoThread(mainInstrument.getShortName(), null);
+//				}
+//			}
+//			
+//			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
+//			new G3NapAlgoTriggerThread();
+//			
+//			if (ApplicationConfig.getProperty("enable.telegram.integration").equals("true")) new TelegramChannelReader(); // Telegram integration 
+//			else System.out.println("Telegram Not enablked");
 		} catch (Exception | KiteException e) {
 			e.printStackTrace();
 			log.error("Exception in main", e);

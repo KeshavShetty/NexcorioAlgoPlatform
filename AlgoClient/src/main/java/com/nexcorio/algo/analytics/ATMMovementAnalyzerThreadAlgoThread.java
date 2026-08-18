@@ -23,7 +23,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
-import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.CentralCacheHandler;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
@@ -160,7 +160,7 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	public ATMMovementAnalyzerThreadAlgoThread(String instrumentName, String backDateStr) {
 		super();
 		
-		this.mainInstrument = KiteCache.getTradingSymbolMainInstrumentCache(instrumentName);
+		this.mainInstrument = CentralCacheHandler.getTradingSymbolMainInstrumentCache(instrumentName);
 		
 		this.algoname=this.mainInstrument.getShortName() + "ATMMovementAnalyzer";
 		

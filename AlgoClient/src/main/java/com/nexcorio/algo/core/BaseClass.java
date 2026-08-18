@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,7 +26,8 @@ import org.json.JSONException;
 
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionGreek;
-import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.CaffeineCache;
+import com.nexcorio.algo.kite.CentralCacheHandler;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
@@ -118,7 +118,7 @@ public class BaseClass {
 		float retVal = 0f;
 		
 		if(backtestDate == null) { // Live data check in cache
-			Float priceFromCache = KiteCache.tickPriceCache.getIfPresent(instrumentName);
+			Float priceFromCache = CentralCacheHandler.getTickPrice(instrumentName);
 			if ( priceFromCache != null ) {
 				fileLogTelegramWriter.write("Found in cache");
 				return priceFromCache;
@@ -193,7 +193,7 @@ public class BaseClass {
 		if (optionName==null || optionName.equals("")) return null;
 		
 		if(backtestDate == null) { // Live data check in cache
-			OptionGreek optionGreekFromCache = KiteCache.optionGreekCache.getIfPresent(optionName);
+			OptionGreek optionGreekFromCache = CentralCacheHandler.getOptionGreek(optionName);
 			if ( optionGreekFromCache != null ) {
 				fileLogTelegramWriter.write("Greek Found in cache");
 				return optionGreekFromCache;
@@ -499,10 +499,10 @@ public class BaseClass {
 		OptionGreek peOptionGreek = getOptionGreeks(entryStraddleOptionNames1[1]);		
 		float diff1 = getGreekDiff(greekname, ceOptionGreek, peOptionGreek);
 		
-		System.out.println("1." + ceOptionGreek.getTradingSymbol() + " " + peOptionGreek.getTradingSymbol());
+		//System.out.println("1." + ceOptionGreek.getTradingSymbol() + " " + peOptionGreek.getTradingSymbol());
 		
 		String[] entryStraddleOptionNames2 = getStraddleOptionNamesByGreek(greekname, getGreekValue(greekname, ceOptionGreek), 0);
-		System.out.println("2." + entryStraddleOptionNames2[0] + " " + entryStraddleOptionNames2[1]);
+		//System.out.println("2." + entryStraddleOptionNames2[0] + " " + entryStraddleOptionNames2[1]);
 		
 		float diff2 = 10000000f;
 		
@@ -1684,17 +1684,7 @@ public class BaseClass {
 	}
 	
 	protected List<OptionGreek> getSnapshotGreeksFromCache() {
-		List<OptionGreek> retList = new ArrayList<OptionGreek>();
-		ConcurrentMap<String, OptionGreek> caffeineObjects =KiteCache.optionGreekCache.asMap();
-		
-		Iterator<String> iter = caffeineObjects.keySet().iterator();
-		while(iter.hasNext()) {
-			String keyStr = iter.next();
-			
-			if (keyStr.startsWith(this.mainInstrument.getShortName())) {
-				retList.add(caffeineObjects.get(keyStr));
-			}
-		}
+		List<OptionGreek> retList = CentralCacheHandler.getMatchingOptionGreek(this.mainInstrument.getShortName());
 		fileLogTelegramWriter.write("In getSnapshotGreeksFromCache size=" + retList.size());
 		return retList;
 	}

@@ -1,5 +1,7 @@
 package com.nexcorio.algo.dto;
 
+import java.io.Serializable;
+
 /**
  * 
  * @author Keshav Shetty
@@ -7,6 +9,11 @@ package com.nexcorio.algo.dto;
  */
 
 public class MainInstruments {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private Long id;
 	

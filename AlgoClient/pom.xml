@@ -115,7 +115,26 @@
 	    <artifactId>telegrambots</artifactId>
 	    <version>6.9.7.1</version>
 	</dependency>
+	
+	<dependency>
+		<groupId>redis.clients</groupId>
+		<artifactId>jedis</artifactId>
+		<version>5.0.2</version>
+	</dependency>
 
+	<!-- Selenium WebDriver -->
+    <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-java</artifactId>
+        <version>4.47.0</version>
+    </dependency>
+    <!-- TOTP Generator -->
+    <dependency>
+        <groupId>org.jboss.aerogear</groupId>
+        <artifactId>aerogear-otp-java</artifactId>
+        <version>1.0.0</version>
+    </dependency>
+    
   </dependencies>
 
 	<repositories>

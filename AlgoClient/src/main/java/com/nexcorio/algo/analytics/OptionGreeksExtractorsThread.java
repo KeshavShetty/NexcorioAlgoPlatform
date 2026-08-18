@@ -15,8 +15,7 @@ import org.apache.logging.log4j.Logger;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.dto.OptionFnOInstrument;
 import com.nexcorio.algo.dto.OptionGreek;
-import com.nexcorio.algo.kite.KiteCache;
-import com.nexcorio.algo.kite.KiteHelper;
+import com.nexcorio.algo.kite.CentralCacheHandler;
 import com.nexcorio.algo.util.BSOption;
 import com.nexcorio.algo.util.db.HDataSource;
 
@@ -81,13 +80,13 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			OptionGreek optionGreekDto = calculateAndSaveOptionGreeks(optionType, tradingSymbol, this.ltp, underlyingValue, strikePrice, optionIV, optionInstrument.getExpiryDate(), tickTimestamp, optionInstrument.getfMainInstrument(), this.volumeTradedToday);
 			
 			float changeInIv = 0f;
-			OptionGreek optionGreekFromCache = KiteCache.optionGreekCache.getIfPresent(tradingSymbol);
+			OptionGreek optionGreekFromCache = CentralCacheHandler.getOptionGreek(tradingSymbol);
 			if (optionGreekFromCache!=null) {
 				changeInIv = optionGreekDto.getIv() - optionGreekFromCache.getIv();
 			}
 			optionGreekDto.setChangeInIv(changeInIv);
 			optionGreekDto.setVolumeTradedToday(volumeTradedToday);
-			KiteCache.optionGreekCache.put(tradingSymbol, optionGreekDto);
+			CentralCacheHandler.putOptionGreek(tradingSymbol, optionGreekDto);
 		}
 		elapsedTime1 = System.currentTimeMillis();
 		logStr.append(", Time taken for calculateAndSaveOptionGreeks=" +(elapsedTime1-startTime));
@@ -220,7 +219,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			
 			Long snapshotId = null;
 			// get from cache first
-			snapshotId = KiteCache.snapshotIdCache.getIfPresent(this.tradingSymbol);
+			snapshotId = CentralCacheHandler.getSnapshotId(this.tradingSymbol);
 			if (snapshotId==null) {
 				// Insert into snapshot, first check if exists			
 				String fetchSql = "select id from nexcorio_option_snapshot where trading_symbol='" + this.tradingSymbol + "' and record_date='" + postgresShortDateFormat.format(latestTickQuoteTime) + "'";
@@ -233,7 +232,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 					snapshotId = rs.getLong("id");
 				}
 				rs.close();
-				if(snapshotId!=null) KiteCache.snapshotIdCache.put(this.tradingSymbol, snapshotId);
+				if(snapshotId!=null) CentralCacheHandler.putSnapshotId(this.tradingSymbol, snapshotId);
 				
 				elapsedTime1 = System.currentTimeMillis();
 				logStr.append(", Time taken for fetch snapshotId=" +(elapsedTime1-beginTime));
@@ -317,8 +316,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	public OptionFnOInstrument getOptionInstrument(String tradingSymbol) {
 		OptionFnOInstrument optionFnOInstrument= null;
 		
-		if (KiteCache.getTradingSymbolToOptionInstrument(tradingSymbol)!=null) {
-			return KiteCache.getTradingSymbolToOptionInstrument(tradingSymbol);
+		if (CentralCacheHandler.getTradingSymbolToOptionInstrument(tradingSymbol)!=null) {
+			return CentralCacheHandler.getTradingSymbolToOptionInstrument(tradingSymbol);
 		} else {
 			
 			Connection conn = null;
@@ -336,7 +335,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 				stmt.close();
 				
 				if (optionFnOInstrument!=null) {
-					KiteCache.putTradingSymbolToOptionInstrument(tradingSymbol, optionFnOInstrument);
+					CentralCacheHandler.putTradingSymbolToOptionInstrument(tradingSymbol, optionFnOInstrument);
 				}
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -355,13 +354,13 @@ public class OptionGreeksExtractorsThread implements Runnable {
 	public float getPriceFromTicks(Long mainInstrumentId) {
 		float retVal = 0f;
 		
-		MainInstruments mainInstrument = KiteCache.mainInstrumentsByIdCache.getIfPresent(mainInstrumentId);
+		MainInstruments mainInstrument = CentralCacheHandler.getMainInstrumentsById(mainInstrumentId+"");
 		
 		if (mainInstrument==null) {
 			mainInstrument = getMainInstrumentDtoById(mainInstrumentId);
-			KiteCache.mainInstrumentsByIdCache.put(mainInstrumentId, mainInstrument);
+			CentralCacheHandler.putMainInstrumentsById(mainInstrumentId+"", mainInstrument);
 		}
-		Float priceFromCache = KiteCache.tickPriceCache.getIfPresent(mainInstrument.getShortName());
+		Float priceFromCache = CentralCacheHandler.getTickPrice(mainInstrument.getShortName());
 		if ( priceFromCache != null ) {	
 			//System.out.println("Greek Extracor, price found in cache"+priceFromCache);
 			return priceFromCache;

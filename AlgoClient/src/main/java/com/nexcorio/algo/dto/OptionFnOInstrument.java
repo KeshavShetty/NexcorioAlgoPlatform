@@ -1,5 +1,6 @@
 package com.nexcorio.algo.dto;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -9,6 +10,11 @@ import java.util.Date;
  */
 
 public class OptionFnOInstrument {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private Long id;
 	
