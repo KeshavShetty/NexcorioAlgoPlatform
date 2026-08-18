@@ -17,8 +17,9 @@ import org.apache.logging.log4j.Logger;
 import org.json.JSONException;
 
 import com.nexcorio.algo.dto.MainInstruments;
-import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.CaffeineCache;
 import com.nexcorio.algo.kite.KiteHelper;
+import com.nexcorio.algo.kite.CentralCacheHandler;
 import com.nexcorio.algo.util.ApplicationConfig;
 import com.nexcorio.algo.util.FileLogTelegramWriter;
 import com.nexcorio.algo.util.KiteUtil;
@@ -284,7 +285,7 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 		fileLogTelegramWriter.write("In placeKiteOrder(optionname:"+optionname+" quantity=" + quantity+" transactionType="+transactionType+" useNormal="+useNormal+" algoTag="+algoTag);
 		String orderId = null;
 		try {
-			MainInstruments mainInstrument =  KiteCache.getTradingSymbolMainInstrumentCache(optionname);
+			MainInstruments mainInstrument =  CentralCacheHandler.getTradingSymbolMainInstrumentCache(optionname);
 			int freezeLimitPerOrder =mainInstrument!=null?mainInstrument.getOrderFreezingQuantity():1800;// Todo- hardcoded in case of null
 			//KiteUtil.getOptionIndexInstrumentMetaData(KiteUtil.getIndexnameFromOptionName(optionname)).getOrderFreezingQuantity(); 
 			fileLogTelegramWriter.write("freezeLimitPerOrder="+freezeLimitPerOrder);
@@ -474,8 +475,9 @@ public class OrderExecutionThreadAlgoThread implements Runnable{
 				
 				List<KiteOrderDetails> optionKiteOrders = getPendingOrderIds();
 				
-				if (optionKiteOrders.size()>0) {
+				if (optionKiteOrders.size()>0) {					
 					if (isUserLevelRealtimeOrderEnabled()) {
+						initialize(); // In case of crash and restarted, get fresh credentials
 						for(KiteOrderDetails aOrder: optionKiteOrders) {
 							if (blackListedAlgos.contains(aOrder.getAlgoTag())) {
 								changeOrderStatus(aOrder.getId(), "BLOCKED");

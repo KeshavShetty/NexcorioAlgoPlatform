@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -22,7 +23,15 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jboss.aerogear.security.otp.Totp;
 import org.json.JSONException;
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 import com.neovisionaries.ws.client.WebSocketException;
 import com.nexcorio.algo.dto.MainInstruments;
@@ -55,6 +64,90 @@ public class KiteHelper {
 	protected SimpleDateFormat postgresShortDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	public KiteConnect login() {
+		if ("true".equals(ApplicationConfig.getProperty("zeordha.enable.auto.login"))) {
+			return autoLogin();
+		} else {
+			return manualLogin();
+		}		
+	}
+	
+	private KiteConnect autoLogin() {
+		kiteConnect = null;	
+		
+		String USER_ID = ApplicationConfig.getProperty("zerodha.user.id");
+		
+		ZerodhaAccountKeys zerodhaAccountKeys = getZerodhaAccountKeys(USER_ID);
+		
+		// Variables Configuration
+//        String apiKey = "YOUR_API_KEY";
+//        String userId = "YOUR_USER_ID";
+//        String password = "YOUR_PASSWORD";
+//        String totpSecret = "YOUR_TOTP_SECRET_KEY"; // The 2FA secret setup string
+        
+        ChromeOptions options = new ChromeOptions(); // Initialize Chrome Options (Use headless mode in production background) // options.addArguments("--headless");
+        options.addArguments("--headless");
+        WebDriver driver = new ChromeDriver(options);
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+        try {
+        	kiteConnect = new KiteConnect(zerodhaAccountKeys.getApiKey());				
+			kiteConnect.setUserId(USER_ID);
+			
+            String loginUrl = "https://kite.trade" + zerodhaAccountKeys.apiKey; // 1. Navigate to Zerodha's login portal via API Link
+            driver.get(kiteConnect.getLoginURL());
+            
+            WebElement usernameField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userid"))); // 2. Enter User ID and Password
+            usernameField.sendKeys(USER_ID);
+
+            WebElement passwordField = driver.findElement(By.id("password"));
+            passwordField.sendKeys(zerodhaAccountKeys.pwd);
+
+            WebElement loginButton = driver.findElement(By.xpath("//button[@type='submit']"));
+            loginButton.click();
+            
+            WebElement totpField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userid"))); // 3. Generate and Enter TOTP Token
+            Totp totp = new Totp(zerodhaAccountKeys.totpSecret);
+            String currentTotpToken = totp.now();
+            System.out.println("Totp="+currentTotpToken);
+            totpField.sendKeys(currentTotpToken);
+            System.out.println("1.");
+            wait.until(ExpectedConditions.urlContains("request_token=")); // 4. Wait for redirection and extract request_token
+            System.out.println("2.");
+            String currentUrl = driver.getCurrentUrl();
+            System.out.println("3.");
+            
+            String requestToken = currentUrl.split("request_token=")[1].split("&")[0]; // Extract the token parameter from the URL string
+            System.out.println("Extracted Request Token: " + requestToken);
+
+            
+            User userModel =  kiteConnect.generateSession(requestToken, zerodhaAccountKeys.getApiSecretKey());
+
+            kiteConnect.setAccessToken(userModel.accessToken);
+            kiteConnect.setPublicToken(userModel.publicToken);
+            
+            log.debug("kiteconnect AccessToken={"+kiteConnect.getAccessToken()+"}");
+            log.debug("kiteconnect ApiKey={"+kiteConnect.getApiKey()+"}");
+            log.debug("kiteconnect PublicToken={"+kiteConnect.getPublicToken()+"}");
+            log.debug("kiteconnect UserId={"+kiteConnect.getUserId()+"}");
+            
+            saveKiteAccessCodes(USER_ID, requestToken, kiteConnect.getAccessToken(), kiteConnect.getPublicToken()); // For future when decide multi user system
+            // Set session expiry callback.
+            kiteConnect.setSessionExpiryHook((new SessionExpiryHook() {
+				@Override
+				public void sessionExpired() {}
+			}));
+        } catch (Exception | KiteException e) {
+        	kiteConnect = null;
+            e.printStackTrace();
+        } finally {
+            // Close the browser session
+            driver.quit();
+        }
+            
+		return kiteConnect;
+	}
+	
+	private KiteConnect manualLogin() {
 		kiteConnect = null;	
 		try {
 			String USER_ID = ApplicationConfig.getProperty("zerodha.user.id");
@@ -99,7 +192,8 @@ public class KiteHelper {
 			conn = HDataSource.getReadOnlyConnection();
 			stmt = conn.createStatement();
 			
-			String fetchSql = "select id, zerodha_api_key, zerodha_api_secret_key, zerodha_service_token, zerodha_access_token, zerodha_public_token FROM nexcorio_users WHERE zerodha_user_id='" + zerodhaUserId + "'";
+			String fetchSql = "select id, zerodha_api_key, zerodha_api_secret_key, zerodha_service_token, zerodha_access_token, zerodha_public_token, zerodha_pwd, zerodha_totp"
+					+ " FROM nexcorio_users WHERE zerodha_user_id='" + zerodhaUserId + "'";
 				
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			while(rs.next()) {
@@ -110,6 +204,8 @@ public class KiteHelper {
 				retZerodhaKey.setServiceToken(rs.getString("zerodha_service_token"));
 				retZerodhaKey.setAccessToken(rs.getString("zerodha_access_token"));
 				retZerodhaKey.setPublicToken(rs.getString("zerodha_public_token"));
+				retZerodhaKey.setPwd(rs.getString("zerodha_pwd"));
+				retZerodhaKey.setTotpSecret(rs.getString("zerodha_totp"));
 				break;
 			}
 			rs.close();
@@ -449,9 +545,9 @@ public class KiteHelper {
 		
 		for(MainInstruments aMainInstrument : mainInstruments) {
 			retList.add(aMainInstrument.getZerodhaInstrumentToken()); // Add self first, followed by next future and then options
-			KiteCache.putInstrumentTokenToTradingSymbolCache(aMainInstrument.getZerodhaInstrumentToken(), aMainInstrument.getShortName());
-			KiteCache.putTradingSymbolMainInstrumentCache(aMainInstrument.getName(), aMainInstrument);
-			KiteCache.putTradingSymbolMainInstrumentCache(aMainInstrument.getShortName(), aMainInstrument);
+			CentralCacheHandler.putInstrumentTokenToTradingSymbolCache(aMainInstrument.getZerodhaInstrumentToken(), aMainInstrument.getShortName());
+			CentralCacheHandler.putTradingSymbolMainInstrumentCache(aMainInstrument.getName(), aMainInstrument);
+			CentralCacheHandler.putTradingSymbolMainInstrumentCache(aMainInstrument.getShortName(), aMainInstrument);
 			if (aMainInstrument.getNoOfFutureExpiryData()>0) {
 				Map<Long, String> futureExpiryDateMap = getNextNFUTUREExpiryDate(aMainInstrument.getId(), 
 						aMainInstrument.getExchange(), 
@@ -462,8 +558,8 @@ public class KiteHelper {
 					String tradingSymbol= futureExpiryDateMap.get(zerodhaToken);
 					log.info("Adding future zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
 					retList.add(zerodhaToken);
-					KiteCache.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
-					KiteCache.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
+					CentralCacheHandler.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
+					CentralCacheHandler.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
 				}
 			}
 			
@@ -479,8 +575,8 @@ public class KiteHelper {
 					String tradingSymbol= optionExpiryDateMap.get(zerodhaToken);
 					log.info("Adding option zerodhaToken="+zerodhaToken+" tradingSymbol="+tradingSymbol);
 					retList.add(zerodhaToken);
-					KiteCache.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
-					KiteCache.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
+					CentralCacheHandler.putInstrumentTokenToTradingSymbolCache(zerodhaToken, tradingSymbol);
+					CentralCacheHandler.putTradingSymbolMainInstrumentCache(tradingSymbol, aMainInstrument);
 				}
 			}
 			
@@ -571,7 +667,7 @@ public class KiteHelper {
 					while(rs.next()) {
 						String tradingSymbol = rs.getString("trading_symbol");
 						retMap.put(rs.getLong("zerodha_instrument_token"), tradingSymbol);
-						KiteCache.putTradingSymbolExchangeCache( tradingSymbol, rs.getString("exchange") );
+						CentralCacheHandler.putTradingSymbolExchangeCache( tradingSymbol, rs.getString("exchange") );
 					}
 					rs.close();
 				}
@@ -616,7 +712,7 @@ public class KiteHelper {
 			rs = stmt.executeQuery(fetchSql);
 			while(rs.next()) {
 				retMap.put(rs.getLong("zerodha_instrument_token"), rs.getString("trading_symbol"));
-				KiteCache.putTradingSymbolExchangeCache( rs.getString("trading_symbol"), rs.getString("exchange") );
+				CentralCacheHandler.putTradingSymbolExchangeCache( rs.getString("trading_symbol"), rs.getString("exchange") );
 			}
 			rs.close();
 			
@@ -671,8 +767,6 @@ public class KiteHelper {
 						tickerProvider.disconnect();
 						System.out.println("Ended at " + (new Date()));
 						HDataSource.logHikariStats();
-						System.out.println("Caffeine hitCount" + KiteCache.tickPriceCache.stats().hitCount());
-						System.out.println("Caffeine missCount" + KiteCache.tickPriceCache.stats().missCount());
 					} catch (JSONException e) {
 						e.printStackTrace();
 					}

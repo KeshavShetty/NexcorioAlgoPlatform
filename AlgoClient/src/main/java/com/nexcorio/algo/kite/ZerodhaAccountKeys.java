@@ -10,6 +10,9 @@ public class ZerodhaAccountKeys {
 	String accessToken;
 	String publicToken;
 	
+	String pwd;
+	String totpSecret;
+	
 	public Long getId() {
 		return id;
 	}
@@ -51,5 +54,17 @@ public class ZerodhaAccountKeys {
 	}
 	public void setPublicToken(String publicToken) {
 		this.publicToken = publicToken;
+	}
+	public String getPwd() {
+		return pwd;
+	}
+	public void setPwd(String pwd) {
+		this.pwd = pwd;
+	}
+	public String getTotpSecret() {
+		return totpSecret;
+	}
+	public void setTotpSecret(String totpSecret) {
+		this.totpSecret = totpSecret;
 	}  
 }

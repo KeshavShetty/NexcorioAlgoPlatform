@@ -86,8 +86,8 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			}
 			rs.close();
 			
-			String tradingSymbol = KiteCache.getInstrumentTokenToTradingSymbolCache(aTick.getInstrumentToken());
-			MainInstruments mainInstrument = KiteCache.getTradingSymbolMainInstrumentCache(tradingSymbol);
+			String tradingSymbol = CentralCacheHandler.getInstrumentTokenToTradingSymbolCache(aTick.getInstrumentToken());
+			MainInstruments mainInstrument = CentralCacheHandler.getTradingSymbolMainInstrumentCache(tradingSymbol);
 			
 			//log.debug(tradingSymbol + " ltp="+aTick.getLastTradedPrice() + " oi="+aTick.getOi() );
 			
@@ -111,14 +111,14 @@ public class ZerodhaIntradayStreamingThread implements Runnable {
 			
 			// Save to cache
 			//System.out.println("Saving to Caffiene Cache"+tradingSymbol);
-			KiteCache.tickPriceCache.put(tradingSymbol, (float) aTick.getLastTradedPrice());
+			CentralCacheHandler.putTickPrice(tradingSymbol, (float) aTick.getLastTradedPrice());
 			//System.out.println("Veriying Cache " + KiteCache.tickPriceCache.getIfPresent(tradingSymbol) );
 			
 			// Todo: What to do with Market Depth
 			Map<String, ArrayList<Depth>> marketDepth = aTick.getMarketDepth();
 			
 			// Calculate or Extract FNO Analytics
-			String exchange = KiteCache.getTradingSymbolExchangeCache(tradingSymbol);
+			String exchange = CentralCacheHandler.getTradingSymbolExchangeCache(tradingSymbol);
 			if (exchange!=null) { // Null means main instruent
 				if (exchange.equalsIgnoreCase("NFO") || exchange.equalsIgnoreCase("BFO")) {
 					if (tradingSymbol.endsWith("CE") || tradingSymbol.endsWith("PE")) { // Option Greeks

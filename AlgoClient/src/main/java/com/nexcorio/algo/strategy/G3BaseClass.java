@@ -292,7 +292,7 @@ public abstract class G3BaseClass extends BaseClass {
 				Statement stmt = conn.createStatement();
 				// Update running status
 				String updateStatusSql = "update nexcorio_options_algo_strategy set status = '" + status + "', manual_exit_enabled=FALSE where id = " + this.napAlgoId;
-				System.out.println(updateStatusSql);
+				System.out.println(new Date() + updateStatusSql);
 				stmt.execute(updateStatusSql);
 				stmt.close();
 			} catch (Exception e) {

@@ -15,7 +15,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.backtest.TriggerAlgo;
 import com.nexcorio.algo.dto.OptionGreek;
-import com.nexcorio.algo.kite.KiteCache;
+import com.nexcorio.algo.kite.CaffeineCache;
 import com.nexcorio.algo.util.KiteUtil;
 import com.nexcorio.algo.util.db.HDataSource;
 
