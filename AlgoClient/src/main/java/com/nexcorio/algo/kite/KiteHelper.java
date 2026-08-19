@@ -151,7 +151,7 @@ public class KiteHelper {
 		kiteConnect = null;	
 		try {
 			String USER_ID = ApplicationConfig.getProperty("zerodha.user.id");
-			
+			System.out.println("Trying manual login for " + USER_ID);
 			ZerodhaAccountKeys zerodhaAccountKeys = getZerodhaAccountKeys(USER_ID);
 			kiteConnect = new KiteConnect(zerodhaAccountKeys.getApiKey());				
 			kiteConnect.setUserId(USER_ID);
