@@ -42,7 +42,9 @@ public class MainStrategyExecutor {
 				}
 			}
 			
-			new OrderExecutionThreadAlgoThread(1L); // Todo: For each user separate thread should start
+			Long userId = kiteHelper.getUserIdByZerodhaUserId(ApplicationConfig.getProperty("zerodha.user.id"));
+			System.out.println("userId="+userId);
+			new OrderExecutionThreadAlgoThread(userId); // Todo: For each user separate thread should start
 			new G3NapAlgoTriggerThread();
 			
 			if (ApplicationConfig.getProperty("enable.telegram.integration").equals("true")) new TelegramChannelReader(); // Telegram integration 

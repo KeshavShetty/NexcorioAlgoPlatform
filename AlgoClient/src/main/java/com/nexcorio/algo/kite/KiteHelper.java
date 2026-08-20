@@ -183,6 +183,35 @@ public class KiteHelper {
 		return kiteConnect;
 	}
 	
+	public Long getUserIdByZerodhaUserId(String zerodhaUserId) {
+		Long retId = null;
+		Connection conn = null;
+		Statement stmt = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			stmt = conn.createStatement();
+			
+			String fetchSql = "select id"
+					+ " FROM nexcorio_users WHERE zerodha_user_id='" + zerodhaUserId + "'";
+				
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			while(rs.next()) {
+				retId = rs.getLong("id");
+			}
+			rs.close();
+			stmt.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		} finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				log.error(e);
+			}
+		}
+		return retId;
+	}
+	
 	private ZerodhaAccountKeys getZerodhaAccountKeys(String zerodhaUserId) {
 		ZerodhaAccountKeys retZerodhaKey = null;
 		
