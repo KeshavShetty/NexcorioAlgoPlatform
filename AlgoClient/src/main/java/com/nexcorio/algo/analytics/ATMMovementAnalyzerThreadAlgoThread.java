@@ -236,9 +236,9 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 			logStr.append(", Time taken for getAggregateGreeksDetails=" +(elapsedTime1-startTime));
 			startTime = elapsedTime1;
 			
-			Map<String, Float> selective5StrikeAggregateGreeks = getSelectiveGreeksDetails(5);
-			Map<String, Float> selective10StrikeAggregateGreeks = getSelectiveGreeksDetails(10);
-			Map<String, Float> selective20StrikeAggregateGreeks = getSelectiveGreeksDetails(20);
+			//Map<String, Float> selective5StrikeAggregateGreeks = getSelectiveGreeksDetails(5);
+			//Map<String, Float> selective10StrikeAggregateGreeks = getSelectiveGreeksDetails(10);
+			//Map<String, Float> selective20StrikeAggregateGreeks = getSelectiveGreeksDetails(20);
 			elapsedTime1 = System.currentTimeMillis();
 			logStr.append(", Time taken for getSelectiveAvgGamma=" +(elapsedTime1-startTime));
 			startTime = elapsedTime1;
@@ -254,14 +254,14 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 					aggregateGreeks.get("TotalCEGamma"), aggregateGreeks.get("TotalPEGamma"), 
 					aggregateGreeks.get("TotalCEVega"), aggregateGreeks.get("TotalPEVega"),
 					aggregateGreeks.get("AvgCEGamma"), aggregateGreeks.get("AvgPEGamma"),
-					selective5StrikeAggregateGreeks.get("AvgCEGamma"), selective5StrikeAggregateGreeks.get("AvgPEGamma"),
-					selective5StrikeAggregateGreeks.get("AvgCEIv"), selective5StrikeAggregateGreeks.get("AvgPEIv"),
+					0f, 0f,
+					0f, 0f,
 					
-					selective10StrikeAggregateGreeks.get("AvgCEGamma"), selective10StrikeAggregateGreeks.get("AvgPEGamma"),
-					selective10StrikeAggregateGreeks.get("AvgCEIv"), selective10StrikeAggregateGreeks.get("AvgPEIv"),
+					0f, 0f,
+					0f, 0f,
 					
-					selective20StrikeAggregateGreeks.get("AvgCEGamma"), selective20StrikeAggregateGreeks.get("AvgPEGamma"),
-					selective20StrikeAggregateGreeks.get("AvgCEIv"), selective20StrikeAggregateGreeks.get("AvgPEIv"),
+					0f, 0f,
+					0f, 0f,
 					
 					futuresLtp, deltaRangeGreeksDetails
 					
@@ -2619,6 +2619,6 @@ public class ATMMovementAnalyzerThreadAlgoThread extends AnalyticsBaseClass impl
 	}
 	
 	public static void main(String[] args) {
-		new ATMMovementAnalyzerThreadAlgoThread("HDFCBANK", "2026-06-12 09:16:00");
+		new ATMMovementAnalyzerThreadAlgoThread("NIFTY", "2026-08-20 09:16:00");
 	}
 }
