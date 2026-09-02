@@ -13,6 +13,8 @@ public class OptionGreek {
 
 	private String tradingSymbol;
 	
+	private Long Id;
+	
 	private float iv;
 	private float delta;
 	private float vega; 
@@ -192,6 +194,14 @@ public class OptionGreek {
 
 	public void setQuoteTime(Timestamp quoteTime) {
 		this.quoteTime = quoteTime;
+	}
+
+	public Long getId() {
+		return Id;
+	}
+
+	public void setId(Long id) {
+		Id = id;
 	}
 	
 	

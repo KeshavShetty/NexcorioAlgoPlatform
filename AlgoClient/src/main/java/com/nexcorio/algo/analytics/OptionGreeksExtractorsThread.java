@@ -186,6 +186,7 @@ public class OptionGreeksExtractorsThread implements Runnable {
 		retVal.setUnderlyingValue((float)underlyingValue);
 		retVal.setLtp((float) lastPrice);
 		retVal.setOi(this.openIterest);
+		retVal.setId(this.fStreamingId);
 		
 		Long elapsedTime1 = System.currentTimeMillis();
 		logStr.append(", Time taken for BSOption=" +(elapsedTime1-beginTime));

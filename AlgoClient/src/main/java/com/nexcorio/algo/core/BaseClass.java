@@ -206,7 +206,7 @@ public class BaseClass {
 			conn = HDataSource.getReadOnlyConnection();
 			Statement stmt = conn.createStatement();
 			
-			String fetchSql = "select iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
+			String fetchSql = "select id, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today from nexcorio_option_greeks  where trading_symbol = '" + optionName + "'"
 					+ ( backtestDate!=null ? ( " and quote_time <='" + postgresLongDateFormat.format(getCurrentTimeDifferSeconds(0))+ "'") : "" )
 					+ " and f_main_instrument= " + mainInstrument.getId()
 					+ " order by quote_time desc limit 1";
@@ -216,6 +216,7 @@ public class BaseClass {
 				retVal = new OptionGreek(optionName, rs.getFloat("iv"), rs.getFloat("delta"), rs.getFloat("vega"), rs.getFloat("theta"), rs.getFloat("gamma"), rs.getFloat("ltp"), rs.getFloat("oi"));
 				retVal.setVolumeTradedToday(rs.getLong("volume_traded_today"));
 				retVal.setUnderlyingValue(rs.getFloat("underlying_value"));
+				retVal.setId(rs.getLong("id"));
 			}
 			rs.close();
 			stmt.close();
@@ -256,7 +257,7 @@ public class BaseClass {
 			
 			String fetchSql = "WITH RankedRows AS"
 					+ " ("
-					+ " SELECT "
+					+ " SELECT id,"
 					+ " trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today, quote_time, "
 					+ " ROW_NUMBER() OVER (PARTITION BY trading_symbol ORDER BY quote_time DESC, id DESC) AS rank"
 					+ " FROM nexcorio_option_greeks"
@@ -264,7 +265,7 @@ public class BaseClass {
 					+ " AND quote_time <= '" + postgresLongDateFormat.format(upto)  + "'"
 					+ " AND quote_time >= '" + postgresLongDateFormat.format(fromTime)  + "'"
 					+ " )"
-					+ " SELECT trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today, quote_time FROM RankedRows WHERE rank = 1";
+					+ " SELECT id, trading_symbol, iv, delta, vega, theta, gamma, ltp, oi, underlying_value, volume_traded_today, quote_time FROM RankedRows WHERE rank = 1";
 			
 			//System.out.println("fetchSql="+fetchSql);
 			
@@ -276,6 +277,7 @@ public class BaseClass {
 				retVal.setUnderlyingValue(rs.getFloat("underlying_value"));
 				retVal.setVolumeTradedToday(rs.getLong("volume_traded_today"));
 				retVal.setQuoteTime(rs.getTimestamp("quote_time"));
+				retVal.setId(rs.getLong("id"));
 				retList.add(retVal);
 			}
 			rs.close();

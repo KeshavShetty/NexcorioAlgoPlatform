@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.analytics.ATMMovementAnalyzerThreadAlgoThread;
+import com.nexcorio.algo.analytics.V2GreeksMovementAnalyzerThread;
 import com.nexcorio.algo.core.G3NapAlgoTriggerThread;
 import com.nexcorio.algo.dto.MainInstruments;
 import com.nexcorio.algo.kite.KiteHelper;
@@ -39,6 +40,7 @@ public class MainStrategyExecutor {
 			for(MainInstruments mainInstrument : mainInstruments) {
 				if (!mainInstrument.getShortName().equals("VIX")) { // Exclude VIX (Vix has no options
 					new ATMMovementAnalyzerThreadAlgoThread(mainInstrument.getShortName(), null);
+					new V2GreeksMovementAnalyzerThread(mainInstrument.getShortName(), null);
 				}
 			}
 			
