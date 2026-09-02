@@ -1,12 +1,6 @@
 package com.nexcorio.algo.strategy;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
@@ -14,7 +8,6 @@ import org.apache.logging.log4j.Logger;
 
 import com.nexcorio.algo.dto.OptionGreek;
 import com.nexcorio.algo.util.KiteUtil;
-import com.nexcorio.algo.util.db.HDataSource;
 
 public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implements Runnable{
 
@@ -26,6 +19,8 @@ public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implement
 	public boolean exitOnQuickChrun = false;
 	public String greekname = "Theta";
 	public boolean adjustATMGap = false;
+	
+	public float priceDiffAmongLegs = 0f;
 	
 	
 	private String guidingStraddleCeOptionName = "";
@@ -163,6 +158,20 @@ public class G3RigidFollowStraddleGreeksAlgoThread extends G3BaseClass implement
 						sleep(5*12*15);
 					}
 				}
+				if (needRepositioning==false && priceDiffAmongLegs > 0f) {
+					float priceDiff = 0f;
+					if (ceOptionGreeks.getLtp() > peOptionGreeks.getLtp()) {
+						priceDiff = (ceOptionGreeks.getLtp() - peOptionGreeks.getLtp())*100f/peOptionGreeks.getLtp();
+					} else {
+						priceDiff = (peOptionGreeks.getLtp() - ceOptionGreeks.getLtp())*100f/ceOptionGreeks.getLtp();
+					}
+					fileLogTelegramWriter.write( "priceDiff="+priceDiff);
+					if (priceDiff > priceDiffAmongLegs) {
+						needRepositioning = true;
+					}
+				}
+				
+				
 				if (needRepositioning) {
 					String[] entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(this.baseDelta, this.optimalHedgeDistance);
 					

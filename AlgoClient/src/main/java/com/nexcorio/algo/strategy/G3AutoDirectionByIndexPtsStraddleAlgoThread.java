@@ -16,6 +16,7 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 	public float baseDelta = 0.6f;
 	public float indexPoints = 50f;
 	public float reEntryPoints = 0f;
+	public float reEntryPointsPercent = 50f;
 	
 	public boolean adjustEntryExit = false;
 	public boolean matchDelta = false;
@@ -105,11 +106,11 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 			boolean peLegOpen = true;
 			
 			float ceExitAtIndex    = this.instrumentLtp + indexPoints;
-			float ceReEntryAtIndex = this.instrumentLtp + indexPoints/2f;
+			float ceReEntryAtIndex = this.instrumentLtp + indexPoints*reEntryPointsPercent/100f;
 			if (reEntryPoints != 0) ceReEntryAtIndex = this.instrumentLtp + reEntryPoints;
 			
 			float peExitAtIndex    = this.instrumentLtp - indexPoints;
-			float peReEntryAtIndex = this.instrumentLtp - indexPoints/2f;
+			float peReEntryAtIndex = this.instrumentLtp - indexPoints*reEntryPointsPercent/100;
 			if (reEntryPoints != 0) peReEntryAtIndex = this.instrumentLtp - reEntryPoints;
 			
 			float minIndexReached = this.instrumentLtp;
@@ -208,11 +209,11 @@ public class G3AutoDirectionByIndexPtsStraddleAlgoThread extends G3BaseClass imp
 				
 				if ( this.instrumentLtp < minIndexReached) {
 					minIndexReached = this.instrumentLtp;
-					if (adjustEntryExit) peReEntryAtIndex = this.instrumentLtp + indexPoints/2f;
+					if (adjustEntryExit) peReEntryAtIndex = this.instrumentLtp + indexPoints*reEntryPointsPercent/100;
 				}
 				if ( this.instrumentLtp > maxIndexReached) {
 					maxIndexReached = this.instrumentLtp;
-					if (adjustEntryExit) ceReEntryAtIndex = this.instrumentLtp - indexPoints/2f;
+					if (adjustEntryExit) ceReEntryAtIndex = this.instrumentLtp - indexPoints*reEntryPointsPercent/100;
 				}
 				
 				checkExitSignals();
