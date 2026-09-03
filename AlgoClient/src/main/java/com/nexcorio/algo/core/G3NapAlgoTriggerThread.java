@@ -80,7 +80,7 @@ public class G3NapAlgoTriggerThread implements Runnable {
 			do {
 				Thread.sleep(5*1000);
 				//fileLogTelegramWriter.write("Wakeup & fetching Pending Algos");
-				System.out.println("Wakeup & fetching Pending Algos");
+				System.out.println(new Date() + " Wakeup & fetching Pending Algos");
 				String currentHourMinuteSecondPart = getHourMinuteSecondPart(new Date());
 				
 				List<G3NapAlgoDetails> algosToExecute = getPendingActiveAlgosToExecute(prevHourMinuteSecondPart, currentHourMinuteSecondPart);
