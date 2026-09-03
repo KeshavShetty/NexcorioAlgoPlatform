@@ -279,9 +279,11 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			float drITMChangein5secCeTheta = 0f; 
 			float drITMChangein5secPeTheta = 0f; 
 			
+			StringBuffer logMsg = new StringBuffer();
 			for(OptionGreek aGreek: limitedOTMCEGreeks) {
 				for(OptionGreek prevGreeks: prevCeOptionGreeks) {
 					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
+						logMsg = logMsg.append(" " +  aGreek.getId() + ":" + aGreek.getTradingSymbol()+":" + aGreek.getDelta());
 						dr16Changein5secCeTheta = dr16Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
 					}
 				}
@@ -289,6 +291,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			for(OptionGreek aGreek: limitedOTMPEGreeks) {
 				for(OptionGreek prevGreeks: prevPeOptionGreeks) {
 					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
+						logMsg = logMsg.append(" " +  aGreek.getId() + ":" + aGreek.getTradingSymbol()+":" + aGreek.getDelta());
 						dr16Changein5secPeTheta = dr16Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
 					}
 				}
@@ -314,6 +317,8 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			
 			drITMAccumulatedChangein5secCeTheta = drITMAccumulatedChangein5secCeTheta + drITMChangein5secCeTheta;
 			drITMAccumulatedChangein5secPeTheta = drITMAccumulatedChangein5secPeTheta + drITMChangein5secPeTheta;
+			
+			fileLogTelegramWriter.write("Selected Limited OTM=" + logMsg.toString() +" drOTMAccumulatedChangein5secCeTheta="+drOTMAccumulatedChangein5secCeTheta+" drOTMAccumulatedChangein5secPeTheta="+drOTMAccumulatedChangein5secPeTheta);
 			
 			ratioMap.put("drOTMAccumulatedChangein5secCeTheta",(float) drOTMAccumulatedChangein5secCeTheta);
 			ratioMap.put("drOTMAccumulatedChangein5secPeTheta",(float) drOTMAccumulatedChangein5secPeTheta);
@@ -689,7 +694,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					+ "," + ratioMap.get("drITMAccumulatedChangein5secPeTheta")
 					
 					+ ")";
-			System.out.println("insertSql="+insertSql);
+			//System.out.println("insertSql="+insertSql);
 			insertSql = insertSql.replaceAll("NaN", "0");
 			fileLogTelegramWriter.write(insertSql);
 			
@@ -786,8 +791,8 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 	
 	public static void main(String[] args) {
 		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-02 09:16:00");
-		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-31 09:16:00");
-		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-01 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-31 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-01 09:16:00");
 		
 	}
 }
