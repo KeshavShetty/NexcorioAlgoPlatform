@@ -29,8 +29,20 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 	private float drOTMAccumulatedChangein5secCeTheta = 0f;
 	private float drOTMAccumulatedChangein5secPeTheta = 0f;
 	
+	private float drOTMAccumulatedChangein5secCeVega = 0f;
+	private float drOTMAccumulatedChangein5secPeVega = 0f;
+	
+	private float drOTMAccumulatedChangein5secCeGamma = 0f;
+	private float drOTMAccumulatedChangein5secPeGamma = 0f;
+	
+	private float drOTMAccumulatedChangein5secCeIv = 0f;
+	private float drOTMAccumulatedChangein5secPeIv = 0f;
+	
 	private float drITMAccumulatedChangein5secCeTheta = 0f;
 	private float drITMAccumulatedChangein5secPeTheta = 0f;
+	
+	private float drSelectedStrikeAccumulatedChangein5secCeTheta =0f;
+	private float drSelectedStrikeAccumulatedChangein5secPeTheta =0f;
 	
 	private List<OptionGreek> prevCeOptionGreeks = new ArrayList<OptionGreek>();
 	private List<OptionGreek> prevPeOptionGreeks = new ArrayList<OptionGreek>();
@@ -274,7 +286,16 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			ratioMap.put("limitedOTMPEGreeks", (float) limitedOTMPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
 			
 			float dr16Changein5secCeTheta = 0f; 
-			float dr16Changein5secPeTheta = 0f; 
+			float dr16Changein5secPeTheta = 0f;
+			
+			float dr16Changein5secCeVega = 0f; 
+			float dr16Changein5secPeVega = 0f;
+			
+			float dr16Changein5secCeGamma = 0f; 
+			float dr16Changein5secPeGamma= 0f;
+			
+			float dr16Changein5secCeIv = 0f; 
+			float dr16Changein5secPeIv = 0f;
 			
 			float drITMChangein5secCeTheta = 0f; 
 			float drITMChangein5secPeTheta = 0f; 
@@ -285,6 +306,10 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
 						logMsg = logMsg.append(" " +  aGreek.getId() + ":" + aGreek.getTradingSymbol()+":" + aGreek.getDelta());
 						dr16Changein5secCeTheta = dr16Changein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
+						dr16Changein5secCeVega = dr16Changein5secCeVega+ (Math.abs(aGreek.getVega()) - Math.abs(prevGreeks.getVega()));
+						
+						dr16Changein5secCeGamma = dr16Changein5secCeGamma + (Math.abs(aGreek.getGamma()) - Math.abs(prevGreeks.getGamma()));
+						dr16Changein5secCeIv = dr16Changein5secCeIv+ (Math.abs(aGreek.getIv()) - Math.abs(prevGreeks.getIv()));
 					}
 				}
 			}
@@ -293,6 +318,10 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
 						logMsg = logMsg.append(" " +  aGreek.getId() + ":" + aGreek.getTradingSymbol()+":" + aGreek.getDelta());
 						dr16Changein5secPeTheta = dr16Changein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
+						dr16Changein5secPeVega = dr16Changein5secPeVega + (Math.abs(aGreek.getVega()) - Math.abs(prevGreeks.getVega()));
+						
+						dr16Changein5secPeGamma = dr16Changein5secPeGamma + (Math.abs(aGreek.getGamma()) - Math.abs(prevGreeks.getGamma()));
+						dr16Changein5secPeIv = dr16Changein5secPeIv + (Math.abs(aGreek.getIv()) - Math.abs(prevGreeks.getIv()));
 					}
 				}
 			}
@@ -311,12 +340,43 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					}
 				}
 			}
+			//Slected
+			float drSelectedStrikeChangein5secCeTheta = 0f;
+			float drSelectedStrikeChangein5secPeTheta = 0f;
+			for(OptionGreek aGreek: selectedAllCEGreeks) {
+				for(OptionGreek prevGreeks: prevCeOptionGreeks) {
+					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
+						drSelectedStrikeChangein5secCeTheta = drSelectedStrikeChangein5secCeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
+					}
+				}
+			}
+			for(OptionGreek aGreek: selectedAllPEGreeks) {
+				for(OptionGreek prevGreeks: prevPeOptionGreeks) {
+					if (aGreek.getTradingSymbol().equals(prevGreeks.getTradingSymbol())) {
+						drSelectedStrikeChangein5secPeTheta = drSelectedStrikeChangein5secPeTheta + (Math.abs(aGreek.getTheta()) - Math.abs(prevGreeks.getTheta()));
+					}
+				}
+			}
 			
 			drOTMAccumulatedChangein5secCeTheta = drOTMAccumulatedChangein5secCeTheta + dr16Changein5secCeTheta;
 			drOTMAccumulatedChangein5secPeTheta = drOTMAccumulatedChangein5secPeTheta + dr16Changein5secPeTheta;
 			
+			drOTMAccumulatedChangein5secCeVega = drOTMAccumulatedChangein5secCeVega + dr16Changein5secCeVega;
+			drOTMAccumulatedChangein5secPeVega = drOTMAccumulatedChangein5secPeVega + dr16Changein5secPeVega;
+			
+			drOTMAccumulatedChangein5secCeGamma = drOTMAccumulatedChangein5secCeGamma + dr16Changein5secCeGamma;
+			drOTMAccumulatedChangein5secPeGamma = drOTMAccumulatedChangein5secPeGamma + dr16Changein5secPeGamma;
+			
+			drOTMAccumulatedChangein5secCeIv = drOTMAccumulatedChangein5secCeIv + dr16Changein5secCeIv;
+			drOTMAccumulatedChangein5secPeIv = drOTMAccumulatedChangein5secPeIv + dr16Changein5secPeIv;
+			
 			drITMAccumulatedChangein5secCeTheta = drITMAccumulatedChangein5secCeTheta + drITMChangein5secCeTheta;
 			drITMAccumulatedChangein5secPeTheta = drITMAccumulatedChangein5secPeTheta + drITMChangein5secPeTheta;
+			
+			
+			drSelectedStrikeAccumulatedChangein5secCeTheta = drSelectedStrikeAccumulatedChangein5secCeTheta + drSelectedStrikeChangein5secCeTheta;
+			drSelectedStrikeAccumulatedChangein5secPeTheta = drSelectedStrikeAccumulatedChangein5secPeTheta + drSelectedStrikeChangein5secPeTheta;
+			
 			
 			fileLogTelegramWriter.write("Selected Limited OTM=" + logMsg.toString() +" drOTMAccumulatedChangein5secCeTheta="+drOTMAccumulatedChangein5secCeTheta+" drOTMAccumulatedChangein5secPeTheta="+drOTMAccumulatedChangein5secPeTheta);
 			
@@ -325,6 +385,18 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			
 			ratioMap.put("drITMAccumulatedChangein5secCeTheta",(float) drITMAccumulatedChangein5secCeTheta);
 			ratioMap.put("drITMAccumulatedChangein5secPeTheta",(float) drITMAccumulatedChangein5secPeTheta);
+			
+			ratioMap.put("drOTMAccumulatedChangein5secCeVega",(float) drOTMAccumulatedChangein5secCeVega);
+			ratioMap.put("drOTMAccumulatedChangein5secPeVega",(float) drOTMAccumulatedChangein5secPeVega);
+			
+			ratioMap.put("drOTMAccumulatedChangein5secCeGamma",(float) drOTMAccumulatedChangein5secCeGamma);
+			ratioMap.put("drOTMAccumulatedChangein5secPeGamma",(float) drOTMAccumulatedChangein5secPeGamma);
+			
+			ratioMap.put("drOTMAccumulatedChangein5secCeIv",(float) drOTMAccumulatedChangein5secCeIv);
+			ratioMap.put("drOTMAccumulatedChangein5secPeIv",(float) drOTMAccumulatedChangein5secPeIv);
+			
+			ratioMap.put("drSelectedStrikeAccumulatedChangein5secCeTheta",(float) drSelectedStrikeAccumulatedChangein5secCeTheta);
+			ratioMap.put("drSelectedStrikeAccumulatedChangein5secPeTheta",(float) drSelectedStrikeAccumulatedChangein5secPeTheta);
 			
 			prevCeOptionGreeks = ceOptionGreeks;
 			prevPeOptionGreeks = peOptionGreeks;
@@ -410,7 +482,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 						stmt.executeUpdate(insertSql);
 					}
 				}
-				retList = getOptionGreeks(optionnames, 0);
+				retList = getOptionGreeks(optionnames, 2);
 			}
 			stmt.close();
 		} catch (Exception e) {
@@ -669,6 +741,10 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					+ ", outlierCEGreeks,outlierPEGreeks"
 					+ ", drOTMAccumulatedChangein5secCeTheta, drOTMAccumulatedChangein5secPeTheta"
 					+ ", drITMAccumulatedChangein5secCeTheta, drITMAccumulatedChangein5secPeTheta"
+					+ ", drOTMAccumulatedChangein5secCeVega, drOTMAccumulatedChangein5secPeVega"
+					+ ", drOTMAccumulatedChangein5secCeGamma, drOTMAccumulatedChangein5secPeGamma"
+					+ ", drOTMAccumulatedChangein5secCeIv, drOTMAccumulatedChangein5secPeIv"
+					+ ", drSelectedStrikeAccumulatedChangein5secCeTheta, drSelectedStrikeAccumulatedChangein5secPeTheta"
 					+ ")" 
 					
 					+ " VALUES (" + this.mainInstrument.getId()+ "," + this.instrumentLtp + ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -692,6 +768,18 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					
 					+ "," + ratioMap.get("drITMAccumulatedChangein5secCeTheta")
 					+ "," + ratioMap.get("drITMAccumulatedChangein5secPeTheta")
+					
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secCeVega")
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secPeVega")
+					
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secCeGamma")
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secPeGamma")
+					
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secCeIv")
+					+ "," + ratioMap.get("drOTMAccumulatedChangein5secPeIv")
+					
+					+ "," + ratioMap.get("drSelectedStrikeAccumulatedChangein5secCeTheta")
+					+ "," + ratioMap.get("drSelectedStrikeAccumulatedChangein5secPeTheta")
 					
 					+ ")";
 			//System.out.println("insertSql="+insertSql);
@@ -790,9 +878,22 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 	}
 	
 	public static void main(String[] args) {
-		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-02 09:16:00");
+		
+		
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-09 09:16:00");
 //		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-31 09:16:00");
-//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-01 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-12 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-05 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-24 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-28 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-03 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-08 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-29 09:16:00");
+//		
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-07-09 09:16:00");
+		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-25 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-08-04 09:16:00");
+//		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-06-01 09:16:00");
 		
 	}
 }
