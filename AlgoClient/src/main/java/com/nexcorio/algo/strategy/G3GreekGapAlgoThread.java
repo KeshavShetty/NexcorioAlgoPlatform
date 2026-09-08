@@ -383,7 +383,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			return getSellerDirectionByIvSlope(lastKnownTrend);
 		} else if (greekname.equals("OiStrikeDistance")) {
 			return getOptionTrendFromTop5OIByStrikeDistance(lastKnownTrend);
-		} else if (greekname.equals("V2OTMAccmlChangeInTheta")) {
+		} else if (greekname.startsWith("V2")) {
 			return getOptionTrendFromV2Greeks(lastKnownTrend);
 		}
 		
@@ -666,6 +666,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			String fieldname = "ceiv as ceGreek, peiv as peGreek";
 			if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInTheta")) {
 				fieldname = "drOTMAccumulatedChangein5secCeTheta as peGreek, drOTMAccumulatedChangein5secPeTheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVega")) {
+				fieldname = "drotmaccumulatedchangein5seccevega as peGreek, drotmaccumulatedchangein5secPevega as ceGreek";
 			}
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
@@ -680,6 +682,7 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 			ResultSet rs = stmt.executeQuery(fetchSql);
 			
 			int gapCount = 0;
+			int uncertainCount = 0;
 			while (rs.next()) {
 				float ceGreek = rs.getFloat("ceGreek");
 				float peGreek = rs.getFloat("peGreek");
@@ -688,6 +691,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 					gapCount++;
 				} else if (peGreek > ceGreek && peGreek > 0) {
 					gapCount--;
+//				} else if (ceGreek < 0 && peGreek < 0) {
+//					uncertainCount++;
 				}
 				fileLogTelegramWriter.write("ceGreek="+ceGreek+" peGreek="+peGreek+" gapCount="+gapCount);
 			}
@@ -698,6 +703,8 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				retVal = "CE";
 			} else if (gapCount == -5) {
 				retVal = "PE";
+			} else if (uncertainCount==5) {
+				retVal = "Unknown";
 			}
 		} catch(Exception ex) {
 			ex.printStackTrace();
