@@ -238,6 +238,8 @@ public class G3GreekGapBiasedStrangleAlgoThread extends G3BaseClass implements R
 		
 		if (greekname.equals("multiOIAltAbove5")) {
 			return getSellerDirectionByMultiOI(lastKnownTrend);
+		} else if (greekname.startsWith("V2")) {
+			return getOptionTrendFromV2Greeks(lastKnownTrend);
 		}
 		
 		Connection conn = null;
@@ -477,6 +479,66 @@ public class G3GreekGapBiasedStrangleAlgoThread extends G3BaseClass implements R
 				e.printStackTrace();
 			}
 		}	
+		return retVal;
+	}
+	
+	private String getOptionTrendFromV2Greeks(String lastKnownTrend) {
+		String retVal = lastKnownTrend;
+		Connection conn = null;
+		try {
+			conn = HDataSource.getReadOnlyConnection();
+			Statement stmt = conn.createStatement();
+			
+			String fieldname = "ceiv as ceGreek, peiv as peGreek";
+			if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInTheta")) {
+				fieldname = "drOTMAccumulatedChangein5secCeTheta as peGreek, drOTMAccumulatedChangein5secPeTheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVega")) {
+				fieldname = "drotmaccumulatedchangein5seccevega as peGreek, drotmaccumulatedchangein5secPevega as ceGreek";
+			}
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			
+			String fetchSql = "select " + fieldname + " from nexcorio_option_greek_movement_data where f_main_instrument = " + instrumentIdToUse + ""
+					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
+					+ " order by record_time desc limit 5";
+			fileLogTelegramWriter.write("1. fetchSql="+fetchSql);
+			ResultSet rs = stmt.executeQuery(fetchSql);
+			
+			int gapCount = 0;
+			int uncertainCount = 0;
+			while (rs.next()) {
+				float ceGreek = rs.getFloat("ceGreek");
+				float peGreek = rs.getFloat("peGreek");
+				
+				if (ceGreek > peGreek && ceGreek > 0) {
+					gapCount++;
+				} else if (peGreek > ceGreek && peGreek > 0) {
+					gapCount--;
+//				} else if (ceGreek < 0 && peGreek < 0) {
+//					uncertainCount++;
+				}
+				fileLogTelegramWriter.write("ceGreek="+ceGreek+" peGreek="+peGreek+" gapCount="+gapCount);
+			}
+			rs.close();			
+			stmt.close();
+			
+			if (gapCount == 5) {
+				retVal = "CE";
+			} else if (gapCount == -5) {
+				retVal = "PE";
+			} else if (uncertainCount==5) {
+				retVal = "Unknown";
+			}
+		} catch(Exception ex) {
+			ex.printStackTrace();
+		}finally {
+			try {
+				if (conn!=null) conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		return retVal;
 	}
 	
