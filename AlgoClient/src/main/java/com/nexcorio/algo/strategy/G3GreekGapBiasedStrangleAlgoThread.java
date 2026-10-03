@@ -494,7 +494,22 @@ public class G3GreekGapBiasedStrangleAlgoThread extends G3BaseClass implements R
 				fieldname = "drOTMAccumulatedChangein5secCeTheta as peGreek, drOTMAccumulatedChangein5secPeTheta as ceGreek";
 			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVega")) {
 				fieldname = "drotmaccumulatedchangein5seccevega as peGreek, drotmaccumulatedchangein5secPevega as ceGreek";
-			}
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVeGamma")) {
+				fieldname = "drotmaccumulatedchangein5seccevegamma as peGreek, drotmaccumulatedchangein5secpevegamma as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInGamma")) {
+				fieldname = "drotmaccumulatedchangein5seccegamma as peGreek, drotmaccumulatedchangein5secpegamma as ceGreek";
+			}  else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInIv")) {
+				fieldname = "drotmaccumulatedchangein5secceiv as ceGreek, drotmaccumulatedchangein5secpeiv as peGreek";
+			} else if (greekname.equalsIgnoreCase("V2SelectedAccmlChangeInTheta")) {
+				fieldname = "drselectedstrikeaccumulatedchangein5seccetheta as peGreek, drselectedstrikeaccumulatedchangein5secpetheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2ExtLtdAccmlChangeInTheta")) {
+				fieldname = "extlimitedotmaccml5seccetheta as peGreek, extlimitedotmaccml5secpetheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAvgAccmlChangeInTheta")) {
+				fieldname = "drotmavgaccmlchangein5seccetheta as peGreek, drotmavgaccmlchangein5secpetheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAvgAccmlChangeInVega")) {
+				fieldname = "drotmavgaccmlchangein5seccevega as peGreek, drotmavgaccmlchangein5secpevega as ceGreek";
+			} 
+			
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			

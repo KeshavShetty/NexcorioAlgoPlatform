@@ -668,7 +668,11 @@ public class G3GreekGapAlgoThread extends G3BaseClass implements Runnable{
 				fieldname = "drOTMAccumulatedChangein5secCeTheta as peGreek, drOTMAccumulatedChangein5secPeTheta as ceGreek";
 			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVega")) {
 				fieldname = "drotmaccumulatedchangein5seccevega as peGreek, drotmaccumulatedchangein5secPevega as ceGreek";
-			}
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInGamma")) {
+				fieldname = "drotmaccumulatedchangein5seccegamma as peGreek, drotmaccumulatedchangein5secpegamma as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVeGamma")) {
+				fieldname = "drOTMAccumulatedChangein5secCeVeGamma as peGreek, drOTMAccumulatedChangein5secPeVeGamma as ceGreek";
+			} 
 			
 			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			if (dependentInstrumentId!=null) {
