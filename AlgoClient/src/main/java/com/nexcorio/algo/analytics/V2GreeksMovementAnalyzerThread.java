@@ -444,7 +444,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			drOTMAccumulatedChangein5secCeVeGamma = drOTMAccumulatedChangein5secCeVeGamma + dr16Changein5secCeVeGamma;
 			drOTMAccumulatedChangein5secPeVeGamma = drOTMAccumulatedChangein5secPeVeGamma + dr16Changein5secPeVeGamma;
 			
-			System.out.println("drOTMAccumulatedChangein5secCeVeGamma="+drOTMAccumulatedChangein5secCeVeGamma+" drOTMAccumulatedChangein5secPeVeGamma="+drOTMAccumulatedChangein5secPeVeGamma);
+			//System.out.println("drOTMAccumulatedChangein5secCeVeGamma="+drOTMAccumulatedChangein5secCeVeGamma+" drOTMAccumulatedChangein5secPeVeGamma="+drOTMAccumulatedChangein5secPeVeGamma);
 			
 			drOTMAccumulatedChangein5secCeIv = drOTMAccumulatedChangein5secCeIv + dr16Changein5secCeIv;
 			drOTMAccumulatedChangein5secPeIv = drOTMAccumulatedChangein5secPeIv + dr16Changein5secPeIv;
