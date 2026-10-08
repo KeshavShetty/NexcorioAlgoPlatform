@@ -23,6 +23,7 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 	public float v2ExitCutOff = 2000f;
 	public float v2ReEntryCutOff = 1500f;
 	public String greekname = "V2OTMAccmlChangeInTheta";
+	public boolean matchRunningDelta = false;
 	
 	public G3V2GreekBasedAutoStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
@@ -164,6 +165,9 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 					if (Math.abs(v2GreekValueDiff) < v2ReEntryCutOff) { // Re-enter earlier closed leg
 						if (ceStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
+								if (matchRunningDelta) {
+									entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(Math.abs(peOptionGreeks.getDelta()), this.optimalHedgeDistance);
+								}
 								ceStraddleOptionName =  entryStraddleOptionNames[0];
 								ceOptionGreeks = getOptionGreeks(ceStraddleOptionName);
 								fileLogTelegramWriter.write("Reentry" + ceStraddleOptionName + "(@" + ceOptionGreeks.getLtp() );
@@ -180,6 +184,9 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 							} 
 						} else if (peStraddleOptionName.equals("")) {
 							if (this.noOfOrders<maxAllowedNoOfOrders) {
+								if (matchRunningDelta) {
+									entryStraddleOptionNames = getStraddleOptionNamesByDeltaOptimised(Math.abs(ceOptionGreeks.getDelta()), this.optimalHedgeDistance);
+								}
 								peStraddleOptionName =  entryStraddleOptionNames[1];
 								peOptionGreeks = getOptionGreeks(peStraddleOptionName);
 								fileLogTelegramWriter.write("Reentry straddle peStraddleOptionName=" + peStraddleOptionName + "(@" + peOptionGreeks.getLtp() );
