@@ -308,6 +308,13 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 			ratioMap.put("selectedAllCEGreeksAvgIv", (float) selectedAllCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
 			ratioMap.put("selectedAllPEGreeksAvgIv", (float) selectedAllPEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
 			
+			float ceOiSum = (float) selectedAllCEGreeks.stream().mapToDouble(d -> d.getOi()).sum();
+			float peOiSum = (float) selectedAllPEGreeks.stream().mapToDouble(d -> d.getOi()).sum();
+			
+			float selectedAllGreeksPcr = ceOiSum != 0f ? peOiSum/ceOiSum :0f;
+			ratioMap.put("selectedAllGreeksPcr", selectedAllGreeksPcr);
+			
+			
 			ratioMap.put("lowerStrike",(float) lowerStrike);
 			ratioMap.put("upperStrike",(float) upperStrike);
 			ratioMap.put("limitedITMCEGreeks", (float) limitedITMCEGreeks.stream().mapToDouble(d -> d.getIv()).average().orElse(0.0));
@@ -849,6 +856,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					+ ", drOTMAvgAccmlChangein5secCeVega, drOTMAvgAccmlChangein5secPeVega"
 					+ ", extLimitedOTMAccml5secCeVega, extLimitedOTMAccml5secPeVega"
 					+ ", drOTMAccumulatedChangein5secCeVeGamma, drOTMAccumulatedChangein5secPeVeGamma"
+					+ ", selectedAllGreeksPcr"
 					+ ")" 
 					
 					+ " VALUES (" + this.mainInstrument.getId()+ "," + this.instrumentLtp + ",'" + postgresLongDateFormat.format(getCurrentTime()) + "'"
@@ -899,6 +907,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 					
 					+ "," + ratioMap.get("drOTMAccumulatedChangein5secCeVeGamma")
 					+ "," + ratioMap.get("drOTMAccumulatedChangein5secPeVeGamma")
+					+ "," + ratioMap.get("selectedAllGreeksPcr")
 					
 					+ ")";
 			//System.out.println("insertSql="+insertSql);
@@ -997,7 +1006,7 @@ public class V2GreeksMovementAnalyzerThread extends AnalyticsBaseClass implement
 	}
 	
 	public static void main(String[] args) {
-		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-09-30 09:16:00");
+		new V2GreeksMovementAnalyzerThread("NIFTY", "2026-10-14 09:16:00");
 		
 	}
 }

@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
@@ -86,6 +87,8 @@ public class OptionGreeksExtractorsThread implements Runnable {
 			}
 			optionGreekDto.setChangeInIv(changeInIv);
 			optionGreekDto.setVolumeTradedToday(volumeTradedToday);
+			//System.out.println("tickTimestamp="+tickTimestamp);
+			optionGreekDto.setLocalRecordTime(String.valueOf(tickTimestamp.getTime()));//  String.valueOf(epochMillis)
 			CentralCacheHandler.putOptionGreek(tradingSymbol, optionGreekDto);
 		}
 		elapsedTime1 = System.currentTimeMillis();
