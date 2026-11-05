@@ -25,6 +25,9 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 	public String greekname = "V2OTMAccmlChangeInTheta";
 	public boolean matchRunningDelta = false;
 	
+	public boolean waitForIdealEntry = false;
+	public Integer dependentInstrumentId = null;
+	
 	public G3V2GreekBasedAutoStraddleAlgoThread(Long napAlgoId, String backTestDateStr) {
 		super(napAlgoId);
 		initializeParameters(backTestDateStr);
@@ -47,11 +50,29 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 			Date maxLowestpointReachedAt = getCurrentTime();
 			float maxTrailingProfit = 0f;
 			
+			printFields(this);
+			
+			if (waitForIdealEntry) {
+				boolean foundIdealEntry = false;
+				do {
+					float v2GreekValueDiff = getGreekValueDiff(this.greekname);
+					if (Math.abs(v2GreekValueDiff) < v2ReEntryCutOff) {
+						foundIdealEntry = true;
+					} else {
+						fileLogTelegramWriter.write("v2GreekValueDiff="+v2GreekValueDiff+" waitForIdealEntry");
+						sleep(10);
+						checkExitSignals();
+					}
+				} while(foundIdealEntry==false && exitThread==false);
+			}
+			
+			if (exitThread==true) {
+				return;
+			}
+			
 			this.instrumentLtp = getPriceFromTicks(this.mainInstrument.getShortName());
 			
 			fileLogTelegramWriter.write( " this.instrumentLtp="+this.instrumentLtp);
-			
-			printFields(this);
 			
 			updateAlgoStatus("Running");
 			
@@ -299,9 +320,27 @@ public class G3V2GreekBasedAutoStraddleAlgoThread extends G3BaseClass implements
 				fieldname = "drOTMAccumulatedChangein5secCeTheta as peGreek, drOTMAccumulatedChangein5secPeTheta as ceGreek";
 			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInVega")) {
 				fieldname = "drOTMAccumulatedChangein5secCeVega as peGreek, drOTMAccumulatedChangein5secPeVega as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2SelectedStrikeAccmlTheta")) {
+				fieldname = "drSelectedStrikeAccumulatedChangein5secCeTheta as peGreek, drSelectedStrikeAccumulatedChangein5secPeTheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2CEThetaMinMax")) {
+				fieldname = "ce_theta_above_min as peGreek, ce_theta_below_max as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2DeltaOIWorth")) {
+				fieldname = "drselectedstrikecedeltaoiworth as peGreek, drselectedstrikepedeltaoiworth as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInLtp")) {
+				fieldname = "drotmaccumulatedchangein5secceltp as peGreek, drotmaccumulatedchangein5secpeltp as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2ITMAccmlChangeInTheta")) {
+				fieldname = "drITMAccumulatedChangein5secCeTheta as peGreek, drITMAccumulatedChangein5secPeTheta as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2OTMAccmlChangeInGamma")) {
+				fieldname = "drOTMAccumulatedChangein5secCeGamma as peGreek, drOTMAccumulatedChangein5secPeGamma as ceGreek";
+			} else if (greekname.equalsIgnoreCase("V2ExtltdVega")) {
+				fieldname = "extlimitedotmaccml5seccevega as peGreek, extlimitedotmaccml5secpevega as ceGreek";
 			}
-			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
 			
+			
+			Integer instrumentIdToUse = this.mainInstrument.getId().intValue();
+			if (dependentInstrumentId!=null) {
+				instrumentIdToUse = dependentInstrumentId;
+			}
 			String fetchSql = "select " + fieldname + " from nexcorio_option_greek_movement_data where f_main_instrument = " + instrumentIdToUse + ""
 					+ " and record_time <= '" + postgresLongDateFormat.format(getCurrentTime()) + "'"
 					+ " order by record_time desc limit 5";
